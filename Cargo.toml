@@ -1,0 +1,14 @@
+[workspace]
+members = ["ics721/"]
+
+[profile.release.package.ics721]
+codegen-units = 1
+incremental = false
+
+[profile.release]
+rpath = false
+lto = true
+overflow-checks = true
+opt-level = 3
+debug = false
+debug-assertions = false
