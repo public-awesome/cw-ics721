@@ -19,7 +19,7 @@ jobs:
   ics721:
     docker:
       - image: rust:1.58.0
-    working_directory: ~/project/ics721
+    working_directory: ~/project/
     steps:
       - checkout:
           path: ~/project
@@ -105,11 +105,7 @@ jobs:
       - run:
           name: Build Wasm Release
           command: |
-            for C in ./ics721/*/
-            do
-              echo "Compiling `basename $C`..."
-              (cd $C && cargo build --release --target wasm32-unknown-unknown --locked)
-            done
+            cargo build --release --target wasm32-unknown-unknown --locked
       - run:
           name: Install check_contract
           # Uses --debug for compilation speed
