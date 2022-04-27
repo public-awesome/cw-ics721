@@ -105,7 +105,11 @@ jobs:
       - run:
           name: Build Wasm Release
           command: |
-            cargo build --release --target wasm32-unknown-unknown --locked
+            for C in ./contracts/*/
+            do
+              echo "Compiling `basename $C`..."
+              (cd $C && cargo build --release --target wasm32-unknown-unknown --locked)
+            done
       - run:
           name: Install check_contract
           # Uses --debug for compilation speed
