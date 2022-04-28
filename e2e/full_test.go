@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -64,6 +65,14 @@ var (
 			}
 		  }	  
 		`
+
+	escrow721Template = `
+		{
+			"name": "escrow721Channel1transfer-nft",
+			"symbol": "esw721_1_transfer-nft",
+			"minter": "%s" 
+		}	  
+		`
 )
 
 type Account struct {
@@ -104,7 +113,7 @@ func GetAccountsAndBalances(accs []Account) ([]authtypes.GenesisAccount, []bankt
 	}
 	return genAccs, balances
 }
-func TestMinter(t *testing.T) {
+func TestICS721(t *testing.T) {
 	accs := GetAccounts()
 
 	genAccs, balances := GetAccountsAndBalances(accs)
@@ -125,7 +134,6 @@ func TestMinter(t *testing.T) {
 	pub1 := priv1.PubKey()
 	addr1 := sdk.AccAddress(pub1.Address())
 
-	// minter
 	b, err := ioutil.ReadFile("contracts/ics721.wasm")
 	require.NoError(t, err)
 
@@ -138,4 +146,35 @@ func TestMinter(t *testing.T) {
 	require.NotNil(t, res)
 	require.Equal(t, res.CodeID, uint64(1))
 	println("ICS721.wasm has loaded!")
+
+	b, err = ioutil.ReadFile("contracts/escrow721.wasm")
+	require.NoError(t, err)
+
+	res, err = msgServer.StoreCode(sdk.WrapSDKContext(ctx), &wasmtypes.MsgStoreCode{
+		Sender:       addr1.String(),
+		WASMByteCode: b,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	require.Equal(t, res.CodeID, uint64(2))
+	println("escrow721.wasm has loaded!")
+
+	creator := accs[0]
+
+	instantiateMsgRaw := []byte(
+		fmt.Sprintf(escrow721Template,
+			creator.Address.String(),
+		),
+	)
+	instantiateRes, err := msgServer.InstantiateContract(sdk.WrapSDKContext(ctx), &wasmtypes.MsgInstantiateContract{
+		Sender: creator.Address.String(),
+		Admin:  creator.Address.String(),
+		CodeID: 2,
+		Label:  "Escrow721",
+		Msg:    instantiateMsgRaw,
+		Funds:  sdk.NewCoins(sdk.NewInt64Coin("ustars", 1_000_000_000)),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, instantiateRes)
+	require.NotEmpty(t, instantiateRes.Address)
 }
