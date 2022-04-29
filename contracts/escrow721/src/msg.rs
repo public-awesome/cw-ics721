@@ -10,3 +10,13 @@ pub struct InstantiateMsg {
     // Default timeout for ics721 packets, specified in seconds
     pub default_timeout: u64,
 }
+
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryMsg {
+
+    GetOwner {
+        token_id: String
+    }
+}

@@ -21,20 +21,6 @@ import (
 var (
 	// whitelist
 
-	instantiateWhiteListTemplate = `
-		{
-			"members":[%s],
-			"start_time": "%d",
-			"end_time": "%d",
-			"unit_price": {
-				"amount": "50000000",
-				"denom": "ustars"
-			},
-			"per_address_limit": 1,
-			"member_limit": 1000
-		}
-		`
-
 	instantiateMinterTemplate = `
 		{
 			"base_token_uri": "ipfs://...",
@@ -177,4 +163,69 @@ func TestICS721(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, instantiateRes)
 	require.NotEmpty(t, instantiateRes.Address)
+
+	escrow721Address := instantiateRes.Address
+
+	escrow721MintTemplate := `
+	{ "mint": {
+		"token_id": "%s",
+		"owner": "%s",
+		"token_uri": "ipfs://abc123",
+		"extension": {}
+		}
+	}
+	`
+	mintMsgRaw := []byte(
+		fmt.Sprintf(escrow721MintTemplate,
+			"1",
+			creator.Address.String(),
+		),
+	)
+	_, mintErr := msgServer.ExecuteContract(sdk.WrapSDKContext(ctx), &wasmtypes.MsgExecuteContract{
+		Contract: escrow721Address,
+		Sender:   accs[0].Address.String(),
+		Msg:      mintMsgRaw,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, instantiateRes)
+	require.NotEmpty(t, instantiateRes.Address)
+	require.NoError(t, mintErr)
+
+	mintMsgRaw = []byte(
+		fmt.Sprintf(escrow721MintTemplate,
+			"2",
+			creator.Address.String(),
+		),
+	)
+	_, mintErr = msgServer.ExecuteContract(sdk.WrapSDKContext(ctx), &wasmtypes.MsgExecuteContract{
+		Contract: escrow721Address,
+		Sender:   creator.Address.String(),
+		Msg:      mintMsgRaw,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, instantiateRes)
+	require.NotEmpty(t, instantiateRes.Address)
+	require.NoError(t, mintErr)
+
+	addr, _ := sdk.AccAddressFromBech32(escrow721Address)
+	result, err := app.WasmKeeper.QuerySmart(ctx, addr, []byte(`{"owner_of": {"token_id": "1"}}`))
+	expected_result := fmt.Sprintf("{\"owner\":\"%s\",\"approvals\":[]}", creator.Address.String())
+	require.Equal(t, string(result), expected_result)
+	require.NoError(t, err)
+
+	// q.
+
+	// pub struct MintMsg<T> {
+	// 	/// Unique ID of the NFT
+	// 	pub token_id: String,
+	// 	/// The owner of the newly minter NFT
+	// 	pub owner: String,
+	// 	/// Universal resource identifier for this NFT
+	// 	/// Should point to a JSON file that conforms to the ERC721
+	// 	/// Metadata JSON Schema
+	// 	pub token_uri: Option<String>,
+	// 	/// Any custom extension used by this contract
+	// 	pub extension: T,
+	// }
+
 }
