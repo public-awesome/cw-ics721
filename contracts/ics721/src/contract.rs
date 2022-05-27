@@ -6,7 +6,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw20_ics20::msg::{ListChannelsResponse, PortResponse};
-use cw721::Cw721ReceiveMsg;
+use cw721_ibc::Cw721ReceiveMsg;
 use cw_utils::nonpayable;
 
 use crate::error::ContractError;

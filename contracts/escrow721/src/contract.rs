@@ -1,13 +1,12 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{DepsMut, Deps, Empty, Env, MessageInfo, StdResult, to_binary, Binary, StdError};
-use cw721::{Cw721Execute, OwnerOfResponse};
-use cw721_base::Cw721Contract;
-use cw721_base::msg::{InstantiateMsg, MintMsg, ExecuteMsg, QueryMsg};
-use cw721_base::ContractError;
-use cw721_base::helpers::Cw721Contract as Cw721ContractHelper;
-use crate::msg;
-
+use cosmwasm_std::{
+    to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, StdError, StdResult
+};
+use cw721_ibc::{Cw721Execute, OwnerOfResponse, Cw721Query};
+use cw721_base_ibc::helpers::Cw721Contract as Cw721ContractHelper;
+use cw721_base_ibc::msg::{ExecuteMsg, InstantiateMsg, MintMsg, QueryMsg};
+use cw721_base_ibc::{ContractError, Cw721Contract};
 
 pub type CW721ContractWrapper<'a> = Cw721Contract<'a, Empty, Empty>;
 
@@ -26,11 +25,10 @@ pub fn transfer(
     env: Env,
     info: MessageInfo,
     recipient: String,
+    class_id: String,
     token_id: String,
 ) -> Result<cosmwasm_std::Response, ContractError> {
-
-    CW721ContractWrapper::default().transfer_nft(deps, env, info, recipient, token_id)
-
+    CW721ContractWrapper::default().transfer_nft(deps, env, info, recipient, class_id, token_id)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -42,8 +40,8 @@ pub fn execute(
 ) -> Result<cosmwasm_std::Response, ContractError> {
     println!("in the execute");
     match msg {
-       ExecuteMsg::Mint(msg ) => mint(deps, env, info, msg),
-        _ => Err(ContractError::Expired {  })
+        ExecuteMsg::Mint(msg) => mint(deps, env, info, msg),
+        _ => Err(ContractError::Expired {}),
     }
 }
 
@@ -58,25 +56,29 @@ pub fn mint(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(
-    deps: Deps, 
-    _env: Env, 
-    msg: QueryMsg
-    ) -> StdResult<Binary> {
-    println!("in the query");
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        // QueryMsg::OwnerOf{token_id,include_expired}=>to_binary(
-        //     get_owner(deps, _env, token_id, true)
-        // ),
-         _ => CW721ContractWrapper::default().query(deps, _env, msg.into()),
-}}
+        QueryMsg::OwnerOf {
+            class_id,
+            token_id,
+            include_expired,
+        } => to_binary(&get_owner(
+            deps,
+            _env,
+            class_id,
+            token_id,
+            include_expired.unwrap_or(false),
+        )?),
+        _ => CW721ContractWrapper::default().query(deps, _env, msg.into()),
+    }
+}
 
 pub fn get_owner(
     deps: Deps,
     env: Env,
+    class_id: String,
     token_id: String,
     include_expired: bool,
 ) -> StdResult<OwnerOfResponse> {
-    print!("in the get owner");
-    Cw721ContractHelper(env.contract.address).owner_of(&deps.querier, token_id, include_expired)
+    CW721ContractWrapper::default().owner_of(deps, env, class_id, token_id, include_expired)
 }

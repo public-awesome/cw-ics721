@@ -213,19 +213,4 @@ func TestICS721(t *testing.T) {
 	require.Equal(t, string(result), expected_result)
 	require.NoError(t, err)
 
-	// q.
-
-	// pub struct MintMsg<T> {
-	// 	/// Unique ID of the NFT
-	// 	pub token_id: String,
-	// 	/// The owner of the newly minter NFT
-	// 	pub owner: String,
-	// 	/// Universal resource identifier for this NFT
-	// 	/// Should point to a JSON file that conforms to the ERC721
-	// 	/// Metadata JSON Schema
-	// 	pub token_uri: Option<String>,
-	// 	/// Any custom extension used by this contract
-	// 	pub extension: T,
-	// }
-
 }

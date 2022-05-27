@@ -224,31 +224,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw721"
+name = "cw721-base-ibc"
 version = "0.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b9fd71276795554c35899bb3a378561ed0c288d231113e9915f6ee1f42b7b5"
-dependencies = [
- "cosmwasm-std",
- "cw-utils",
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "cw721-base"
-version = "0.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b61200af4e027af2d7485dbdc37c2a9c4093b6b2f2b811732329ef456076f97e"
+source = "git+https://github.com/public-awesome/cw721-ibc.git#ac79307b4e70f24536ea986953cc54c504bf6f61"
 dependencies = [
  "cosmwasm-std",
  "cw-storage-plus",
  "cw-utils",
  "cw2",
- "cw721",
+ "cw721-ibc",
  "schemars",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "cw721-ibc"
+version = "0.13.2"
+source = "git+https://github.com/public-awesome/cw721-ibc.git#ac79307b4e70f24536ea986953cc54c504bf6f61"
+dependencies = [
+ "cosmwasm-std",
+ "cw-utils",
+ "schemars",
+ "serde",
 ]
 
 [[package]]
@@ -329,8 +327,8 @@ dependencies = [
  "cw-utils",
  "cw2",
  "cw20-ics20",
- "cw721",
- "cw721-base",
+ "cw721-base-ibc",
+ "cw721-ibc",
  "schemars",
  "serde",
  "thiserror",
@@ -422,7 +420,8 @@ dependencies = [
  "cw-utils",
  "cw2",
  "cw20-ics20",
- "cw721",
+ "cw721-base-ibc",
+ "cw721-ibc",
  "schemars",
  "serde",
  "thiserror",
