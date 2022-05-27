@@ -4,7 +4,6 @@ use cosmwasm_std::{
     to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, StdError, StdResult
 };
 use cw721_ibc::{Cw721Execute, OwnerOfResponse, Cw721Query};
-use cw721_base_ibc::helpers::Cw721Contract as Cw721ContractHelper;
 use cw721_base_ibc::msg::{ExecuteMsg, InstantiateMsg, MintMsg, QueryMsg};
 use cw721_base_ibc::{ContractError, Cw721Contract};
 
@@ -51,7 +50,6 @@ pub fn mint(
     info: MessageInfo,
     msg: MintMsg<Empty>,
 ) -> Result<cosmwasm_std::Response, ContractError> {
-
     CW721ContractWrapper::default().mint(deps, _env, info, msg)
 }
 

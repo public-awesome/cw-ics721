@@ -9,6 +9,7 @@ mod contact_testing {
     use cosmwasm_std::{CosmosMsg, IbcEndpoint};
     use cw2::{get_contract_version, ContractVersion};
     use cw20_ics20::state::ChannelInfo;
+    use cw721_ibc::Cw721ReceiveMsg;
 
     use cosmwasm_std::testing::mock_dependencies;
 
@@ -342,7 +343,7 @@ mod contact_testing {
             },
             Attribute {
                 key: "class_id".into(),
-                value: "cosmos2contract".into(),
+                value: "abc/123/collection-addr".into(),
             },
             Attribute {
                 key: "token_ids".into(),
@@ -350,7 +351,7 @@ mod contact_testing {
             },
         ];
         let expected_ics721_packet = Ics721Packet::new(
-            mock_env().contract.address.as_ref(),
+            &"abc/123/collection-addr".to_string(),
             None,
             transfer_msg
                 .token_ids
@@ -399,6 +400,7 @@ mod contact_testing {
 
         let cw721_receive_msg = Cw721ReceiveMsg {
             sender: sender_address_str.to_string(),
+            class_id:"abc/123/collection-addr".to_string(),
             token_id: "1".to_string(),
             msg: to_binary(&transfer_msg).unwrap(),
         };
@@ -425,7 +427,7 @@ mod contact_testing {
             },
             Attribute {
                 key: "class_id".into(),
-                value: "cosmos2contract".into(),
+                value: "abc/123/collection-addr".into(),
             },
             Attribute {
                 key: "token_ids".into(),
@@ -433,7 +435,7 @@ mod contact_testing {
             },
         ];
         let expected_ics721_packet = Ics721Packet::new(
-            mock_env().contract.address.as_ref(),
+            &"abc/123/collection-addr".to_string(),
             None,
             transfer_msg
                 .token_ids
@@ -484,6 +486,7 @@ mod contact_testing {
 
         let cw721_receive_msg = Cw721ReceiveMsg {
             sender: sender_address_str.to_string(),
+            class_id: "class_id_1".to_string(), 
             token_id: "1".to_string(),
             msg: to_binary(&transfer_msg).unwrap(),
         };
@@ -525,6 +528,7 @@ mod contact_testing {
         let cw_721_receive_sender = "sender_address_receive_path";
         let cw721_receive_msg = ExecuteMsg::Receive(Cw721ReceiveMsg {
             sender: cw_721_receive_sender.to_string(),
+            class_id: "abc/123/collection-addr".to_string(),
             token_id: "1".to_string(),
             msg: to_binary(&transfer_msg).unwrap(),
         });
@@ -551,7 +555,7 @@ mod contact_testing {
             },
             Attribute {
                 key: "class_id".into(),
-                value: "cosmos2contract".into(),
+                value: "abc/123/collection-addr".into(),
             },
             Attribute {
                 key: "token_ids".into(),
@@ -560,7 +564,7 @@ mod contact_testing {
         ];
 
         let expected_ics721_packet = Ics721Packet::new(
-            mock_env().contract.address.as_ref(),
+            &"abc/123/collection-addr".to_string(),
             None,
             transfer_msg
                 .token_ids
@@ -628,7 +632,7 @@ mod contact_testing {
             },
             Attribute {
                 key: "class_id".into(),
-                value: "cosmos2contract".into(),
+                value: "abc/123/collection-addr".into(),
             },
             Attribute {
                 key: "token_ids".into(),

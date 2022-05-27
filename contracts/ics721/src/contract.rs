@@ -84,7 +84,7 @@ pub fn execute_transfer(
 
     // build ics721 packet
     let packet = Ics721Packet::new(
-        env.contract.address.as_ref(),
+        &msg.class_id,
         None,
         msg.token_ids
             .iter()
