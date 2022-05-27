@@ -168,6 +168,7 @@ func TestICS721(t *testing.T) {
 
 	escrow721MintTemplate := `
 	{ "mint": {
+		"class_id": "%s",
 		"token_id": "%s",
 		"owner": "%s",
 		"token_uri": "ipfs://abc123",
@@ -177,6 +178,7 @@ func TestICS721(t *testing.T) {
 	`
 	mintMsgRaw := []byte(
 		fmt.Sprintf(escrow721MintTemplate,
+			"omni/stars/transfer-nft",
 			"1",
 			creator.Address.String(),
 		),
@@ -193,6 +195,7 @@ func TestICS721(t *testing.T) {
 
 	mintMsgRaw = []byte(
 		fmt.Sprintf(escrow721MintTemplate,
+			"omni/stars/transfer-nft",
 			"2",
 			creator.Address.String(),
 		),
@@ -208,7 +211,7 @@ func TestICS721(t *testing.T) {
 	require.NoError(t, mintErr)
 
 	addr, _ := sdk.AccAddressFromBech32(escrow721Address)
-	result, err := app.WasmKeeper.QuerySmart(ctx, addr, []byte(`{"owner_of": {"token_id": "1"}}`))
+	result, err := app.WasmKeeper.QuerySmart(ctx, addr, []byte(`{"owner_of": {"token_id": "1", "class_id": "omni/stars/transfer-nft"}}`))
 	expected_result := fmt.Sprintf("{\"owner\":\"%s\",\"approvals\":[]}", creator.Address.String())
 	require.Equal(t, string(result), expected_result)
 	require.NoError(t, err)

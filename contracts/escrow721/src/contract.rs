@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, StdError, StdResult
+    to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, StdResult
 };
 use cw721_ibc::{Cw721Execute, OwnerOfResponse, Cw721Query};
 use cw721_base_ibc::msg::{ExecuteMsg, InstantiateMsg, MintMsg, QueryMsg};
@@ -9,8 +9,8 @@ use cw721_base_ibc::{ContractError, Cw721Contract};
 
 pub type CW721ContractWrapper<'a> = Cw721Contract<'a, Empty, Empty>;
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn instantiate(
+
+pub fn instantiate_entry(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
@@ -30,7 +30,6 @@ pub fn transfer(
     CW721ContractWrapper::default().transfer_nft(deps, env, info, recipient, class_id, token_id)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -53,7 +52,6 @@ pub fn mint(
     CW721ContractWrapper::default().mint(deps, _env, info, msg)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::OwnerOf {
