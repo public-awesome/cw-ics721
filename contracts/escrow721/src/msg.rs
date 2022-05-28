@@ -9,12 +9,8 @@ pub struct InstantiateMsg {
     pub default_timeout: u64,
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-
-    GetOwner {
-        token_id: String
-    }
+    GetOwner { token_id: String },
 }

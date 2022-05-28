@@ -351,7 +351,7 @@ mod contact_testing {
             },
         ];
         let expected_ics721_packet = Ics721Packet::new(
-            &"abc/123/collection-addr".to_string(),
+            "abc/123/collection-addr",
             None,
             transfer_msg
                 .token_ids
@@ -400,7 +400,7 @@ mod contact_testing {
 
         let cw721_receive_msg = Cw721ReceiveMsg {
             sender: sender_address_str.to_string(),
-            class_id:"abc/123/collection-addr".to_string(),
+            class_id: "abc/123/collection-addr".to_string(),
             token_id: "1".to_string(),
             msg: to_binary(&transfer_msg).unwrap(),
         };
@@ -435,7 +435,7 @@ mod contact_testing {
             },
         ];
         let expected_ics721_packet = Ics721Packet::new(
-            &"abc/123/collection-addr".to_string(),
+            "abc/123/collection-addr",
             None,
             transfer_msg
                 .token_ids
@@ -486,7 +486,7 @@ mod contact_testing {
 
         let cw721_receive_msg = Cw721ReceiveMsg {
             sender: sender_address_str.to_string(),
-            class_id: "class_id_1".to_string(), 
+            class_id: "class_id_1".to_string(),
             token_id: "1".to_string(),
             msg: to_binary(&transfer_msg).unwrap(),
         };
@@ -564,7 +564,7 @@ mod contact_testing {
         ];
 
         let expected_ics721_packet = Ics721Packet::new(
-            &"abc/123/collection-addr".to_string(),
+            "abc/123/collection-addr",
             None,
             transfer_msg
                 .token_ids

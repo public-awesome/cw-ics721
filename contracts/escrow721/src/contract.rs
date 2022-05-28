@@ -1,14 +1,10 @@
 #[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
-use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, StdResult
-};
-use cw721_ibc::{Cw721Execute, OwnerOfResponse, Cw721Query};
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, StdResult};
 use cw721_base_ibc::msg::{ExecuteMsg, InstantiateMsg, MintMsg, QueryMsg};
 use cw721_base_ibc::{ContractError, Cw721Contract};
+use cw721_ibc::{Cw721Execute, Cw721Query, OwnerOfResponse};
 
 pub type CW721ContractWrapper<'a> = Cw721Contract<'a, Empty, Empty>;
-
 
 pub fn instantiate_entry(
     deps: DepsMut,
@@ -65,7 +61,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             token_id,
             include_expired.unwrap_or(false),
         )?),
-        _ => CW721ContractWrapper::default().query(deps, _env, msg.into()),
+        _ => CW721ContractWrapper::default().query(deps, _env, msg),
     }
 }
 
