@@ -1,10 +1,9 @@
-use std::error::Error;
-use cosmwasm_std::Response;
 use cosmwasm_std::entry_point;
+use cosmwasm_std::Response;
 use cosmwasm_std::StdError;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, StdResult};
-use cw721_base_ibc::msg::{InstantiateMsg, MintMsg, QueryMsg, ExecuteMsg};
+use cw721_base_ibc::msg::{ExecuteMsg, InstantiateMsg, MintMsg, QueryMsg};
 use cw721_base_ibc::{ContractError, Cw721Contract};
 use cw721_ibc::{Cw721Execute, Cw721Query, OwnerOfResponse};
 
@@ -28,7 +27,6 @@ pub fn execute(
     msg: ExecuteMsg<Empty>,
 ) -> Result<Response<Empty>, ContractError> {
     CW721ContractWrapper::default().execute(deps, env, info, msg)
-
 }
 
 pub fn transfer(
@@ -46,17 +44,17 @@ pub fn mint(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    class_id: String, 
-    token_id: String, 
+    class_id: String,
+    token_id: String,
     token_uri: String,
-    receiver: String
+    receiver: String,
 ) -> Result<cosmwasm_std::Response, ContractError> {
     let mint_msg = MintMsg {
         class_id,
         token_id,
         owner: receiver,
-        token_uri: Some(token_uri), 
-        extension: Empty {}
+        token_uri: Some(token_uri),
+        extension: Empty {},
     };
     CW721ContractWrapper::default().mint(deps, _env, info, mint_msg)
 }
@@ -65,11 +63,10 @@ pub fn burn(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    class_id: String, 
+    class_id: String,
     token_id: String,
 ) -> Result<cosmwasm_std::Response, ContractError> {
-    CW721ContractWrapper::default().burn(
-        deps, _env, info, class_id, token_id)
+    CW721ContractWrapper::default().burn(deps, _env, info, class_id, token_id)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -82,15 +79,15 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         } => to_binary(&get_owner(
             deps,
             _env,
-            class_id.to_string(),
+            class_id,
             token_id,
             include_expired.unwrap_or(false),
         )?),
-        _ => Err(StdError::GenericErr { msg: "Unsupported message type".to_string() } )
-        
+        _ => Err(StdError::GenericErr {
+            msg: "Unsupported message type".to_string(),
+        }),
     }
 }
-
 
 pub fn get_owner(
     deps: Deps,
