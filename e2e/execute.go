@@ -83,25 +83,13 @@ func ExecuteBurnError(t *testing.T, ctx sdk.Context, msgServer wasmtypes.MsgServ
 }
 
 func ExecuteGetOwner(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtypes.MsgServer, accs []Account,
-	instantiateRes *wasmtypes.MsgInstantiateContractResponse, getOwnerMsgRaw []byte, err error) (
-	result []byte) {
+	instantiateRes *wasmtypes.MsgInstantiateContractResponse, getOwnerMsgRaw []byte, err error) {
 	escrow721Address := instantiateRes.Address
 
-	// result, ownerErr = msgServer.ExecuteContract(sdk.WrapSDKContext(ctx), &wasmtypes.MsgExecuteContract{
-	// 	Contract: escrow721Address,
-	// 	Sender:   accs[0].Address.String(),
-	// 	Msg:      getOwnerMsgRaw,
-	// })
-	// require.NoError(t, err)
-	// require.NotNil(t, instantiateRes)
-	// require.NotEmpty(t, instantiateRes.Address)
-	// require.NoError(t, ownerErr)
 	addr, _ := sdk.AccAddressFromBech32(escrow721Address)
-	result, _ = app.WasmKeeper.QuerySmart(
-		ctx, addr, []byte(`{"owner_of": {"token_id": "1", "class_id": "omni/stars/transfer-nft"}}`))
+	result, _ := app.WasmKeeper.QuerySmart(
+		ctx, addr, getOwnerMsgRaw)
 
-	rawDecodedText := string(result)
-	println("data here is: ", rawDecodedText)
-
-	return result
+	expected_result := string(fmt.Sprintf(`{"owner":"%s","approvals":[]}`, accs[0].Address))
+	require.Equal(t, string(result), expected_result)
 }

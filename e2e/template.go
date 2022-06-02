@@ -30,10 +30,9 @@ var (
 
 	escrow721GetOwnerTemplate = `
 	{
-		"owner_of": {
+		"owner_of": { 
 			"class_id": "%s",
-			"token_id": "%s"
-		}
-	}
+			 "token_id": "%s"}
+			}
 	`
 )
