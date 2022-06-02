@@ -10,18 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func RunQuerySuccess(t *testing.T, ctx sdk.Context, app *app.App,
-	instantiateRes *wasmtypes.MsgInstantiateContractResponse, creator Account) {
-	escrow721Address := instantiateRes.Address
-
-	addr, _ := sdk.AccAddressFromBech32(escrow721Address)
-	result, err := app.WasmKeeper.QuerySmart(
-		ctx, addr, []byte(`{"owner_of": {"token_id": "1", "class_id": "omni/stars/transfer-nft"}}`))
-	expected_result := fmt.Sprintf("{\"owner\":\"%s\",\"approvals\":[]}", creator.Address.String())
-	require.Equal(t, string(result), expected_result)
-	require.NoError(t, err)
-}
-
 func RunQueryEmpty(t *testing.T, ctx sdk.Context, app *app.App,
 	instantiateRes *wasmtypes.MsgInstantiateContractResponse, creator Account) {
 	escrow721Address := instantiateRes.Address
@@ -41,7 +29,6 @@ func RunGetOwner(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtype
 	addr, _ := sdk.AccAddressFromBech32(escrow721Address)
 	result, _ := app.WasmKeeper.QuerySmart(
 		ctx, addr, getOwnerMsgRaw)
-
 	expected_result := string(fmt.Sprintf(`{"owner":"%s","approvals":[]}`, owner.String()))
 	require.Equal(t, string(result), expected_result)
 }
