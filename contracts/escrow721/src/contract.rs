@@ -5,7 +5,7 @@ use cosmwasm_std::StdError;
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, StdResult};
 use cw721_base_ibc::msg::{ExecuteMsg, InstantiateMsg, MintMsg, QueryMsg};
 use cw721_base_ibc::{ContractError, Cw721Contract};
-use cw721_ibc::{Cw721Execute, Cw721Query, OwnerOfResponse, NftInfoResponse};
+use cw721_ibc::{Cw721Execute, Cw721Query, NftInfoResponse, OwnerOfResponse};
 
 pub type CW721ContractWrapper<'a> = Cw721Contract<'a, Empty, Empty>;
 
@@ -83,14 +83,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             token_id,
             include_expired.unwrap_or(false),
         )?),
-        QueryMsg::NftInfo {
-            class_id,
-            token_id,
-        } => to_binary(&nft_info(
-            deps,
-            class_id,
-            token_id
-        )?),
+        QueryMsg::NftInfo { class_id, token_id } => to_binary(&nft_info(deps, class_id, token_id)?),
         _ => Err(StdError::GenericErr {
             msg: "Unsupported message type".to_string(),
         }),
@@ -107,10 +100,6 @@ pub fn get_owner(
     CW721ContractWrapper::default().owner_of(deps, env, class_id, token_id, include_expired)
 }
 
-fn nft_info(
-    deps: Deps,
-    class_id: String,
-    token_id: String,
-) -> StdResult<NftInfoResponse<Empty>> {
+fn nft_info(deps: Deps, class_id: String, token_id: String) -> StdResult<NftInfoResponse<Empty>> {
     CW721ContractWrapper::default().nft_info(deps, class_id, token_id)
 }
