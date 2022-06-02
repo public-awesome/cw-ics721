@@ -43,4 +43,13 @@ var (
 			 "token_id": "%s"}
 			}
 	`
+
+	escrow721TransferNFTTemplate = `
+	{
+		"transfer_nft": { 
+			"class_id": "%s",
+			"token_id": "%s",
+			"recipient": "%s"}
+	}
+	`
 )

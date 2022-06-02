@@ -169,12 +169,12 @@ func TestQueryAfterMint(t *testing.T) {
 }
 
 func TestGetOwner(t *testing.T) {
-	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	app, ctx, instantiateRes, accs, msgServer, _ := MintTwoNFTs(t)
 	getOwnerMsgRaw := []byte(fmt.Sprintf(escrow721GetOwnerTemplate,
 		"omni/stars/transfer-nft",
 		"1",
 	))
-	ExecuteGetOwner(t, ctx, app, msgServer, accs, instantiateRes, getOwnerMsgRaw, err)
+	RunGetOwner(t, ctx, app, msgServer, accs, instantiateRes, getOwnerMsgRaw, accs[0].Address)
 
 }
 
@@ -184,6 +184,17 @@ func TestGetNFTInfo(t *testing.T) {
 		"omni/stars/transfer-nft",
 		"1",
 	))
-	ExecuteGetNFTInfo(t, ctx, app, msgServer, accs, instantiateRes, getNFTInfoMsgRaw, err)
+	RunGetNFTInfo(t, ctx, app, msgServer, accs, instantiateRes, getNFTInfoMsgRaw, err)
 
+}
+
+func TestTransfer(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	transferMsgRaw := []byte(fmt.Sprintf(escrow721TransferNFTTemplate,
+		"omni/stars/transfer-nft",
+		"1",
+		accs[1].Address.String(),
+	))
+	ExecuteTransferNFT(t, ctx, app, msgServer, accs, instantiateRes, transferMsgRaw, err)
+	RunGetOwner(t, ctx, app, msgServer, accs, instantiateRes, transferMsgRaw, accs[1].Address)
 }

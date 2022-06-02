@@ -82,26 +82,17 @@ func ExecuteBurnError(t *testing.T, ctx sdk.Context, msgServer wasmtypes.MsgServ
 	return burnErr
 }
 
-func ExecuteGetOwner(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtypes.MsgServer, accs []Account,
-	instantiateRes *wasmtypes.MsgInstantiateContractResponse, getOwnerMsgRaw []byte, err error) {
+func ExecuteTransferNFT(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtypes.MsgServer, accs []Account,
+	instantiateRes *wasmtypes.MsgInstantiateContractResponse, transferMsgRaw []byte, err error) {
 	escrow721Address := instantiateRes.Address
 
-	addr, _ := sdk.AccAddressFromBech32(escrow721Address)
-	result, _ := app.WasmKeeper.QuerySmart(
-		ctx, addr, getOwnerMsgRaw)
-
-	expected_result := string(fmt.Sprintf(`{"owner":"%s","approvals":[]}`, accs[0].Address))
-	require.Equal(t, string(result), expected_result)
-}
-
-func ExecuteGetNFTInfo(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtypes.MsgServer, accs []Account,
-	instantiateRes *wasmtypes.MsgInstantiateContractResponse, getNFTInfoMsgRaw []byte, err error) {
-	escrow721Address := instantiateRes.Address
-
-	addr, _ := sdk.AccAddressFromBech32(escrow721Address)
-	result, _ := app.WasmKeeper.QuerySmart(
-		ctx, addr, getNFTInfoMsgRaw)
-
-	expected_result := string(`{"token_uri":"ipfs://abc123","extension":{}}`)
-	require.Equal(t, string(result), expected_result)
+	_, transferErr := msgServer.ExecuteContract(sdk.WrapSDKContext(ctx), &wasmtypes.MsgExecuteContract{
+		Contract: escrow721Address,
+		Sender:   accs[0].Address.String(),
+		Msg:      transferMsgRaw,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, instantiateRes)
+	require.NotEmpty(t, instantiateRes.Address)
+	require.NoError(t, transferErr)
 }

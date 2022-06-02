@@ -33,3 +33,27 @@ func RunQueryEmpty(t *testing.T, ctx sdk.Context, app *app.App,
 	require.Equal(t, string(result), expected_result)
 	require.EqualError(t, err, "cw721_base_ibc::state::TokenInfo<cosmwasm_std::results::empty::Empty> not found: query wasm contract failed")
 }
+
+func RunGetOwner(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtypes.MsgServer, accs []Account,
+	instantiateRes *wasmtypes.MsgInstantiateContractResponse, getOwnerMsgRaw []byte, owner sdk.Address) {
+	escrow721Address := instantiateRes.Address
+
+	addr, _ := sdk.AccAddressFromBech32(escrow721Address)
+	result, _ := app.WasmKeeper.QuerySmart(
+		ctx, addr, getOwnerMsgRaw)
+
+	expected_result := string(fmt.Sprintf(`{"owner":"%s","approvals":[]}`, owner.String()))
+	require.Equal(t, string(result), expected_result)
+}
+
+func RunGetNFTInfo(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtypes.MsgServer, accs []Account,
+	instantiateRes *wasmtypes.MsgInstantiateContractResponse, getNFTInfoMsgRaw []byte, err error) {
+	escrow721Address := instantiateRes.Address
+
+	addr, _ := sdk.AccAddressFromBech32(escrow721Address)
+	result, _ := app.WasmKeeper.QuerySmart(
+		ctx, addr, getNFTInfoMsgRaw)
+
+	expected_result := string(`{"token_uri":"ipfs://abc123","extension":{}}`)
+	require.Equal(t, string(result), expected_result)
+}
