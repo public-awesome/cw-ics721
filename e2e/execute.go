@@ -78,7 +78,7 @@ func ExecuteBurnError(t *testing.T, ctx sdk.Context, msgServer wasmtypes.MsgServ
 	require.NoError(t, err)
 	require.NotNil(t, instantiateRes)
 	require.NotEmpty(t, instantiateRes.Address)
-	require.EqualError(t, burnErr, "cw721_base_ibc::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>> not found: execute wasm contract failed")
+	require.EqualError(t, burnErr, "cw721_base_ibc::state::TokenInfo<cosmwasm_std::results::empty::Empty> not found: execute wasm contract failed")
 	return burnErr
 }
 

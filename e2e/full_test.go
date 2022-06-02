@@ -142,31 +142,31 @@ func TestMinting(t *testing.T) {
 	MintTwoNFTs(t)
 }
 
-// func TestBurn(t *testing.T) {
-// 	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
-// 	burnMsgRaw := []byte(
-// 		fmt.Sprintf(escrow721BurnTemplate,
-// 			"omni/stars/transfer-nft",
-// 			"1",
-// 		),
-// 	)
-// 	ExecuteBurn(t, ctx, msgServer, accs, instantiateRes, burnMsgRaw, err)
-// 	RunQueryEmpty(t, ctx, app, instantiateRes, accs[0])
-// 	ExecuteBurnError(t, ctx, msgServer, accs, instantiateRes, burnMsgRaw, err)
+func TestBurn(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	burnMsgRaw := []byte(
+		fmt.Sprintf(escrow721BurnTemplate,
+			"omni/stars/transfer-nft",
+			"1",
+		),
+	)
+	ExecuteBurn(t, ctx, msgServer, accs, instantiateRes, burnMsgRaw, err)
+	RunQueryEmpty(t, ctx, app, instantiateRes, accs[0])
+	ExecuteBurnError(t, ctx, msgServer, accs, instantiateRes, burnMsgRaw, err)
 
-// 	burnMsgRawFake := []byte(
-// 		fmt.Sprintf(escrow721BurnTemplate,
-// 			"super_fake_class",
-// 			"1",
-// 		),
-// 	)
-// 	ExecuteBurnError(t, ctx, msgServer, accs, instantiateRes, burnMsgRawFake, err)
-// }
+	burnMsgRawFake := []byte(
+		fmt.Sprintf(escrow721BurnTemplate,
+			"super_fake_class",
+			"1",
+		),
+	)
+	ExecuteBurnError(t, ctx, msgServer, accs, instantiateRes, burnMsgRawFake, err)
+}
 
-// func TestQueryAfterMint(t *testing.T) {
-// 	app, ctx, instantiateRes, accs, _, _ := MintTwoNFTs(t)
-// 	RunQuerySuccess(t, ctx, app, instantiateRes, accs[0])
-// }
+func TestQueryAfterMint(t *testing.T) {
+	app, ctx, instantiateRes, accs, _, _ := MintTwoNFTs(t)
+	RunQuerySuccess(t, ctx, app, instantiateRes, accs[0])
+}
 
 func TestGetOwner(t *testing.T) {
 	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
@@ -175,7 +175,5 @@ func TestGetOwner(t *testing.T) {
 		"1",
 	))
 	ExecuteGetOwner(t, ctx, app, msgServer, accs, instantiateRes, getOwnerMsgRaw, err)
-	// println("result is ", result)
-	// println("ownerErr is ", ownerErr)
 
 }

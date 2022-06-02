@@ -31,6 +31,5 @@ func RunQueryEmpty(t *testing.T, ctx sdk.Context, app *app.App,
 		ctx, addr, []byte(`{"owner_of": {"token_id": "1", "class_id": "omni/stars/transfer-nft"}}`))
 	expected_result := ""
 	require.Equal(t, string(result), expected_result)
-	require.EqualError(t, err, "cw721_base_ibc::state::TokenInfo<core::option::"+
-		"Option<cosmwasm_std::results::empty::Empty>> not found: query wasm contract failed")
+	require.EqualError(t, err, "cw721_base_ibc::state::TokenInfo<cosmwasm_std::results::empty::Empty> not found: query wasm contract failed")
 }
