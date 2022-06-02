@@ -14,37 +14,9 @@ import (
 	"github.com/public-awesome/stargaze/v4/app"
 	"github.com/public-awesome/stargaze/v4/testutil/simapp"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/secp256k1"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 )
-
-var (
-	escrow721Template = `
-		{
-			"name": "escrow721Channel1transfer-nft",
-			"symbol": "esw721_1_transfer-nft",
-			"minter": "%s" 
-		}	  
-		`
-
-	escrow721MintTemplate = `
-	{ "mint": {
-		"class_id": "%s",
-		"token_id": "%s",
-		"owner": "%s",
-		"token_uri": "ipfs://abc123",
-		"extension": {}
-		}
-	}
-	`
-)
-
-type Account struct {
-	PrivKey secp256k1.PrivKey
-	PubKey  crypto.PubKey
-	Address sdk.AccAddress
-}
 
 func GetAccounts() []Account {
 	accounts := make([]Account, 0, 150)
@@ -133,53 +105,15 @@ func LoadEscrow721(t *testing.T, addr1 sdk.AccAddress, ctx sdk.Context,
 	println("escrow721.wasm has loaded!")
 }
 
-func InstantiateEscrow721(t *testing.T, ctx sdk.Context,
-	msgServer wasmtypes.MsgServer, accs []Account) (
-	instantiateRes *wasmtypes.MsgInstantiateContractResponse) {
-	creator := accs[0]
-
-	instantiateMsgRaw := []byte(
-		fmt.Sprintf(escrow721Template,
-			creator.Address.String(),
-		),
-	)
-	instantiateRes, err := msgServer.InstantiateContract(sdk.WrapSDKContext(ctx), &wasmtypes.MsgInstantiateContract{
-		Sender: creator.Address.String(),
-		Admin:  creator.Address.String(),
-		CodeID: 2,
-		Label:  "Escrow721",
-		Msg:    instantiateMsgRaw,
-		Funds:  sdk.NewCoins(sdk.NewInt64Coin("ustars", 1_000_000_000)),
-	})
-	require.NoError(t, err)
-	require.NotNil(t, instantiateRes)
-	require.NotEmpty(t, instantiateRes.Address)
-	return instantiateRes
-}
-
-func ExecuteMint(t *testing.T, ctx sdk.Context, msgServer wasmtypes.MsgServer, accs []Account,
-	instantiateRes *wasmtypes.MsgInstantiateContractResponse, mintMsgRaw []byte, err error) (mintErr error) {
-	escrow721Address := instantiateRes.Address
-
-	_, mintErr = msgServer.ExecuteContract(sdk.WrapSDKContext(ctx), &wasmtypes.MsgExecuteContract{
-		Contract: escrow721Address,
-		Sender:   accs[0].Address.String(),
-		Msg:      mintMsgRaw,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, instantiateRes)
-	require.NotEmpty(t, instantiateRes.Address)
-	require.NoError(t, mintErr)
-	return mintErr
-}
-
 func MintTwoNFTs(t *testing.T) (
-	app *app.App, ctx sdk.Context, instantiateRes *wasmtypes.MsgInstantiateContractResponse, creator Account) {
+	app *app.App, ctx sdk.Context,
+	instantiateRes *wasmtypes.MsgInstantiateContractResponse, accs []Account,
+	msgServer wasmtypes.MsgServer, err error) {
 	addr1, ctx, app, accs := LoadChain(t)
-	msgServer, err := LoadICS721(t, addr1, ctx, app)
+	msgServer, err = LoadICS721(t, addr1, ctx, app)
 	LoadEscrow721(t, addr1, ctx, app, msgServer)
 	instantiateRes = InstantiateEscrow721(t, ctx, msgServer, accs)
-	creator = accs[0]
+	creator := accs[0]
 
 	mintMsgRaw := []byte(
 		fmt.Sprintf(escrow721MintTemplate,
@@ -197,7 +131,7 @@ func MintTwoNFTs(t *testing.T) (
 		),
 	)
 	ExecuteMint(t, ctx, msgServer, accs, instantiateRes, mintMsgRaw, err)
-	return app, ctx, instantiateRes, creator
+	return app, ctx, instantiateRes, accs, msgServer, err
 }
 
 func TestLoadChain(t *testing.T) {
@@ -208,14 +142,42 @@ func TestMinting(t *testing.T) {
 	MintTwoNFTs(t)
 }
 
+func TestBurn(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	burnMsgRaw := []byte(
+		fmt.Sprintf(escrow721BurnTemplate,
+			"omni/stars/transfer-nft",
+			"1",
+		),
+	)
+	ExecuteBurn(t, ctx, msgServer, accs, instantiateRes, burnMsgRaw, err)
+	RunQueryEmpty(t, ctx, app, instantiateRes, accs[0])
+	ExecuteBurnError(t, ctx, msgServer, accs, instantiateRes, burnMsgRaw, err)
+
+	burnMsgRawFake := []byte(
+		fmt.Sprintf(escrow721BurnTemplate,
+			"super_fake_class",
+			"1",
+		),
+	)
+	ExecuteBurnError(t, ctx, msgServer, accs, instantiateRes, burnMsgRawFake, err)
+}
+
 func TestQueryAfterMint(t *testing.T) {
-	app, ctx, instantiateRes, creator := MintTwoNFTs(t)
-	escrow721Address := instantiateRes.Address
-	addr, _ := sdk.AccAddressFromBech32(escrow721Address)
-	result, err := app.WasmKeeper.QuerySmart(
-		ctx, addr, []byte(`{"owner_of": {"token_id": "1", "class_id": "omni/stars/transfer-nft"}}`))
-	expected_result := fmt.Sprintf("{\"owner\":\"%s\",\"approvals\":[]}", creator.Address.String())
-	require.Equal(t, string(result), expected_result)
-	require.NoError(t, err)
+	app, ctx, instantiateRes, accs, _, _ := MintTwoNFTs(t)
+	RunQuerySuccess(t, ctx, app, instantiateRes, accs[0])
+}
+
+func TestGetOwner(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	getOwnerMsgRaw := []byte(
+		fmt.Sprintf(escrow721GetOwnerTemplate,
+			"omni/stars/transfer-nft",
+			"1",
+		),
+	)
+	ExecuteGetOwner(t, ctx, app, msgServer, accs, instantiateRes, getOwnerMsgRaw, err)
+	// println("result is ", result)
+	// println("ownerErr is ", ownerErr)
 
 }

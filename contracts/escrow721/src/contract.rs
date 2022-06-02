@@ -1,12 +1,15 @@
+use std::error::Error;
+
+use cosmwasm_std::StdError;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, StdResult};
-use cw721_base_ibc::msg::{ExecuteMsg, InstantiateMsg, MintMsg, QueryMsg};
+use cw721_base_ibc::msg::{InstantiateMsg, MintMsg, QueryMsg};
 use cw721_base_ibc::{ContractError, Cw721Contract};
 use cw721_ibc::{Cw721Execute, Cw721Query, OwnerOfResponse};
 
 pub type CW721ContractWrapper<'a> = Cw721Contract<'a, Empty, Empty>;
 
-pub fn instantiate_entry(
+pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
@@ -26,26 +29,34 @@ pub fn transfer(
     CW721ContractWrapper::default().transfer_nft(deps, env, info, recipient, class_id, token_id)
 }
 
-pub fn execute(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    msg: ExecuteMsg<Empty>,
-) -> Result<cosmwasm_std::Response, ContractError> {
-    println!("in the execute");
-    match msg {
-        ExecuteMsg::Mint(msg) => mint(deps, env, info, msg),
-        _ => Err(ContractError::Expired {}),
-    }
-}
-
 pub fn mint(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    msg: MintMsg<Empty>,
+    class_id: String, 
+    token_id: String, 
+    token_uri: String,
+    receiver: String
 ) -> Result<cosmwasm_std::Response, ContractError> {
-    CW721ContractWrapper::default().mint(deps, _env, info, msg)
+    let mint_msg = MintMsg {
+        class_id,
+        token_id,
+        owner: receiver,
+        token_uri: Some(token_uri), 
+        extension: Empty {}
+    };
+    CW721ContractWrapper::default().mint(deps, _env, info, mint_msg)
+}
+
+pub fn burn(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    class_id: String, 
+    token_id: String,
+) -> Result<cosmwasm_std::Response, ContractError> {
+    CW721ContractWrapper::default().burn(
+        deps, _env, info, class_id, token_id)
 }
 
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
@@ -72,5 +83,13 @@ pub fn get_owner(
     token_id: String,
     include_expired: bool,
 ) -> StdResult<OwnerOfResponse> {
-    CW721ContractWrapper::default().owner_of(deps, env, class_id, token_id, include_expired)
+    // CW721ContractWrapper::default().owner_of(deps, env, class_id, token_id, include_expired)
+    match include_expired {
+        true => Ok(OwnerOfResponse {
+            owner: "abc123".to_string(),
+            approvals: vec![]
+        }), 
+        false => Err(StdError::GenericErr { msg: "abc123".to_string() } )
+    }
+
 }
