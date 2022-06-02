@@ -93,3 +93,15 @@ func ExecuteGetOwner(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasm
 	expected_result := string(fmt.Sprintf(`{"owner":"%s","approvals":[]}`, accs[0].Address))
 	require.Equal(t, string(result), expected_result)
 }
+
+func ExecuteGetNFTInfo(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtypes.MsgServer, accs []Account,
+	instantiateRes *wasmtypes.MsgInstantiateContractResponse, getNFTInfoMsgRaw []byte, err error) {
+	escrow721Address := instantiateRes.Address
+
+	addr, _ := sdk.AccAddressFromBech32(escrow721Address)
+	result, _ := app.WasmKeeper.QuerySmart(
+		ctx, addr, getNFTInfoMsgRaw)
+
+	expected_result := string(`{"token_uri":"ipfs://abc123","extension":{}}`)
+	require.Equal(t, string(result), expected_result)
+}

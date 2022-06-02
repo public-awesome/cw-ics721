@@ -35,4 +35,12 @@ var (
 			 "token_id": "%s"}
 			}
 	`
+
+	escrow721GetNFTInfoTemplate = `
+	{
+		"nft_info": { 
+			"class_id": "%s",
+			 "token_id": "%s"}
+			}
+	`
 )
