@@ -3,11 +3,12 @@ use cosmwasm_std::Response;
 use cosmwasm_std::StdError;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, StdResult};
-use cw721_base_ibc::msg::{ExecuteMsg, InstantiateMsg, MintMsg, QueryMsg};
+use cw721_base_ibc::msg::{InstantiateMsg, MintMsg, QueryMsg, ExecuteMsg};
 use cw721_base_ibc::{ContractError, Cw721Contract};
 use cw721_ibc::{Cw721Execute, Cw721Query, NftInfoResponse, OwnerOfResponse};
 
 pub type CW721ContractWrapper<'a> = Cw721Contract<'a, Empty, Empty>;
+use crate::state::{CLASS_STORAGE};
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -26,7 +27,21 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg<Empty>,
 ) -> Result<Response<Empty>, ContractError> {
-    CW721ContractWrapper::default().execute(deps, env, info, msg)
+    println!("we are in execute~!");
+    match msg {
+        ExecuteMsg::SaveClass { class_id, class_uri } => save_class(deps, class_id, class_uri),
+        _ =>  CW721ContractWrapper::default().execute(deps, env, info, msg)
+    }
+}
+
+pub fn save_class(
+    deps: DepsMut,
+    class_id: String, 
+    class_uri: String, 
+) -> Result<Response<Empty>, ContractError> {
+
+    CLASS_STORAGE.save(deps.storage, class_id, &class_uri)?;
+    Ok(Response::default())
 }
 
 pub fn transfer(

@@ -96,3 +96,18 @@ func ExecuteTransferNFT(t *testing.T, ctx sdk.Context, app *app.App, msgServer w
 	require.NotEmpty(t, instantiateRes.Address)
 	require.NoError(t, transferErr)
 }
+
+func ExecuteSaveClass(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtypes.MsgServer, accs []Account,
+	instantiateRes *wasmtypes.MsgInstantiateContractResponse, saveClassMsgRaw []byte, err error) {
+	escrow721Address := instantiateRes.Address
+
+	_, transferErr := msgServer.ExecuteContract(sdk.WrapSDKContext(ctx), &wasmtypes.MsgExecuteContract{
+		Contract: escrow721Address,
+		Sender:   accs[0].Address.String(),
+		Msg:      saveClassMsgRaw,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, instantiateRes)
+	require.NotEmpty(t, instantiateRes.Address)
+	require.NoError(t, transferErr)
+}

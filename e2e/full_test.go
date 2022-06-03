@@ -198,3 +198,18 @@ func TestTransfer(t *testing.T) {
 	))
 	RunGetOwner(t, ctx, app, msgServer, accs, instantiateRes, getOwnerMsgRaw, accs[1].Address)
 }
+
+func TestSaveClass(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	saveClassMsgRaw := []byte(fmt.Sprintf(escrow721SaveClassTemplate,
+		"omni/stars/transfer-nft",
+		"abc123_class_uri",
+	))
+	ExecuteTransferNFT(t, ctx, app, msgServer, accs, instantiateRes, saveClassMsgRaw, err)
+
+	// getOwnerMsgRaw := []byte(fmt.Sprintf(escrow721GetOwnerTemplate,
+	// 	"omni/stars/transfer-nft",
+	// 	"1",
+	// ))
+	// RunGetOwner(t, ctx, app, msgServer, accs, instantiateRes, getOwnerMsgRaw, accs[1].Address)
+}

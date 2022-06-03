@@ -52,4 +52,11 @@ var (
 			"recipient": "%s"}
 	}
 	`
+	escrow721SaveClassTemplate = `
+	{
+		"save_class": { 
+			"class_id": "%s",
+			"class_uri": "%s"}
+	}
+	`
 )
