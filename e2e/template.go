@@ -59,4 +59,11 @@ var (
 			"class_uri": "%s"}
 	}
 	`
+
+	escrow721HasClassTemplate = `
+	{
+		"has_class": { 
+			"class_id": "%s"}
+	}
+	`
 )

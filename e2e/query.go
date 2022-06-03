@@ -44,3 +44,14 @@ func RunGetNFTInfo(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmty
 	expected_result := string(`{"token_uri":"ipfs://abc123","extension":{}}`)
 	require.Equal(t, string(result), expected_result)
 }
+
+func RunHasClass(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtypes.MsgServer, accs []Account,
+	instantiateRes *wasmtypes.MsgInstantiateContractResponse, hasClassMsgRaw []byte, expected string) {
+	escrow721Address := instantiateRes.Address
+
+	addr, _ := sdk.AccAddressFromBech32(escrow721Address)
+	result, _ := app.WasmKeeper.QuerySmart(
+		ctx, addr, hasClassMsgRaw)
+
+	require.Equal(t, string(expected), string(result))
+}

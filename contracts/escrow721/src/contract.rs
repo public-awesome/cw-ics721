@@ -99,6 +99,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             include_expired.unwrap_or(false),
         )?),
         QueryMsg::NftInfo { class_id, token_id } => to_binary(&nft_info(deps, class_id, token_id)?),
+        QueryMsg::HasClass { class_id } => to_binary(&has_class(deps, class_id)), 
         _ => Err(StdError::GenericErr {
             msg: "Unsupported message type".to_string(),
         }),
@@ -117,4 +118,8 @@ pub fn get_owner(
 
 fn nft_info(deps: Deps, class_id: String, token_id: String) -> StdResult<NftInfoResponse<Empty>> {
     CW721ContractWrapper::default().nft_info(deps, class_id, token_id)
+}
+
+fn has_class(deps: Deps, class_id: String) -> bool {
+    CLASS_STORAGE.has(deps.storage, class_id)
 }

@@ -134,6 +134,15 @@ func MintTwoNFTs(t *testing.T) (
 	return app, ctx, instantiateRes, accs, msgServer, err
 }
 
+func SaveClass(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtypes.MsgServer, accs []Account,
+	instantiateRes *wasmtypes.MsgInstantiateContractResponse, err error) {
+	saveClassMsgRaw := []byte(fmt.Sprintf(escrow721SaveClassTemplate,
+		"omni/stars/transfer-nft",
+		"abc123_class_uri",
+	))
+	ExecuteSaveClass(t, ctx, app, msgServer, accs, instantiateRes, saveClassMsgRaw, err)
+}
+
 func TestLoadChain(t *testing.T) {
 	LoadChain(t)
 }
@@ -201,15 +210,25 @@ func TestTransfer(t *testing.T) {
 
 func TestSaveClass(t *testing.T) {
 	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
-	saveClassMsgRaw := []byte(fmt.Sprintf(escrow721SaveClassTemplate,
-		"omni/stars/transfer-nft",
-		"abc123_class_uri",
-	))
-	ExecuteTransferNFT(t, ctx, app, msgServer, accs, instantiateRes, saveClassMsgRaw, err)
+	SaveClass(t, ctx, app, msgServer, accs, instantiateRes, err)
+}
 
-	// getOwnerMsgRaw := []byte(fmt.Sprintf(escrow721GetOwnerTemplate,
-	// 	"omni/stars/transfer-nft",
-	// 	"1",
-	// ))
-	// RunGetOwner(t, ctx, app, msgServer, accs, instantiateRes, getOwnerMsgRaw, accs[1].Address)
+func TestHasClassTrue(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	SaveClass(t, ctx, app, msgServer, accs, instantiateRes, err)
+
+	hasClassMsgRaw := []byte(fmt.Sprintf(escrow721HasClassTemplate,
+		"omni/stars/transfer-nft",
+	))
+	RunHasClass(t, ctx, app, msgServer, accs, instantiateRes, hasClassMsgRaw, "true")
+}
+
+func TestHasClassFalse(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	SaveClass(t, ctx, app, msgServer, accs, instantiateRes, err)
+
+	hasClassMsgRaw := []byte(fmt.Sprintf(escrow721HasClassTemplate,
+		"omni/fake-channel/transfer-nft",
+	))
+	RunHasClass(t, ctx, app, msgServer, accs, instantiateRes, hasClassMsgRaw, "false")
 }
