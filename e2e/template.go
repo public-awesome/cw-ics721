@@ -66,4 +66,10 @@ var (
 			"class_id": "%s"}
 	}
 	`
+	escrow721GetClassTemplate = `
+	{
+		"get_class": { 
+			"class_id": "%s"}
+	}
+	`
 )

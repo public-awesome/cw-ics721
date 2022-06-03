@@ -232,3 +232,25 @@ func TestHasClassFalse(t *testing.T) {
 	))
 	RunHasClass(t, ctx, app, msgServer, accs, instantiateRes, hasClassMsgRaw, "false")
 }
+
+func TestGetClassSuccess(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	SaveClass(t, ctx, app, msgServer, accs, instantiateRes, err)
+
+	getClassMsgRaw := []byte(fmt.Sprintf(escrow721GetClassTemplate,
+		"omni/stars/transfer-nft",
+	))
+	expected := `["omni/stars/transfer-nft","abc123_class_uri"]`
+	RunGetClass(t, ctx, app, msgServer, accs, instantiateRes, getClassMsgRaw, expected)
+}
+
+func TestGetClassFail(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	SaveClass(t, ctx, app, msgServer, accs, instantiateRes, err)
+
+	getClassMsgRaw := []byte(fmt.Sprintf(escrow721GetClassTemplate,
+		"omni/some_fake_class/transfer-nft",
+	))
+	expected := `Generic error: Class omni/some_fake_class/transfer-nft not found: query wasm contract failed`
+	RunGetClassError(t, ctx, app, msgServer, accs, instantiateRes, getClassMsgRaw, expected)
+}

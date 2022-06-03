@@ -27,7 +27,6 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg<Empty>,
 ) -> Result<Response<Empty>, ContractError> {
-    println!("we are in execute~!");
     match msg {
         ExecuteMsg::SaveClass {
             class_id,
@@ -73,6 +72,7 @@ pub fn mint(
         token_uri: Some(token_uri),
         extension: Empty {},
     };
+
     CW721ContractWrapper::default().mint(deps, _env, info, mint_msg)
 }
 
@@ -102,6 +102,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         )?),
         QueryMsg::NftInfo { class_id, token_id } => to_binary(&nft_info(deps, class_id, token_id)?),
         QueryMsg::HasClass { class_id } => to_binary(&has_class(deps, class_id)),
+        QueryMsg::GetClass { class_id } => to_binary(&get_class(deps, class_id)?),
         _ => Err(StdError::GenericErr {
             msg: "Unsupported message type".to_string(),
         }),
@@ -124,4 +125,14 @@ fn nft_info(deps: Deps, class_id: String, token_id: String) -> StdResult<NftInfo
 
 fn has_class(deps: Deps, class_id: String) -> bool {
     CLASS_STORAGE.has(deps.storage, class_id)
+}
+
+fn get_class(deps: Deps, class_id: String) -> StdResult<(String, String)> {
+    match CLASS_STORAGE.load(deps.storage, class_id.clone()) {
+        Ok(class_uri) => Ok((class_id, class_uri)),
+        Err(_) => Err(StdError::generic_err(format!(
+            "Class {} not found",
+            class_id
+        ))),
+    }
 }

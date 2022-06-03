@@ -55,3 +55,25 @@ func RunHasClass(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtype
 
 	require.Equal(t, string(expected), string(result))
 }
+
+func RunGetClass(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtypes.MsgServer, accs []Account,
+	instantiateRes *wasmtypes.MsgInstantiateContractResponse, getClassMsgRaw []byte, expected string) {
+	escrow721Address := instantiateRes.Address
+
+	addr, _ := sdk.AccAddressFromBech32(escrow721Address)
+	result, _ := app.WasmKeeper.QuerySmart(
+		ctx, addr, getClassMsgRaw)
+
+	require.Equal(t, string(expected), string(result))
+}
+
+func RunGetClassError(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtypes.MsgServer, accs []Account,
+	instantiateRes *wasmtypes.MsgInstantiateContractResponse, getClassMsgRaw []byte, expected string) {
+	escrow721Address := instantiateRes.Address
+
+	addr, _ := sdk.AccAddressFromBech32(escrow721Address)
+	_, err := app.WasmKeeper.QuerySmart(
+		ctx, addr, getClassMsgRaw)
+
+	require.EqualError(t, err, expected)
+}
