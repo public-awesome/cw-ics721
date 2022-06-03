@@ -160,7 +160,8 @@ func TestBurn(t *testing.T) {
 		),
 	)
 	ExecuteBurn(t, ctx, msgServer, accs, instantiateRes, burnMsgRaw, err)
-	RunQueryEmpty(t, ctx, app, instantiateRes, accs[0])
+	query_msg := []byte(`{"owner_of": {"token_id": "1", "class_id": "omni/stars/transfer-nft"}}`)
+	RunQueryEmpty(t, ctx, app, instantiateRes, accs[0], query_msg)
 	ExecuteBurnError(t, ctx, msgServer, accs, instantiateRes, burnMsgRaw, err)
 
 	burnMsgRawFake := []byte(
@@ -178,17 +179,19 @@ func TestGetOwner(t *testing.T) {
 		"omni/stars/transfer-nft",
 		"1",
 	))
-	RunGetOwner(t, ctx, app, msgServer, accs, instantiateRes, getOwnerMsgRaw, accs[0].Address)
+	expected_response := string(fmt.Sprintf(`{"owner":"%s","approvals":[]}`, accs[0].Address.String()))
+	RunGetOwner(t, ctx, app, msgServer, accs, instantiateRes, getOwnerMsgRaw, expected_response)
 
 }
 
 func TestGetNFTInfo(t *testing.T) {
-	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	app, ctx, instantiateRes, accs, msgServer, _ := MintTwoNFTs(t)
 	getNFTInfoMsgRaw := []byte(fmt.Sprintf(escrow721GetNFTInfoTemplate,
 		"omni/stars/transfer-nft",
 		"1",
 	))
-	RunGetNFTInfo(t, ctx, app, msgServer, accs, instantiateRes, getNFTInfoMsgRaw, err)
+	expected_result := string(`{"token_uri":"ipfs://abc123","extension":{}}`)
+	RunGetNFTInfo(t, ctx, app, msgServer, accs, instantiateRes, getNFTInfoMsgRaw, expected_result)
 
 }
 
@@ -205,7 +208,8 @@ func TestTransfer(t *testing.T) {
 		"omni/stars/transfer-nft",
 		"1",
 	))
-	RunGetOwner(t, ctx, app, msgServer, accs, instantiateRes, getOwnerMsgRaw, accs[1].Address)
+	expected_response := string(fmt.Sprintf(`{"owner":"%s","approvals":[]}`, accs[1].Address.String()))
+	RunGetOwner(t, ctx, app, msgServer, accs, instantiateRes, getOwnerMsgRaw, expected_response)
 }
 
 func TestSaveClass(t *testing.T) {
