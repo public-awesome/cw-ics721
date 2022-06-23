@@ -1,6 +1,5 @@
 use cosmwasm_std::entry_point;
-use cosmwasm_std::Response;
-use cosmwasm_std::StdError;
+use cosmwasm_std::{Response, StdError, attr};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, StdResult};
 use cw721_base_ibc::msg::{ExecuteMsg, InstantiateMsg, MintMsg, QueryMsg};
@@ -42,7 +41,13 @@ pub fn save_class(
     class_uri: String,
 ) -> Result<Response<Empty>, ContractError> {
     CLASS_STORAGE.save(deps.storage, &class_id, &class_uri)?;
-    Ok(Response::default())
+    Ok(Response::default().add_attributes(vec![
+        attr("action", "save_class"),
+        attr("class_id", class_id),
+        attr("class_uri", class_uri),
+    ])
+
+)
 }
 
 pub fn transfer(
