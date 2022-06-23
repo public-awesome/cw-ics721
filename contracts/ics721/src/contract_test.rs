@@ -1,14 +1,26 @@
 #[cfg(test)]
 mod contact_testing {
+    use core::panic;
+
     use super::super::*;
+    use crate::msg::{ChannelResponse, ExecuteMsg, InstantiateMsg, QueryMsg, TransferMsg};
+    use crate::query;
+    use crate::state::CHANNEL_STATE;
     use crate::test_constants::*;
     use crate::test_helpers::*;
 
     use cosmwasm_std::testing::mock_env;
-    use cosmwasm_std::{from_binary, to_binary, Attribute, Coin, StdError};
+    use cosmwasm_std::Deps;
+    use cosmwasm_std::{
+        from_binary, to_binary, Addr, Attribute, Coin, MessageInfo, Response, StdError,
+    };
     use cosmwasm_std::{CosmosMsg, IbcEndpoint};
     use cw2::{get_contract_version, ContractVersion};
+    use cw20_ics20::msg::ListChannelsResponse;
     use cw20_ics20::state::ChannelInfo;
+    use cw20_ics20::ContractError;
+    use cw721_ibc::Cw721ReceiveMsg;
+    use query::{query, query_channel};
 
     use cosmwasm_std::testing::mock_dependencies;
 
@@ -58,9 +70,8 @@ mod contact_testing {
     #[test]
     fn test_query_channel_list_success() {
         let deps = setup(&[TEST_CHANNEL_0_DATA, TEST_CHANNEL_1_DATA]);
-        let result = query_list(deps.as_ref());
-
-        let expected_list: StdResult<ListChannelsResponse> = Ok(ListChannelsResponse {
+        let result = query(deps.as_ref(), mock_env(), QueryMsg::ListChannels {});
+        let expected_list = ListChannelsResponse {
             channels: vec![
                 ChannelInfo {
                     id: CHANNEL_FROM_STARS_TO_OMNI.to_string(),
@@ -79,8 +90,12 @@ mod contact_testing {
                     connection_id: CONNECTION_1.to_string(),
                 },
             ],
-        });
-        assert_eq!(result, expected_list);
+        };
+        let expected_list_bin = to_binary(&expected_list).unwrap();
+        match result {
+            Ok(bin) => assert_eq!(bin, expected_list_bin),
+            Err(_err) => panic!("Query failed for test_query_channel_list_success"),
+        }
     }
 
     #[test]
@@ -88,11 +103,14 @@ mod contact_testing {
         let mut deps = setup(&[TEST_CHANNEL_0_DATA, TEST_CHANNEL_1_DATA]);
         CHANNEL_INFO.remove(&mut deps.storage, CHANNEL_FROM_STARS_TO_OMNI);
         CHANNEL_INFO.remove(&mut deps.storage, CHANNEL_FROM_STARS_TO_GB);
-        let result = query_list(deps.as_ref());
+        let result = query(deps.as_ref(), mock_env(), QueryMsg::ListChannels {});
 
-        let expected_list: StdResult<ListChannelsResponse> =
-            Ok(ListChannelsResponse { channels: vec![] });
-        assert_eq!(result, expected_list);
+        let expected_list = ListChannelsResponse { channels: vec![] };
+        let expected_list_bin = to_binary(&expected_list).unwrap();
+        match result {
+            Ok(bin) => assert_eq!(bin, expected_list_bin),
+            Err(_err) => panic!("Query failed for test_query_channel_list_empty"),
+        }
     }
 
     #[test]
@@ -342,7 +360,7 @@ mod contact_testing {
             },
             Attribute {
                 key: "class_id".into(),
-                value: "cosmos2contract".into(),
+                value: "abc/123/collection-addr".into(),
             },
             Attribute {
                 key: "token_ids".into(),
@@ -350,7 +368,7 @@ mod contact_testing {
             },
         ];
         let expected_ics721_packet = Ics721Packet::new(
-            mock_env().contract.address.as_ref(),
+            "abc/123/collection-addr",
             None,
             transfer_msg
                 .token_ids
@@ -399,6 +417,7 @@ mod contact_testing {
 
         let cw721_receive_msg = Cw721ReceiveMsg {
             sender: sender_address_str.to_string(),
+            class_id: "abc/123/collection-addr".to_string(),
             token_id: "1".to_string(),
             msg: to_binary(&transfer_msg).unwrap(),
         };
@@ -425,7 +444,7 @@ mod contact_testing {
             },
             Attribute {
                 key: "class_id".into(),
-                value: "cosmos2contract".into(),
+                value: "abc/123/collection-addr".into(),
             },
             Attribute {
                 key: "token_ids".into(),
@@ -433,7 +452,7 @@ mod contact_testing {
             },
         ];
         let expected_ics721_packet = Ics721Packet::new(
-            mock_env().contract.address.as_ref(),
+            "abc/123/collection-addr",
             None,
             transfer_msg
                 .token_ids
@@ -484,6 +503,7 @@ mod contact_testing {
 
         let cw721_receive_msg = Cw721ReceiveMsg {
             sender: sender_address_str.to_string(),
+            class_id: "class_id_1".to_string(),
             token_id: "1".to_string(),
             msg: to_binary(&transfer_msg).unwrap(),
         };
@@ -525,6 +545,7 @@ mod contact_testing {
         let cw_721_receive_sender = "sender_address_receive_path";
         let cw721_receive_msg = ExecuteMsg::Receive(Cw721ReceiveMsg {
             sender: cw_721_receive_sender.to_string(),
+            class_id: "abc/123/collection-addr".to_string(),
             token_id: "1".to_string(),
             msg: to_binary(&transfer_msg).unwrap(),
         });
@@ -551,7 +572,7 @@ mod contact_testing {
             },
             Attribute {
                 key: "class_id".into(),
-                value: "cosmos2contract".into(),
+                value: "abc/123/collection-addr".into(),
             },
             Attribute {
                 key: "token_ids".into(),
@@ -560,7 +581,7 @@ mod contact_testing {
         ];
 
         let expected_ics721_packet = Ics721Packet::new(
-            mock_env().contract.address.as_ref(),
+            "abc/123/collection-addr",
             None,
             transfer_msg
                 .token_ids
@@ -628,7 +649,7 @@ mod contact_testing {
             },
             Attribute {
                 key: "class_id".into(),
-                value: "cosmos2contract".into(),
+                value: "abc/123/collection-addr".into(),
             },
             Attribute {
                 key: "token_ids".into(),

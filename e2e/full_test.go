@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -10,67 +11,12 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/public-awesome/stargaze/v4/app"
 	"github.com/public-awesome/stargaze/v4/testutil/simapp"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/secp256k1"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 )
-
-var (
-	// whitelist
-
-	instantiateWhiteListTemplate = `
-		{
-			"members":[%s],
-			"start_time": "%d",
-			"end_time": "%d",
-			"unit_price": {
-				"amount": "50000000",
-				"denom": "ustars"
-			},
-			"per_address_limit": 1,
-			"member_limit": 1000
-		}
-		`
-
-	instantiateMinterTemplate = `
-		{
-			"base_token_uri": "ipfs://...",
-			"num_tokens": 100,
-			"sg721_code_id": 3,
-			"sg721_instantiate_msg": {
-			  "name": "Collection Name",
-			  "symbol": "SYM",
-			  "minter": "%s",
-			  "collection_info": {
-				"contract_uri": "ipfs://...",
-				"creator": "%s",
-				"description": "Stargaze Monkeys",
-				"image": "https://example.com/image.png",
-				"external_link" : "https://stargaze.zone",
-				"royalty_info": {
-				  "payment_address": "%s",
-				  "share": "0.1"
-				}
-			  }
-			},
-			"start_time": "%d",
-			"whitelist" : %s, 
-			"per_address_limit": %d,
-			"unit_price": {
-			  "amount": "100000000",
-			  "denom": "ustars"
-			}
-		  }	  
-		`
-)
-
-type Account struct {
-	PrivKey secp256k1.PrivKey
-	PubKey  crypto.PubKey
-	Address sdk.AccAddress
-}
 
 func GetAccounts() []Account {
 	accounts := make([]Account, 0, 150)
@@ -104,16 +50,16 @@ func GetAccountsAndBalances(accs []Account) ([]authtypes.GenesisAccount, []bankt
 	}
 	return genAccs, balances
 }
-func TestMinter(t *testing.T) {
-	accs := GetAccounts()
 
+func LoadChain(t *testing.T) (addr1 sdk.AccAddress, ctx sdk.Context, app *app.App, accs []Account) {
+	accs = GetAccounts()
 	genAccs, balances := GetAccountsAndBalances(accs)
 
-	app := simapp.SetupWithGenesisAccounts(t, t.TempDir(), genAccs, balances...)
+	app = simapp.SetupWithGenesisAccounts(t, t.TempDir(), genAccs, balances...)
 
 	startDateTime, err := time.Parse(time.RFC3339Nano, "2022-03-11T20:59:00Z")
 	require.NoError(t, err)
-	ctx := app.BaseApp.NewContext(false, tmproto.Header{Height: 1, ChainID: "stargaze-1", Time: startDateTime})
+	ctx = app.BaseApp.NewContext(false, tmproto.Header{Height: 1, ChainID: "stargaze-1", Time: startDateTime})
 
 	// wasm params
 	wasmParams := app.WasmKeeper.GetParams(ctx)
@@ -123,13 +69,16 @@ func TestMinter(t *testing.T) {
 
 	priv1 := secp256k1.GenPrivKey()
 	pub1 := priv1.PubKey()
-	addr1 := sdk.AccAddress(pub1.Address())
+	addr1 = sdk.AccAddress(pub1.Address())
+	return addr1, ctx, app, accs
+}
 
-	// minter
+func LoadICS721(t *testing.T, addr1 sdk.AccAddress, ctx sdk.Context, app *app.App) (
+	msgServer wasmtypes.MsgServer, err error) {
 	b, err := ioutil.ReadFile("contracts/ics721.wasm")
 	require.NoError(t, err)
 
-	msgServer := wasmkeeper.NewMsgServerImpl(wasmkeeper.NewDefaultPermissionKeeper(app.WasmKeeper))
+	msgServer = wasmkeeper.NewMsgServerImpl(wasmkeeper.NewDefaultPermissionKeeper(app.WasmKeeper))
 	res, err := msgServer.StoreCode(sdk.WrapSDKContext(ctx), &wasmtypes.MsgStoreCode{
 		Sender:       addr1.String(),
 		WASMByteCode: b,
@@ -138,4 +87,174 @@ func TestMinter(t *testing.T) {
 	require.NotNil(t, res)
 	require.Equal(t, res.CodeID, uint64(1))
 	println("ICS721.wasm has loaded!")
+	return msgServer, err
+}
+
+func LoadEscrow721(t *testing.T, addr1 sdk.AccAddress, ctx sdk.Context,
+	app *app.App, msgServer wasmtypes.MsgServer) {
+	b, err := ioutil.ReadFile("contracts/escrow721.wasm")
+	require.NoError(t, err)
+
+	res, err := msgServer.StoreCode(sdk.WrapSDKContext(ctx), &wasmtypes.MsgStoreCode{
+		Sender:       addr1.String(),
+		WASMByteCode: b,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	require.Equal(t, res.CodeID, uint64(2))
+	println("escrow721.wasm has loaded!")
+}
+
+func MintTwoNFTs(t *testing.T) (
+	app *app.App, ctx sdk.Context,
+	instantiateRes *wasmtypes.MsgInstantiateContractResponse, accs []Account,
+	msgServer wasmtypes.MsgServer, err error) {
+	addr1, ctx, app, accs := LoadChain(t)
+	msgServer, err = LoadICS721(t, addr1, ctx, app)
+	LoadEscrow721(t, addr1, ctx, app, msgServer)
+	instantiateRes = InstantiateEscrow721(t, ctx, msgServer, accs)
+	creator := accs[0]
+
+	mintMsgRaw := []byte(
+		fmt.Sprintf(escrow721MintTemplate,
+			"omni/stars/transfer-nft",
+			"1",
+			creator.Address.String(),
+		),
+	)
+	ExecuteMint(t, ctx, msgServer, accs, instantiateRes, mintMsgRaw, err)
+	mintMsgRaw = []byte(
+		fmt.Sprintf(escrow721MintTemplate,
+			"omni/stars/transfer-nft",
+			"2",
+			creator.Address.String(),
+		),
+	)
+	ExecuteMint(t, ctx, msgServer, accs, instantiateRes, mintMsgRaw, err)
+	return app, ctx, instantiateRes, accs, msgServer, err
+}
+
+func SaveClass(t *testing.T, ctx sdk.Context, app *app.App, msgServer wasmtypes.MsgServer, accs []Account,
+	instantiateRes *wasmtypes.MsgInstantiateContractResponse, err error) {
+	saveClassMsgRaw := []byte(fmt.Sprintf(escrow721SaveClassTemplate,
+		"omni/stars/transfer-nft",
+		"abc123_class_uri",
+	))
+	ExecuteSaveClass(t, ctx, app, msgServer, accs, instantiateRes, saveClassMsgRaw, err)
+}
+
+func TestLoadChain(t *testing.T) {
+	LoadChain(t)
+}
+
+func TestMinting(t *testing.T) {
+	MintTwoNFTs(t)
+}
+
+func TestBurn(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	burnMsgRaw := []byte(
+		fmt.Sprintf(escrow721BurnTemplate,
+			"omni/stars/transfer-nft",
+			"1",
+		),
+	)
+	ExecuteBurn(t, ctx, msgServer, accs, instantiateRes, burnMsgRaw, err)
+	query_msg := []byte(`{"owner_of": {"token_id": "1", "class_id": "omni/stars/transfer-nft"}}`)
+	RunQueryEmpty(t, ctx, app, instantiateRes, accs[0], query_msg)
+	ExecuteBurnError(t, ctx, msgServer, accs, instantiateRes, burnMsgRaw, err)
+
+	burnMsgRawFake := []byte(
+		fmt.Sprintf(escrow721BurnTemplate,
+			"super_fake_class",
+			"1",
+		),
+	)
+	ExecuteBurnError(t, ctx, msgServer, accs, instantiateRes, burnMsgRawFake, err)
+}
+
+func TestGetOwner(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, _ := MintTwoNFTs(t)
+	getOwnerMsgRaw := []byte(fmt.Sprintf(escrow721GetOwnerTemplate,
+		"omni/stars/transfer-nft",
+		"1",
+	))
+	expected_response := string(fmt.Sprintf(`{"owner":"%s","approvals":[]}`, accs[0].Address.String()))
+	RunGetOwner(t, ctx, app, msgServer, accs, instantiateRes, getOwnerMsgRaw, expected_response)
+
+}
+
+func TestGetNFTInfo(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, _ := MintTwoNFTs(t)
+	getNFTInfoMsgRaw := []byte(fmt.Sprintf(escrow721GetNFTInfoTemplate,
+		"omni/stars/transfer-nft",
+		"1",
+	))
+	expected_result := string(`{"token_uri":"ipfs://abc123","extension":{}}`)
+	RunGetNFTInfo(t, ctx, app, msgServer, accs, instantiateRes, getNFTInfoMsgRaw, expected_result)
+
+}
+
+func TestTransfer(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	transferMsgRaw := []byte(fmt.Sprintf(escrow721TransferNFTTemplate,
+		"omni/stars/transfer-nft",
+		"1",
+		accs[1].Address.String(),
+	))
+	ExecuteTransferNFT(t, ctx, app, msgServer, accs, instantiateRes, transferMsgRaw, err)
+
+	getOwnerMsgRaw := []byte(fmt.Sprintf(escrow721GetOwnerTemplate,
+		"omni/stars/transfer-nft",
+		"1",
+	))
+	expected_response := string(fmt.Sprintf(`{"owner":"%s","approvals":[]}`, accs[1].Address.String()))
+	RunGetOwner(t, ctx, app, msgServer, accs, instantiateRes, getOwnerMsgRaw, expected_response)
+}
+
+func TestSaveClass(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	SaveClass(t, ctx, app, msgServer, accs, instantiateRes, err)
+}
+
+func TestHasClassTrue(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	SaveClass(t, ctx, app, msgServer, accs, instantiateRes, err)
+
+	hasClassMsgRaw := []byte(fmt.Sprintf(escrow721HasClassTemplate,
+		"omni/stars/transfer-nft",
+	))
+	RunHasClass(t, ctx, app, msgServer, accs, instantiateRes, hasClassMsgRaw, "true")
+}
+
+func TestHasClassFalse(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	SaveClass(t, ctx, app, msgServer, accs, instantiateRes, err)
+
+	hasClassMsgRaw := []byte(fmt.Sprintf(escrow721HasClassTemplate,
+		"omni/fake-channel/transfer-nft",
+	))
+	RunHasClass(t, ctx, app, msgServer, accs, instantiateRes, hasClassMsgRaw, "false")
+}
+
+func TestGetClassSuccess(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	SaveClass(t, ctx, app, msgServer, accs, instantiateRes, err)
+
+	getClassMsgRaw := []byte(fmt.Sprintf(escrow721GetClassTemplate,
+		"omni/stars/transfer-nft",
+	))
+	expected := `["omni/stars/transfer-nft","abc123_class_uri"]`
+	RunGetClass(t, ctx, app, msgServer, accs, instantiateRes, getClassMsgRaw, expected)
+}
+
+func TestGetClassFail(t *testing.T) {
+	app, ctx, instantiateRes, accs, msgServer, err := MintTwoNFTs(t)
+	SaveClass(t, ctx, app, msgServer, accs, instantiateRes, err)
+
+	getClassMsgRaw := []byte(fmt.Sprintf(escrow721GetClassTemplate,
+		"omni/some_fake_class/transfer-nft",
+	))
+	expected := `Generic error: Class omni/some_fake_class/transfer-nft not found: query wasm contract failed`
+	RunGetClassError(t, ctx, app, msgServer, accs, instantiateRes, getClassMsgRaw, expected)
 }

@@ -1,6 +1,6 @@
 use cw20_ics20::ibc::Ics20Ack;
 use cw20_ics20::state::ChannelInfo;
-use cw721::Cw721ExecuteMsg;
+use cw721_ibc::Cw721ExecuteMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

@@ -1,7 +1,7 @@
 [package]
-authors = ["Shane Vitarana"]
-edition = "2018"
-name = "ics721"
+authors = ["Michael Scotto"]
+edition = "2021"
+name = "escrow721"
 version = "0.12.0"
 
 
@@ -36,8 +36,9 @@ cw-storage-plus = "0.13.4"
 cw-utils = "0.13.4"
 cw2 = "0.13.4"
 cw20-ics20 = { version = "0.13.4", features = ["library"] }
-cw721-base-ibc = { git = "https://github.com/public-awesome/cw721-ibc.git", version="0.13.4"}
-cw721-ibc = { git = "https://github.com/public-awesome/cw721-ibc.git", version="0.13.4"}
+sg721 = { version = "0.12.0", features = ["library"] }
+cw721-base-ibc = { git = "https://github.com/public-awesome/cw721-ibc.git", version = "0.13.4", branch="main", features = ["library"]}
+cw721-ibc = { git = "https://github.com/public-awesome/cw721-ibc.git", branch="main", version = "0.13.4"}
 schemars = "0.8.8"
 serde = { version = "1.0.133", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.30" }
