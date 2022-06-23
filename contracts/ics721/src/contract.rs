@@ -149,7 +149,7 @@ fn query_list(deps: Deps) -> StdResult<ListChannelsResponse> {
         channels: channels?,
     })
 }
- 
+
 pub fn query_channel(deps: Deps, id: String) -> StdResult<ChannelResponse> {
     let info = CHANNEL_INFO.load(deps.storage, &id)?;
     let _class_ids: StdResult<Vec<_>> = CHANNEL_STATE
