@@ -41,7 +41,7 @@ pub fn save_class(
     class_id: String,
     class_uri: String,
 ) -> Result<Response<Empty>, ContractError> {
-    CLASS_STORAGE.save(deps.storage, class_id, &class_uri)?;
+    CLASS_STORAGE.save(deps.storage, &class_id, &class_uri)?;
     Ok(Response::default())
 }
 
@@ -124,11 +124,11 @@ fn nft_info(deps: Deps, class_id: String, token_id: String) -> StdResult<NftInfo
 }
 
 fn has_class(deps: Deps, class_id: String) -> bool {
-    CLASS_STORAGE.has(deps.storage, class_id)
+    CLASS_STORAGE.has(deps.storage, &class_id)
 }
 
 fn get_class(deps: Deps, class_id: String) -> StdResult<(String, String)> {
-    match CLASS_STORAGE.load(deps.storage, class_id.clone()) {
+    match CLASS_STORAGE.load(deps.storage, &class_id.clone()) {
         Ok(class_uri) => Ok((class_id, class_uri)),
         Err(_) => Err(StdError::generic_err(format!(
             "Class {} not found",
