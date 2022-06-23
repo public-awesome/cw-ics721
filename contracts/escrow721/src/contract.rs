@@ -122,7 +122,11 @@ pub fn get_owner(
     CW721ContractWrapper::default().owner_of(deps, env, class_id, token_id, include_expired)
 }
 
-pub fn get_nft(deps: Deps, class_id: String, token_id: String) -> StdResult<NftInfoResponse<Empty>> {
+pub fn get_nft(
+    deps: Deps,
+    class_id: String,
+    token_id: String,
+) -> StdResult<NftInfoResponse<Empty>> {
     CW721ContractWrapper::default().nft_info(deps, class_id, token_id)
 }
 
