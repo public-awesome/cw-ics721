@@ -4,15 +4,17 @@ mod ibc_testing {
     use std::vec;
 
     use super::super::*;
+    use crate::query;
     use crate::test_constants::{
         CHANNEL_FROM_OMNI_TO_STARS, CHANNEL_FROM_STARS_TO_OMNI, CONNECTION_0, TEST_CHANNEL_0_DATA,
         TEST_CHANNEL_1_DATA,
     };
     use crate::test_helpers::*;
+
     use cosmwasm_std::CosmosMsg::Wasm;
     use cosmwasm_std::WasmMsg::Execute;
+    use query::query_channel;
 
-    use crate::contract::query_channel;
     use cosmwasm_std::testing::mock_dependencies;
     use cosmwasm_std::testing::mock_env;
     use cosmwasm_std::{
