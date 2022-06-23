@@ -103,7 +103,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             token_id,
             include_expired.unwrap_or(false),
         )?),
-        QueryMsg::NftInfo { class_id, token_id } => to_binary(&nft_info(deps, class_id, token_id)?),
+        QueryMsg::NftInfo { class_id, token_id } => to_binary(&get_nft(deps, class_id, token_id)?),
         QueryMsg::HasClass { class_id } => to_binary(&has_class(deps, class_id)),
         QueryMsg::GetClass { class_id } => to_binary(&get_class(deps, class_id)?),
         _ => Err(StdError::GenericErr {
@@ -122,7 +122,7 @@ pub fn get_owner(
     CW721ContractWrapper::default().owner_of(deps, env, class_id, token_id, include_expired)
 }
 
-fn nft_info(deps: Deps, class_id: String, token_id: String) -> StdResult<NftInfoResponse<Empty>> {
+fn get_nft(deps: Deps, class_id: String, token_id: String) -> StdResult<NftInfoResponse<Empty>> {
     CW721ContractWrapper::default().nft_info(deps, class_id, token_id)
 }
 
