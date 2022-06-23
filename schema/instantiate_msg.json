@@ -3,13 +3,23 @@
   "title": "InstantiateMsg",
   "type": "object",
   "required": [
-    "default_timeout"
+    "cw721_ibc_code_id",
+    "default_timeout",
+    "label"
   ],
   "properties": {
+    "cw721_ibc_code_id": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
     "default_timeout": {
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
+    },
+    "label": {
+      "type": "string"
     }
   }
 }
