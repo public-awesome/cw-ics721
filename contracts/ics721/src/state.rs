@@ -8,6 +8,8 @@ use cw_storage_plus::{Item, Map};
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 pub struct Config {
     pub default_timeout: u64,
+    pub cw721_ibc_code_id: u64,
+    pub label: String,
 }
 pub const CONFIG: Item<Config> = Item::new("ics721_config");
 

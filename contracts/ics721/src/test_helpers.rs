@@ -70,6 +70,8 @@ pub fn setup(
     // instantiate an empty contract
     let instantiate_msg = InstantiateMsg {
         default_timeout: DEFAULT_TIMEOUT,
+        cw721_ibc_code_id: 1,
+        label: "ICS 721 Contract A".to_string(),
     };
     let info = mock_info(&String::from("anyone"), &[]);
     let res = instantiate(deps.as_mut(), mock_env(), info, instantiate_msg).unwrap();

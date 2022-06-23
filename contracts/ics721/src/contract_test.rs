@@ -298,6 +298,8 @@ mod contact_testing {
         };
         let instantiate_msg = InstantiateMsg {
             default_timeout: 1000,
+            cw721_ibc_code_id: 1,
+            label: "ICS 721 Contract A".to_string(),
         };
 
         let contract_version_before = get_contract_version(&deps.storage).unwrap_err();
@@ -318,6 +320,8 @@ mod contact_testing {
         assert_eq!(contract_version_after, expected_contract_version);
         let expected_config = Some(Config {
             default_timeout: 1000,
+            cw721_ibc_code_id: 1,
+            label: "ICS 721 Contract A".to_string(),
         });
         assert_eq!(CONFIG.may_load(&deps.storage), Ok(expected_config));
     }

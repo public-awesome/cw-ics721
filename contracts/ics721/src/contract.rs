@@ -28,6 +28,8 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let cfg = Config {
         default_timeout: msg.default_timeout,
+        cw721_ibc_code_id: msg.cw721_ibc_code_id,
+        label: msg.label,
     };
     CONFIG.save(deps.storage, &cfg)?;
     Ok(Response::default())
