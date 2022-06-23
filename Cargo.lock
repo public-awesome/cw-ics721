@@ -265,14 +265,14 @@ dependencies = [
 
 [[package]]
 name = "cw721-base-ibc"
-version = "0.13.2"
-source = "git+https://github.com/public-awesome/cw721-ibc.git?branch=main#87dc9af8b5edc2eac0ecf40164c7e379b68ec19a"
+version = "0.13.4"
+source = "git+https://github.com/public-awesome/cw721-ibc.git?branch=main#35615da5cd4f26869f481896e66f771ac4b5421b"
 dependencies = [
  "cosmwasm-std",
  "cw-storage-plus",
  "cw-utils",
  "cw2",
- "cw721-ibc 0.13.2 (git+https://github.com/public-awesome/cw721-ibc.git?branch=main)",
+ "cw721-ibc 0.13.4 (git+https://github.com/public-awesome/cw721-ibc.git?branch=main)",
  "schemars",
  "serde",
  "thiserror",
@@ -280,14 +280,14 @@ dependencies = [
 
 [[package]]
 name = "cw721-base-ibc"
-version = "0.13.2"
-source = "git+https://github.com/public-awesome/cw721-ibc.git#87dc9af8b5edc2eac0ecf40164c7e379b68ec19a"
+version = "0.13.4"
+source = "git+https://github.com/public-awesome/cw721-ibc.git#35615da5cd4f26869f481896e66f771ac4b5421b"
 dependencies = [
  "cosmwasm-std",
  "cw-storage-plus",
  "cw-utils",
  "cw2",
- "cw721-ibc 0.13.2 (git+https://github.com/public-awesome/cw721-ibc.git)",
+ "cw721-ibc 0.13.4 (git+https://github.com/public-awesome/cw721-ibc.git)",
  "schemars",
  "serde",
  "thiserror",
@@ -295,8 +295,8 @@ dependencies = [
 
 [[package]]
 name = "cw721-ibc"
-version = "0.13.2"
-source = "git+https://github.com/public-awesome/cw721-ibc.git?branch=main#87dc9af8b5edc2eac0ecf40164c7e379b68ec19a"
+version = "0.13.4"
+source = "git+https://github.com/public-awesome/cw721-ibc.git?branch=main#35615da5cd4f26869f481896e66f771ac4b5421b"
 dependencies = [
  "cosmwasm-std",
  "cw-utils",
@@ -306,8 +306,8 @@ dependencies = [
 
 [[package]]
 name = "cw721-ibc"
-version = "0.13.2"
-source = "git+https://github.com/public-awesome/cw721-ibc.git#87dc9af8b5edc2eac0ecf40164c7e379b68ec19a"
+version = "0.13.4"
+source = "git+https://github.com/public-awesome/cw721-ibc.git#35615da5cd4f26869f481896e66f771ac4b5421b"
 dependencies = [
  "cosmwasm-std",
  "cw-utils",
@@ -395,8 +395,8 @@ dependencies = [
  "cw-utils",
  "cw2",
  "cw20-ics20",
- "cw721-base-ibc 0.13.2 (git+https://github.com/public-awesome/cw721-ibc.git?branch=main)",
- "cw721-ibc 0.13.2 (git+https://github.com/public-awesome/cw721-ibc.git?branch=main)",
+ "cw721-base-ibc 0.13.4 (git+https://github.com/public-awesome/cw721-ibc.git?branch=main)",
+ "cw721-ibc 0.13.4 (git+https://github.com/public-awesome/cw721-ibc.git?branch=main)",
  "schemars",
  "serde",
  "sg721",
@@ -499,8 +499,8 @@ dependencies = [
  "cw-utils",
  "cw2",
  "cw20-ics20",
- "cw721-base-ibc 0.13.2 (git+https://github.com/public-awesome/cw721-ibc.git)",
- "cw721-ibc 0.13.2 (git+https://github.com/public-awesome/cw721-ibc.git)",
+ "cw721-base-ibc 0.13.4 (git+https://github.com/public-awesome/cw721-ibc.git)",
+ "cw721-ibc 0.13.4 (git+https://github.com/public-awesome/cw721-ibc.git)",
  "schemars",
  "serde",
  "thiserror",
