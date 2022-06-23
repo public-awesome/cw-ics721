@@ -1,5 +1,5 @@
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Response, StdError, attr};
+use cosmwasm_std::{attr, Response, StdError};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, StdResult};
 use cw721_base_ibc::msg::{ExecuteMsg, InstantiateMsg, MintMsg, QueryMsg};
@@ -45,9 +45,7 @@ pub fn save_class(
         attr("action", "save_class"),
         attr("class_id", class_id),
         attr("class_uri", class_uri),
-    ])
-
-)
+    ]))
 }
 
 pub fn transfer(
