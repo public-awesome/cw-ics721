@@ -6,8 +6,6 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{to_binary, Binary, Deps, Env, IbcQuery, Order, PortIdResponse, StdResult};
 use cw20_ics20::msg::{ListChannelsResponse, PortResponse};
 
-// TODO: Alot of this query code is copy pasta.
-// Find a way to make it generic or put into a package.
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
