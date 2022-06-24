@@ -24,6 +24,13 @@ pub struct Config {
     pub cw721_ibc_code_id: u64,
     pub label: String,
 }
+
+pub struct EscrowMetadata {
+    pub contract_address: String,
+    pub is_active: bool,
+}
+
+pub const ESCROW_STORAGE_MAP: Map<&str, EscrowMetadata> = Map::new("escrow_storage_map");
 pub const CONFIG: Item<Config> = Item::new("ics721_config");
 
 /// static info on one channel that doesn't change
@@ -40,42 +47,48 @@ pub fn instantiate_escrow_contract(
 ) -> Result<Response, ContractError> {
     let escrow_name = construct_contract_name(_env.clone(), msg);
     let escrow_symbol = construct_contract_symbol(escrow_name.clone());
-    let sub_msgs: Vec<SubMsg> = vec![SubMsg {
-        msg: WasmMsg::Instantiate {
-            code_id: ESCROW_CODE_ID,
-            msg: to_binary(&InstantiateMsg {
-                name: escrow_name.clone(),
-                symbol: escrow_symbol,
-                minter: _env.contract.address.to_string(),
-            })?,
-            funds: vec![],
-            admin: Some(_env.contract.address.to_string()),
-            label: escrow_name,
-        }
-        .into(),
-        id: INSTANTIATE_ESCROW721_REPLY_ID,
-        gas_limit: None,
-        reply_on: ReplyOn::Success,
-    }];
+    let sub_msg = get_submsg(_env.clone(), escrow_name, escrow_symbol);
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("contract_name", CONTRACT_NAME)
         .add_attribute("contract_version", CONTRACT_VERSION)
         .add_attribute("sender", _env.contract.address.to_string())
-        .add_submessages(sub_msgs))
+        .add_submessage(sub_msg))
+}
+
+fn get_submsg(_env: Env, escrow_name: String, escrow_symbol: String) -> SubMsg {
+    SubMsg {
+        msg: get_wasm_msg(_env, escrow_name, escrow_symbol).into(),
+        id: INSTANTIATE_ESCROW721_REPLY_ID,
+        gas_limit: None,
+        reply_on: ReplyOn::Success,
+    }
+}
+fn get_wasm_msg(_env: Env, escrow_name: String, escrow_symbol: String) -> WasmMsg {
+    WasmMsg::Instantiate {
+        code_id: ESCROW_CODE_ID,
+        msg: to_binary(&InstantiateMsg {
+            name: escrow_name.clone(),
+            symbol: escrow_symbol,
+            minter: _env.contract.address.to_string(),
+        })
+        .unwrap(),
+        funds: vec![],
+        admin: Some(_env.contract.address.to_string()),
+        label: escrow_name,
+    }
 }
 
 fn construct_contract_name(_env: Env, msg: IbcChannelConnectMsg) -> String {
-    // <chain_id>::<source_channel>/<source_port>:<dest_channel>/<dest_port>
+    // <source_channel>/<source_port>:<dest_channel>/<dest_port>
     let channel: IbcChannel = msg.into();
-    let chain_id = _env.block.chain_id;
     let source_channel = channel.endpoint.channel_id;
     let source_port = channel.endpoint.port_id;
     let dest_channel = channel.counterparty_endpoint.channel_id;
     let dest_port = channel.counterparty_endpoint.port_id;
 
-    format!("{chain_id}::{source_channel}/{source_port}:{dest_channel}/{dest_port}")
+    format!("{source_channel}/{source_port}:{dest_channel}/{dest_port}")
 }
 
 fn construct_contract_symbol(contract_name: String) -> String {
