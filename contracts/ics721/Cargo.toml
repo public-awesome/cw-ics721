@@ -41,6 +41,7 @@ cw721-ibc = { git = "https://github.com/public-awesome/cw721-ibc.git", version="
 schemars = "0.8.8"
 serde = { version = "1.0.133", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.30" }
+sha2 = "0.10.2"
 
 [dev-dependencies]
 cosmwasm-schema = { version = "1.0.0" }

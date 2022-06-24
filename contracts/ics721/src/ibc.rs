@@ -116,6 +116,31 @@ pub fn ibc_channel_open(
     Ok(())
 }
 
+/*
+OpenAck {
+    channel: IbcChannel,
+    counterparty_version: String,
+},
+
+pub struct IbcChannel {
+    pub endpoint: IbcEndpoint,
+    pub counterparty_endpoint: IbcEndpoint,
+    pub order: IbcOrder,
+    /// Note: in ibcv3 this may be "", in the IbcOpenChannel handshake messages
+    pub version: String,
+    /// The connection upon which this channel was created. If this is a multi-hop
+    /// channel, we only expose the first hop.
+    pub connection_id: String,
+}
+
+pub struct IbcEndpoint {
+    pub port_id: String,
+    pub channel_id: String,
+}
+
+*/
+
+
 // IBC entrypoint 2
 #[cfg_attr(not(feature = "library"), entry_point)]
 /// record the channel in CHANNEL_INFO
