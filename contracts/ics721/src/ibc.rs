@@ -140,7 +140,6 @@ pub struct IbcEndpoint {
 
 */
 
-
 // IBC entrypoint 2
 #[cfg_attr(not(feature = "library"), entry_point)]
 /// record the channel in CHANNEL_INFO

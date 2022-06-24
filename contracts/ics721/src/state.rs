@@ -1,16 +1,16 @@
 use crate::error;
-use std::str;
 use cosmwasm_std::{
     to_binary, DepsMut, Empty, Env, IbcChannel, IbcChannelConnectMsg, ReplyOn, Response, SubMsg,
     WasmMsg,
 };
 use cw20_ics20::state::ChannelInfo;
+use cw721_base_ibc::msg::InstantiateMsg;
 use cw_storage_plus::{Item, Map};
+use error::ContractError;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use cw721_base_ibc::msg::InstantiateMsg;
-use error::ContractError;
 use sha2::{Digest, Sha256};
+use std::str;
 
 pub const ESCROW_CODE_ID: u64 = 9;
 pub const INSTANTIATE_ESCROW721_REPLY_ID: u64 = 7;
@@ -45,12 +45,12 @@ pub fn instantiate_escrow_contract(
             code_id: ESCROW_CODE_ID,
             msg: to_binary(&InstantiateMsg {
                 name: escrow_name.clone(),
-                symbol: escrow_symbol.clone(),
+                symbol: escrow_symbol,
                 minter: _env.contract.address.to_string(),
             })?,
             funds: vec![],
             admin: Some(_env.contract.address.to_string()),
-            label: String::from(escrow_name),
+            label: escrow_name,
         }
         .into(),
         id: INSTANTIATE_ESCROW721_REPLY_ID,
@@ -66,7 +66,6 @@ pub fn instantiate_escrow_contract(
         .add_submessages(sub_msgs))
 }
 
-
 fn construct_contract_name(_env: Env, msg: IbcChannelConnectMsg) -> String {
     // <chain_id>::<source_channel>/<source_port>:<dest_channel>/<dest_port>
     let channel: IbcChannel = msg.into();
@@ -80,7 +79,7 @@ fn construct_contract_name(_env: Env, msg: IbcChannelConnectMsg) -> String {
 }
 
 fn construct_contract_symbol(contract_name: String) -> String {
-    let hash_msg: Vec<u8> =  Sha256::digest(&contract_name).to_vec();
+    let hash_msg: Vec<u8> = Sha256::digest(&contract_name).to_vec();
     let hash_msg_str = str::from_utf8(&hash_msg).unwrap();
     format!("ibc/{}", hash_msg_str)
 }
