@@ -128,15 +128,19 @@ pub fn get_owner(
     CW721ContractWrapper::default().owner_of(deps, env, class_id, token_id, include_expired)
 }
 
-fn get_nft(deps: Deps, class_id: String, token_id: String) -> StdResult<NftInfoResponse<Empty>> {
+pub fn get_nft(
+    deps: Deps,
+    class_id: String,
+    token_id: String,
+) -> StdResult<NftInfoResponse<Empty>> {
     CW721ContractWrapper::default().nft_info(deps, class_id, token_id)
 }
 
-fn has_class(deps: Deps, class_id: String) -> bool {
+pub fn has_class(deps: Deps, class_id: String) -> bool {
     CLASS_STORAGE.has(deps.storage, &class_id)
 }
 
-fn get_class(deps: Deps, class_id: String) -> StdResult<(String, String)> {
+pub fn get_class(deps: Deps, class_id: String) -> StdResult<(String, String)> {
     match CLASS_STORAGE.load(deps.storage, &class_id.clone()) {
         Ok(class_uri) => Ok((class_id, class_uri)),
         Err(_) => Err(StdError::generic_err(format!(
