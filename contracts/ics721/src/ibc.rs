@@ -8,7 +8,7 @@ use cosmwasm_std::{
     attr, entry_point, from_binary, to_binary, Binary, DepsMut, Empty, Env, IbcBasicResponse,
     IbcChannel, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder,
     IbcPacket, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse,
-    Reply, Response, SubMsg, SubMsgResult, WasmMsg,
+    SubMsg, WasmMsg,
 };
 
 use crate::error::{ContractError, Never};
@@ -88,21 +88,6 @@ fn ack_fail(err: String) -> Binary {
 }
 
 const SEND_NFT_ID: u64 = 1338;
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, ContractError> {
-    if reply.id != SEND_NFT_ID {
-        return Err(ContractError::UnknownReplyId { id: reply.id });
-    }
-    let res = match reply.result {
-        SubMsgResult::Ok(_) => Response::new(),
-        SubMsgResult::Err(err) => {
-            // encode an acknowledgement error
-            Response::new().set_data(ack_fail(err))
-        }
-    };
-    Ok(res)
-}
 
 // IBC entrypoint 1
 #[cfg_attr(not(feature = "library"), entry_point)]
