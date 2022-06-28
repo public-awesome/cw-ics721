@@ -7,7 +7,6 @@ use cw20_ics20::state::ChannelInfo;
 use cw721_base_ibc::msg::InstantiateMsg;
 use cw_storage_plus::{Item, Map};
 use error::ContractError;
-use rustc_serialize::hex::ToHex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -151,7 +150,7 @@ pub fn construct_escrow_name(_env: Env, msg: IbcChannelConnectMsg) -> String {
 }
 
 fn construct_escrow_symbol(contract_name: String) -> String {
-    let hash_msg = Sha256::digest(contract_name.as_bytes());
-    let hash_result = Sha256::digest(&hash_msg).as_slice().to_hex();
-    format!("ibc/{}", hash_result)
+    let hash_encode = Sha256::digest(contract_name.as_bytes());
+    let hex_string = hex::encode(hash_encode);
+    format!("ibc/{}", hex_string)
 }
