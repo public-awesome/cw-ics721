@@ -6,6 +6,9 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Never {}
 
+pub const ERROR_ESCROW_MAP_SAVE: &str = "Error on escrow map save";
+pub const ERROR_INSTANTIATE_ESCROW_REPLY: &str = "Error on instantiate escrow contract parse reply";
+
 #[derive(Error, Debug)]
 pub enum ContractError {
     #[error("{0}")]
@@ -40,4 +43,10 @@ pub enum ContractError {
 
     #[error("NoSuchNft")]
     NoSuchNft { class_id: String },
+
+    #[error("Invalid reply ID")]
+    InvalidReplyID {},
+
+    #[error("Instantiate escrow721 error")]
+    InstantiateEscrow721Error { msg: String },
 }

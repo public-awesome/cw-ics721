@@ -152,6 +152,37 @@ pub fn ibc_channel_connect(
     enforce_order_and_version(msg.channel(), msg.counterparty_version())?;
 
     let channel: IbcChannel = msg.into();
+    //     let already_exists = ESCROW_STORAGE_MAP.may_load(deps.storage, &escrow_name).unwrap();
+
+    //     match already_exists {
+    //         Some(escrow_metadata) => {
+    //             match escrow_metadata.is_active{
+    //                 false => {
+    //                     // change is active to true
+    //                     },
+    //                 true => {}
+    //             }
+    //         },
+    //         None => {let contract_addr = instantiate_escrow_contract( deps, _env, msg);
+    //                 match contract_addr {
+    //                     Ok(Response { messages, .. }) => {
+    //                         ESCROW_STORAGE_MAP.save(deps.storage, &messages[0]., &EscrowMetadata {contract_address: string_contract.to_string(), is_active: true});
+    //                     },
+    //                     Err(_data) => {}
+    //                 }
+    //     }
+    // }
+    // match contract_addr {
+    //     Ok(string_addr) => {},
+    //     Err(_err_data) => {}
+    // }
+
+    // ESCROW_STORAGE_MAP
+
+    // let exists = CHANNEL_STATE.may_load(&deps.storage, (send_channel, contract_addr, "1"));
+    // assert_eq!(exists, Ok(Some(Empty {})));
+    // assert_eq!(exists, Ok(None));
+
     let info = ChannelInfo {
         id: channel.endpoint.channel_id,
         counterparty_endpoint: channel.counterparty_endpoint,

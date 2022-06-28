@@ -1,19 +1,15 @@
-use crate::error::EscrowContractError;
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{attr, Response, StdError};
 #[cfg(not(feature = "library"))]
-use cosmwasm_std::{
-    to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Reply, StdResult,
-};
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, StdResult};
 use cw721_base_ibc::msg::{ExecuteMsg, InstantiateMsg, MintMsg, QueryMsg};
 use cw721_base_ibc::{ContractError, Cw721Contract};
 
 use cw721_ibc::{Cw721Execute, Cw721Query, NftInfoResponse, OwnerOfResponse};
-use cw_utils::parse_reply_instantiate_data;
-pub type CW721ContractWrapper<'a> = Cw721Contract<'a, Empty, Empty>;
-use crate::state::{CLASS_STORAGE, ESCROW_ADDRESSES};
 
-const INSTANTIATE_ESCROW_REPLY_ID: u64 = 9;
+use crate::state::CLASS_STORAGE;
+
+pub type CW721ContractWrapper<'a> = Cw721Contract<'a, Empty, Empty>;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -147,22 +143,5 @@ pub fn get_class(deps: Deps, class_id: String) -> StdResult<(String, String)> {
             "Class {} not found",
             class_id
         ))),
-    }
-}
-
-// Reply callback triggered from cw721 contract instantiation
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, EscrowContractError> {
-    if msg.id != INSTANTIATE_ESCROW_REPLY_ID {
-        return Err(EscrowContractError::InvalidReplyID {});
-    }
-
-    let reply = parse_reply_instantiate_data(msg);
-    match reply {
-        Ok(res) => {
-            ESCROW_ADDRESSES.save(deps.storage, &Addr::unchecked(res.contract_address))?;
-            Ok(Response::default().add_attribute("action", "instantiate_escrow721_reply"))
-        }
-        Err(_) => Err(EscrowContractError::InstantiateEscrow721Error {}),
     }
 }
