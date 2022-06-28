@@ -1,12 +1,13 @@
 use crate::error;
 use cosmwasm_std::{
-    to_binary, Addr, DepsMut, Empty, Env, IbcChannel, IbcChannelConnectMsg, ReplyOn, Response,
+    to_binary, Addr, Empty, Env, IbcChannel, IbcChannelConnectMsg, ReplyOn, Response, Storage,
     SubMsg, WasmMsg,
 };
 use cw20_ics20::state::ChannelInfo;
 use cw721_base_ibc::msg::InstantiateMsg;
 use cw_storage_plus::{Item, Map};
 use error::ContractError;
+use rustc_serialize::hex::ToHex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -48,49 +49,73 @@ pub struct CurrentEscrowData {
 pub const CURRENT_ESCROW_DATA: Item<CurrentEscrowData> = Item::new("current_escrow_data");
 
 pub fn instantiate_escrow_contract(
-    _deps: DepsMut,
+    storage: &mut dyn Storage,
     _env: Env,
     msg: IbcChannelConnectMsg,
 ) -> Result<Response, ContractError> {
     let escrow_name = construct_escrow_name(_env.clone(), msg);
     let escrow_symbol = construct_escrow_symbol(escrow_name.clone());
+    let mut response = construct_response(_env.clone().contract.address);
 
-    let mut response = Response::new()
+    let already_exists = ESCROW_STORAGE_MAP.may_load(storage, &escrow_name).unwrap();
+    match already_exists {
+        Some(escrow_metadata) => set_escrow_is_active(storage, escrow_name, escrow_metadata),
+        None => {
+            response = add_submsg_to_response(storage, _env, response, escrow_name, escrow_symbol);
+        }
+    }
+    Ok(response)
+}
+
+fn construct_response(contract_address: Addr) -> Response {
+    Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("contract_name", CONTRACT_NAME)
         .add_attribute("contract_version", CONTRACT_VERSION)
-        .add_attribute("sender", _env.contract.address.to_string());
+        .add_attribute("sender", contract_address.to_string())
+}
 
-    let already_exists = ESCROW_STORAGE_MAP
-        .may_load(_deps.storage, &escrow_name)
-        .unwrap();
-    match already_exists {
-        Some(escrow_metadata) => match escrow_metadata.is_active {
-            true => {}
-            false => {
-                ESCROW_STORAGE_MAP.save(
-                    _deps.storage,
+fn set_escrow_is_active(
+    storage: &mut dyn Storage,
+    escrow_name: String,
+    escrow_metadata: EscrowMetadata,
+) {
+    match escrow_metadata.is_active {
+        true => {}
+        false => {
+            ESCROW_STORAGE_MAP
+                .save(
+                    storage,
                     &escrow_name,
                     &EscrowMetadata {
                         contract_address: escrow_metadata.contract_address,
                         is_active: true,
                     },
-                )?;
-            }
-        },
-        None => {
-            CURRENT_ESCROW_DATA.save(
-                _deps.storage,
-                &CurrentEscrowData {
-                    escrow_name: escrow_name.clone(),
-                },
-            )?;
-            let sub_msg = get_submsg(_env, escrow_name, escrow_symbol);
-            response = response.add_submessage(sub_msg);
+                )
+                .unwrap();
         }
     }
-    Ok(response)
 }
+
+fn add_submsg_to_response(
+    storage: &mut dyn Storage,
+    _env: Env,
+    response: Response,
+    escrow_name: String,
+    escrow_symbol: String,
+) -> Response {
+    CURRENT_ESCROW_DATA
+        .save(
+            storage,
+            &CurrentEscrowData {
+                escrow_name: escrow_name.clone(),
+            },
+        )
+        .unwrap();
+    let sub_msg = get_submsg(_env, escrow_name, escrow_symbol);
+    response.add_submessage(sub_msg)
+}
+
 fn get_submsg(_env: Env, escrow_name: String, escrow_symbol: String) -> SubMsg {
     SubMsg {
         msg: get_wasm_msg(_env, escrow_name, escrow_symbol).into(),
@@ -126,7 +151,7 @@ pub fn construct_escrow_name(_env: Env, msg: IbcChannelConnectMsg) -> String {
 }
 
 fn construct_escrow_symbol(contract_name: String) -> String {
-    let hash_msg: Vec<u8> = Sha256::digest(&contract_name).to_vec();
-    let hash_msg_str = str::from_utf8(&hash_msg).unwrap();
-    format!("ibc/{}", hash_msg_str)
+    let hash_msg = Sha256::digest(contract_name.as_bytes());
+    let hash_result = Sha256::digest(&hash_msg).as_slice().to_hex();
+    format!("ibc/{}", hash_result)
 }

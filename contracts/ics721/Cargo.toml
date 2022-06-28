@@ -42,6 +42,7 @@ schemars = "0.8.8"
 serde = { version = "1.0.133", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.30" }
 sha2 = "0.10.2"
+rustc-serialize = "0.3"
 
 [dev-dependencies]
 cosmwasm-schema = { version = "1.0.0" }

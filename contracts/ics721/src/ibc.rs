@@ -12,7 +12,7 @@ use cosmwasm_std::{
 };
 
 use crate::error::{ContractError, Never};
-use crate::state::{CHANNEL_INFO, CHANNEL_STATE};
+use crate::state::{instantiate_escrow_contract, CHANNEL_INFO, CHANNEL_STATE};
 
 pub const ICS721_VERSION: &str = "ics721-1";
 pub const ICS721_ORDERING: IbcOrder = IbcOrder::Unordered;
@@ -134,48 +134,23 @@ pub fn ibc_channel_connect(
     msg: IbcChannelConnectMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     // we need to check the counter party version in try and ack (sometimes here)
-    enforce_order_and_version(msg.channel(), msg.counterparty_version())?;
+    enforce_order_and_version(msg.channel(), msg.clone().counterparty_version())?;
 
-    let channel: IbcChannel = msg.into();
-    //     let already_exists = ESCROW_STORAGE_MAP.may_load(deps.storage, &escrow_name).unwrap();
+    let channel: IbcChannel = msg.clone().into();
+    let result = instantiate_escrow_contract(deps.storage, _env, msg);
+    match result {
+        Ok(_) => {
+            let info = ChannelInfo {
+                id: channel.endpoint.channel_id,
+                counterparty_endpoint: channel.counterparty_endpoint,
+                connection_id: channel.connection_id,
+            };
+            CHANNEL_INFO.save(deps.storage, &info.id, &info)?;
 
-    //     match already_exists {
-    //         Some(escrow_metadata) => {
-    //             match escrow_metadata.is_active{
-    //                 false => {
-    //                     // change is active to true
-    //                     },
-    //                 true => {}
-    //             }
-    //         },
-    //         None => {let contract_addr = instantiate_escrow_contract( deps, _env, msg);
-    //                 match contract_addr {
-    //                     Ok(Response { messages, .. }) => {
-    //                         ESCROW_STORAGE_MAP.save(deps.storage, &messages[0]., &EscrowMetadata {contract_address: string_contract.to_string(), is_active: true});
-    //                     },
-    //                     Err(_data) => {}
-    //                 }
-    //     }
-    // }
-    // match contract_addr {
-    //     Ok(string_addr) => {},
-    //     Err(_err_data) => {}
-    // }
-
-    // ESCROW_STORAGE_MAP
-
-    // let exists = CHANNEL_STATE.may_load(&deps.storage, (send_channel, contract_addr, "1"));
-    // assert_eq!(exists, Ok(Some(Empty {})));
-    // assert_eq!(exists, Ok(None));
-
-    let info = ChannelInfo {
-        id: channel.endpoint.channel_id,
-        counterparty_endpoint: channel.counterparty_endpoint,
-        connection_id: channel.connection_id,
-    };
-    CHANNEL_INFO.save(deps.storage, &info.id, &info)?;
-
-    Ok(IbcBasicResponse::default())
+            Ok(IbcBasicResponse::default())
+        }
+        Err(error) => Err(error),
+    }
 }
 
 fn enforce_order_and_version(
