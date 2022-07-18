@@ -11,8 +11,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/public-awesome/stargaze/v4/app"
-	"github.com/public-awesome/stargaze/v4/testutil/simapp"
+	"github.com/public-awesome/stargaze/v6/app"
+	"github.com/public-awesome/stargaze/v6/testutil/simapp"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/crypto/secp256k1"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
@@ -64,7 +64,7 @@ func LoadChain(t *testing.T) (addr1 sdk.AccAddress, ctx sdk.Context, app *app.Ap
 	// wasm params
 	wasmParams := app.WasmKeeper.GetParams(ctx)
 	wasmParams.CodeUploadAccess = wasmtypes.AllowEverybody
-	wasmParams.MaxWasmCodeSize = 1000 * 1024 * 4 // 4MB
+
 	app.WasmKeeper.SetParams(ctx, wasmParams)
 
 	priv1 := secp256k1.GenPrivKey()
