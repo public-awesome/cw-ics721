@@ -17,4 +17,13 @@ pub enum ContractError {
 
     #[error("ICS 721 channels may not be closed.")]
     CantCloseChannel {},
+
+    #[error("Unrecognised class ID")]
+    UnrecognisedClassId {},
+
+    #[error("Class ID already exists")]
+    ClassIdAlreadyExists {},
+
+    #[error("Unrecognised reply ID")]
+    UnrecognisedReplyId {},
 }

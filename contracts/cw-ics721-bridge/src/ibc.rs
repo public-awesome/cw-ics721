@@ -1,10 +1,12 @@
 use cosmwasm_std::{
     entry_point, to_binary, Binary, DepsMut, Empty, Env, IbcBasicResponse, IbcChannel,
-    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcOrder, StdError, StdResult,
+    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcOrder, Reply, Response,
+    StdError, StdResult, SubMsgResult,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::helpers::{BURN_SUB_MSG_REPLY_ID, MINT_SUB_MSG_REPLY_ID, TRANSFER_SUB_MSG_REPLY_ID};
 use crate::{state::CHANNELS, ContractError};
 
 #[derive(Serialize, Deserialize, JsonSchema)]
@@ -31,6 +33,27 @@ pub struct NonFungibleTokenPacketData {
 }
 
 pub const IBC_VERSION: &str = "ics721-1";
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, ContractError> {
+    match reply.id {
+        MINT_SUB_MSG_REPLY_ID => Ok(()),
+        TRANSFER_SUB_MSG_REPLY_ID => Ok(()),
+        BURN_SUB_MSG_REPLY_ID => Ok(()),
+        _ => Err(ContractError::UnrecognisedReplyId {}),
+    }?;
+
+    match reply.result {
+        // On success we do nothing as all is ok!
+        SubMsgResult::Ok(_) => Ok(Response::new()),
+        // On error we need to use set_data to override the data field from our
+        // caller, the IBC packet recv, and acknowledge our failure.
+        // As per: https://github.com/CosmWasm/cosmwasm/blob/main/SEMANTICS.md#handling-the-reply
+        SubMsgResult::Err(err) => Ok(Response::new().set_data(
+            ack_fail(&err).unwrap_or_else(|e| ack_fail("An unexpected error occurred - error text is hidden because it would serialize as ACK success.")?),
+        )),
+    }
+}
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_channel_open(
