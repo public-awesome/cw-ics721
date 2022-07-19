@@ -50,7 +50,7 @@ pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contra
         // caller, the IBC packet recv, and acknowledge our failure.
         // As per: https://github.com/CosmWasm/cosmwasm/blob/main/SEMANTICS.md#handling-the-reply
         SubMsgResult::Err(err) => Ok(Response::new().set_data(
-            ack_fail(&err).unwrap_or_else(|e| ack_fail("An unexpected error occurred - error text is hidden because it would serialize as ACK success.")?),
+            ack_fail(&err).unwrap_or_else(|_e| ack_fail("An unexpected error occurred - error text is hidden because it would serialize as ACK success.").unwrap()),
         )),
     }
 }
