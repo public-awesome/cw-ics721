@@ -1,13 +1,14 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, DepsMut, Env, IbcBasicResponse, IbcChannel,
-    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcOrder, StdError, StdResult,
+    entry_point, to_binary, Binary, DepsMut, Empty, Env, IbcBasicResponse, IbcChannel,
+    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcOrder, StdError, StdResult,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::ContractError;
+use crate::{state::CHANNELS, ContractError};
 
 #[derive(Serialize, Deserialize, JsonSchema)]
+#[allow(non_snake_case)]
 pub struct NonFungibleTokenPacketData {
     /// Uniquely identifies the collection which the tokens being
     /// transfered belong to on the sending chain.
@@ -33,8 +34,8 @@ pub const IBC_VERSION: &str = "ics721-1";
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_channel_open(
-    deps: DepsMut,
-    env: Env,
+    _deps: DepsMut,
+    _env: Env,
     msg: IbcChannelOpenMsg,
 ) -> Result<(), ContractError> {
     validate_order_and_version(msg.channel(), msg.counterparty_version())
@@ -43,21 +44,44 @@ pub fn ibc_channel_open(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_channel_connect(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     msg: IbcChannelConnectMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     validate_order_and_version(msg.channel(), msg.counterparty_version())?;
 
-    todo!()
+    CHANNELS.save(
+        deps.storage,
+        msg.channel().endpoint.channel_id.clone(),
+        &Empty {},
+    )?;
+
+    Ok(IbcBasicResponse::new().add_attribute("method", "ibc_channel_connect"))
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn ibc_channel_close(
+    _deps: DepsMut,
+    _env: Env,
+    msg: IbcChannelCloseMsg,
+) -> Result<IbcBasicResponse, ContractError> {
+    match msg {
+        IbcChannelCloseMsg::CloseInit { channel: _ } => Err(ContractError::CantCloseChannel {}),
+        IbcChannelCloseMsg::CloseConfirm { channel: _ } => {
+            unreachable!("Channel can not be closed.")
+        }
+        _ => unreachable!("Channel can not be closed."),
+    }
 }
 
 /// Success ACK. 0x01 base64 encoded.
+#[allow(dead_code)]
 fn ack_success() -> StdResult<Binary> {
     to_binary("AQ==")
 }
 
 /// Fail ACK. Contains some arbitrary message. This message can not be
 /// 'AQ==' otherwise it will be parsed as a success message.
+#[allow(dead_code)]
 fn ack_fail(message: &str) -> StdResult<Binary> {
     if message == "AQ==" {
         Err(StdError::serialize_err(
