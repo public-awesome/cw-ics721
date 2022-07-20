@@ -2,7 +2,15 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct InstantiateMsg {}
+pub struct InstantiateMsg {
+    /// Code ID of cw721 contract. A new cw721 will be instantiated
+    /// for each new IBCd NFT classID.
+    cw721_code_id: u64,
+    /// Code ID for ics-escrow contract. This holds NFTs while they
+    /// are away on different chains until they return. A new escrow
+    /// is created for each local connection tuple (port, channel).
+    escrow_code_id: u64,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -15,6 +23,43 @@ pub enum ExecuteMsg {
     },
     /// Burn the NFT identified by class_id and token_id
     Burn { class_id: String, token_id: String },
+    /// Mints a NFT of collection class_id for receiver with the
+    /// provided id and metadata. Only callable by this contract.
+    Mint {
+        /// The class_id to mint for. This must have previously been
+        /// created with `SaveClass`.
+        class_id: String,
+        /// Unique identifiers for the tokens.
+        token_ids: Vec<String>,
+        /// Urls pointing to metadata about the NFTs to mint. For
+        /// example, this may point to ERC721 metadata on IPFS. Must
+        /// be the same length as token_ids. token_uris[i] is the
+        /// metadata for token_ids[i].
+        token_uris: Vec<String>,
+        /// The address that ought to receive the NFTs. This is a
+        /// local address, not a bech32 public key.
+        receiver: String,
+    },
+    /// Much like mint, but will instantiate a new cw721 contract iff
+    /// the classID does not have one yet. Needed because we can only
+    /// dispatch one submessage at a time from `ibc_packet_receive`
+    /// and properly handle IBC error handling. Only callable by this
+    /// contract.
+    DoInstantiateAndMint {
+        /// The class_id to mint for. This must have previously been
+        /// created with `SaveClass`.
+        class_id: String,
+        /// Unique identifiers for the tokens being transfered.
+        token_ids: Vec<String>,
+        /// A list of urls pointing to metadata about the NFTs. For
+        /// example, this may point to ERC721 metadata on ipfs.
+        ///
+        /// Must be the same length as token_ids.
+        token_uris: Vec<String>,
+        /// The address that ought to receive the NFT. This is a local
+        /// address, not a bech32 public key.
+        receiver: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]

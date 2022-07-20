@@ -1,9 +1,10 @@
 use cosmwasm_std::StdError;
+use cw_utils::ParseReplyError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ContractError {
-    #[error("{0}")]
+    #[error(transparent)]
     Std(#[from] StdError),
 
     #[error("Unauthorized")]
@@ -26,4 +27,14 @@ pub enum ContractError {
 
     #[error("Unrecognised reply ID")]
     UnrecognisedReplyId {},
+
+    #[error(transparent)]
+    ParseReplyError(#[from] ParseReplyError),
+
+    #[error("must provide same number of token IDs and URIs")]
+    ImbalancedTokenInfo {},
 }
+
+/// Enum that can never be constructed. Used as an error type where we
+/// can not error.
+pub enum Never {}
