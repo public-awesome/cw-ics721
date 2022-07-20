@@ -19,7 +19,7 @@ pub fn save_class(deps: DepsMut, class_id: String, class_uri: String) -> Result<
     }
 
     CLASS_ID_TO_CLASS_URI.save(deps.storage, class_id.clone(), &validated_class_uri)?;
-    CLASS_URI_TO_CLASS_ID.save(deps.storage, validated_class_uri.clone(), &class_id)?;
+    CLASS_URI_TO_CLASS_ID.save(deps.storage, validated_class_uri, &class_id)?;
 
     Ok(())
 }
