@@ -1,4 +1,4 @@
-use crate::msg::{ExecuteMsg, InstantiateMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use cosmwasm_std::{Addr, Empty};
 use cw721::OwnerOfResponse;
 use cw_multi_test::{App, AppResponse, Contract, ContractWrapper, Executor};
@@ -120,10 +120,17 @@ fn owner_of(app: &mut App, addr: Addr, token_id: &str) -> OwnerOfResponse {
     app.wrap().query_wasm_smart(addr, &msg).unwrap()
 }
 
+fn admin_address(app: &mut App, addr: Addr) -> Addr {
+    let msg = QueryMsg::AdminAddress {};
+    app.wrap().query_wasm_smart(addr, &msg).unwrap()
+}
+
 #[test]
 fn test_instantiate() {
     let mut app = App::default();
-    let _escrow = instantiate_escrow(&mut app, ADMIN);
+    let escrow = instantiate_escrow(&mut app, ADMIN);
+    let admin_address = admin_address(&mut app, escrow);
+    assert_eq!(admin_address, Addr::unchecked(ADMIN))
 }
 
 #[test]

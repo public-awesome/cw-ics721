@@ -44,13 +44,13 @@ cosmwasm-std = "1.0.0"
 cosmwasm-storage = "1.0.0"
 cw-storage-plus = "0.13.2"
 cw2 = "0.13.2"
-cw721 = "0.13.2"
+cw721 = "0.13"
 schemars = "0.8.8"
 serde = { version = "1.0.137", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.31" }
 
 [dev-dependencies]
+cw721-base = "0.13"
 anyhow = "1.0.58"
-cw721-base = "0.13.2"
 cosmwasm-schema = "1.0.0"
 cw-multi-test = "0.13.2"

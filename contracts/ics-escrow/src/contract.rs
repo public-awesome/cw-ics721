@@ -75,6 +75,8 @@ fn execute_withdraw(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
-    match msg {}
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::AdminAddress {} => to_binary(&ADMIN_ADDRESS.load(deps.storage)?),
+    }
 }
