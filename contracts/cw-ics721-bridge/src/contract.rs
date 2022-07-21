@@ -282,13 +282,21 @@ fn execute_receive_nft(
     //
     // To avoid special logic when receiving packets, we go the save
     // route. We can change this back later if we'd like.
-    NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, info.sender.clone(), &info.sender.to_string())?;
-    CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, info.sender.to_string(), &info.sender)?;
+    if !NFT_CONTRACT_TO_CLASS_ID.has(deps.storage, info.sender.clone()) {
+        // This is a new NFT so we give it a "classID". If the map
+        // does have the key, it means that either (a) we have seen
+        // the contract before, or (b) this is a NFT that we received
+        // over IBC and made a new contract for.
+        NFT_CONTRACT_TO_CLASS_ID.save(
+            deps.storage,
+            info.sender.clone(),
+            &info.sender.to_string(),
+        )?;
+        CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, info.sender.to_string(), &info.sender)?;
+    }
 
     // Class ID is the IBCd ID, or the contract address.
-    let class_id = NFT_CONTRACT_TO_CLASS_ID
-        .may_load(deps.storage, info.sender.clone())?
-        .unwrap_or_else(|| info.sender.to_string());
+    let class_id = NFT_CONTRACT_TO_CLASS_ID.load(deps.storage, info.sender.clone())?;
 
     // Can't allow specifying the class URI in the message as this
     // could cause multiple different class IDs to be submitted for
