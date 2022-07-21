@@ -37,6 +37,7 @@ fn instantiate_escrow(app: &mut App, admin_address: &str) -> Addr {
         id,
         Addr::unchecked(ADMIN),
         &InstantiateMsg {
+            channel_id: "channel-1".to_string(),
             admin_address: admin_address.to_string(),
         },
         &[],
@@ -105,7 +106,7 @@ fn withdraw(
     receiver: &str,
 ) -> anyhow::Result<AppResponse> {
     let msg = ExecuteMsg::Withdraw {
-        class_uri: class_uri.to_string(),
+        nft_address: class_uri.to_string(),
         token_id: token_id.to_string(),
         receiver: receiver.to_string(),
     };

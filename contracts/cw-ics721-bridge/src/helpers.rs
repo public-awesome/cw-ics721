@@ -8,6 +8,9 @@ pub const TRANSFER_SUB_MSG_REPLY_ID: u64 = 1;
 pub const BURN_SUB_MSG_REPLY_ID: u64 = 2;
 pub const INSTANTIATE_AND_MINT_CW721_REPLY_ID: u64 = 3;
 pub const INSTANTIATE_CW721_REPLY_ID: u64 = 4;
+pub const INSTANTIATE_ESCROW_REPLY_ID: u64 = 5;
+pub const FAILURE_RESPONSE_FAILURE_REPLY_ID: u64 = 6;
+pub const BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID: u64 = 7;
 
 pub fn save_class(deps: DepsMut, class_id: String, class_uri: String) -> Result<(), ContractError> {
     if CLASS_ID_TO_NFT_CONTRACT.has(deps.storage, class_id.clone()) {
@@ -55,7 +58,7 @@ pub fn mint(
 }
 
 pub fn transfer(
-    deps: DepsMut,
+    deps: Deps,
     class_id: String,
     token_id: String,
     receiver: String,
@@ -83,7 +86,7 @@ pub fn transfer(
     Ok(msg)
 }
 
-pub fn burn(deps: DepsMut, class_id: String, token_id: String) -> Result<SubMsg, ContractError> {
+pub fn burn(deps: Deps, class_id: String, token_id: String) -> Result<SubMsg, ContractError> {
     if !CLASS_ID_TO_NFT_CONTRACT.has(deps.storage, class_id.clone()) {
         return Err(ContractError::UnrecognisedClassId {});
     }

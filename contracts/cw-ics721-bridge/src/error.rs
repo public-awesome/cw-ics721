@@ -7,25 +7,25 @@ pub enum ContractError {
     #[error(transparent)]
     Std(#[from] StdError),
 
-    #[error("Unauthorized")]
+    #[error("unauthorized")]
     Unauthorized {},
 
-    #[error("Only unordered channels are supported.")]
+    #[error("only unordered channels are supported")]
     OrderedChannel {},
 
-    #[error("Invalid IBC channel version. Got ({actual}), expected ({expected}).")]
+    #[error("invalid IBC channel version - got ({actual}), expected ({expected})")]
     InvalidVersion { actual: String, expected: String },
 
-    #[error("ICS 721 channels may not be closed.")]
+    #[error("ICS 721 channels may not be closed")]
     CantCloseChannel {},
 
-    #[error("Unrecognised class ID")]
+    #[error("unrecognised class ID")]
     UnrecognisedClassId {},
 
-    #[error("Class ID already exists")]
+    #[error("class ID already exists")]
     ClassIdAlreadyExists {},
 
-    #[error("Unrecognised reply ID")]
+    #[error("unrecognised reply ID")]
     UnrecognisedReplyId {},
 
     #[error(transparent)]
@@ -33,6 +33,13 @@ pub enum ContractError {
 
     #[error("must provide same number of token IDs and URIs")]
     ImbalancedTokenInfo {},
+
+    #[error("unexpected uri for classID {class_id} - got ({actual:?}), expected ({expected:?})")]
+    ClassUriClash {
+        class_id: String,
+        expected: Option<String>,
+        actual: Option<String>,
+    },
 }
 
 /// Enum that can never be constructed. Used as an error type where we

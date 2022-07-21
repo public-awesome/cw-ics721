@@ -181,6 +181,7 @@ dependencies = [
  "cw2",
  "cw721",
  "cw721-base",
+ "ics-escrow",
  "schemars",
  "serde",
  "thiserror",

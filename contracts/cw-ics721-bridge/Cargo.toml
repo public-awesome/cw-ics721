@@ -32,6 +32,7 @@ cw721-base = { version = "0.13.2", features = ["library"] }
 schemars = "0.8.8"
 serde = { version = "1.0.137", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.31" }
+ics-escrow = { version = "0.1.0", path = "../ics-escrow" }
 
 [dev-dependencies]
 cosmwasm-schema = "1.0.0"

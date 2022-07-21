@@ -1,3 +1,4 @@
+use cosmwasm_std::IbcTimeout;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +13,7 @@ pub struct InstantiateMsg {
     escrow_code_id: u64,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     /// Transfer the NFT identified by class_id and token_id to receiver
@@ -49,6 +50,8 @@ pub enum ExecuteMsg {
         /// The class_id to mint for. This must have previously been
         /// created with `SaveClass`.
         class_id: String,
+        /// The URI for this class ID.
+        class_uri: Option<String>,
         /// Unique identifiers for the tokens being transfered.
         token_ids: Vec<String>,
         /// A list of urls pointing to metadata about the NFTs. For
@@ -60,9 +63,33 @@ pub enum ExecuteMsg {
         /// address, not a bech32 public key.
         receiver: String,
     },
+    /// Receives a NFT to be IBC transfered away. The `msg` field must
+    /// be a binary encoded `IbcAwayMsg`.
+    ReceiveNft(cw721::Cw721ReceiveMsg),
+    /// Transfers a group of NFTs from the escrow for a the given
+    /// channel. Callable only by the contract.
+    BatchTransferFromChannel {
+        channel: String,
+        class_id: String,
+        token_ids: Vec<String>,
+        receiver: String,
+    },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema)]
+pub struct IbcAwayMsg {
+    /// The address that should receive the NFT being sent on the
+    /// *receiving chain*.
+    pub receiver: String,
+    /// The *local* channel ID this ought to be sent away on. This
+    /// contract must have a connection on this channel.
+    pub channel_id: String,
+    /// Timeout for the IBC message. TODO: make this optional and set
+    /// default?
+    pub timeout: IbcTimeout,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     /// Returns the current owner of the NFT identified by class_id and token_id
