@@ -10,9 +10,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::Never;
 use crate::helpers::{
-    BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID, BURN_SUB_MSG_REPLY_ID, FAILURE_RESPONSE_FAILURE_REPLY_ID,
-    INSTANTIATE_AND_MINT_CW721_REPLY_ID, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_ESCROW_REPLY_ID,
-    MINT_SUB_MSG_REPLY_ID, TRANSFER_SUB_MSG_REPLY_ID,
+    BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID, BURN_ESCROW_TOKENS_REPLY_ID, BURN_SUB_MSG_REPLY_ID,
+    FAILURE_RESPONSE_FAILURE_REPLY_ID, INSTANTIATE_AND_MINT_CW721_REPLY_ID,
+    INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_ESCROW_REPLY_ID, MINT_SUB_MSG_REPLY_ID,
+    TRANSFER_SUB_MSG_REPLY_ID,
 };
 use crate::msg::ExecuteMsg;
 use crate::state::{CLASS_ID_TO_NFT_CONTRACT, ESCROW_CODE_ID, NFT_CONTRACT_TO_CLASS_ID};
@@ -214,14 +215,48 @@ fn do_ibc_packet_receive(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_ack(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     ack: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     if let Some(error) = try_get_ack_error(&ack.acknowledgement)? {
         handle_packet_fail(deps.as_ref(), ack.original_packet, &error)
     } else {
         let msg: NonFungibleTokenPacketData = from_binary(&ack.original_packet.data)?;
+
+        // We only receive ACKs from our own packets. As such, if we
+        // get an ACK it means that we have sent a IBC message. If
+        // we're here, it means it has succeded.
+        //
+        // Now, if we were the sink chain for this NFT and the NFT is
+        // returning to its source chain, we need to burn it. For
+        // example, if chain B sent us a NFT and then it got sent back
+        // to chain B we should not keep that NFT in an escrow. This
+        // is because the purpose of the escrows is to do book keeping
+        // for _outgoing_ NFTs.
+        //
+        // We can't do the actual burning here because this method
+        // should be infalliable.
+        let prefix = get_endpoint_prefix(&ack.original_packet.src);
+        let messages = if msg.classId.starts_with(&prefix) {
+            let message = WasmMsg::Execute {
+                contract_addr: env.contract.address.into_string(),
+                msg: to_binary(&ExecuteMsg::BurnEscrowTokens {
+                    channel: ack.original_packet.src.channel_id,
+                    class_id: msg.classId.clone(),
+                    token_ids: msg.tokenIds.clone(),
+                })?,
+                funds: vec![],
+            };
+            let message = SubMsg::reply_always(message, BURN_ESCROW_TOKENS_REPLY_ID);
+            vec![message]
+        } else {
+            vec![]
+        };
+
+        // cw-plus' ics20 implementation doesn't add an ack_success
+        // here. TODO: should we?
         Ok(IbcBasicResponse::new()
+            .add_submessages(messages)
             .add_attribute("method", "acknowledge")
             .add_attribute("sender", msg.sender)
             .add_attribute("receiver", msg.receiver)
@@ -369,6 +404,7 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
         | BURN_SUB_MSG_REPLY_ID
         | INSTANTIATE_AND_MINT_CW721_REPLY_ID
         | BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID
+        | BURN_ESCROW_TOKENS_REPLY_ID
         | FAILURE_RESPONSE_FAILURE_REPLY_ID => {
             match reply.result {
                 // On success, set a successful ack. Nothing else to do.

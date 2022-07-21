@@ -11,6 +11,7 @@ pub const INSTANTIATE_CW721_REPLY_ID: u64 = 4;
 pub const INSTANTIATE_ESCROW_REPLY_ID: u64 = 5;
 pub const FAILURE_RESPONSE_FAILURE_REPLY_ID: u64 = 6;
 pub const BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID: u64 = 7;
+pub const BURN_ESCROW_TOKENS_REPLY_ID: u64 = 8;
 
 pub fn save_class(deps: DepsMut, class_id: String, class_uri: String) -> Result<(), ContractError> {
     if CLASS_ID_TO_NFT_CONTRACT.has(deps.storage, class_id.clone()) {

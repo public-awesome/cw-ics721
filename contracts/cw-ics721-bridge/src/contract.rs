@@ -89,6 +89,11 @@ pub fn execute(
             token_ids,
             receiver,
         ),
+        ExecuteMsg::BurnEscrowTokens {
+            channel,
+            class_id,
+            token_ids,
+        } => execute_burn_escrow_tokens(deps.as_ref(), env, info, channel, class_id, token_ids),
     }
 }
 
@@ -388,6 +393,36 @@ fn execute_batch_transfer_from_channel(
         .add_attribute("token_ids", format!("{:?}", token_ids))
         .add_attribute("receiver", receiver)
         .add_messages(transfer_messages))
+}
+
+fn execute_burn_escrow_tokens(
+    deps: Deps,
+    env: Env,
+    info: MessageInfo,
+    channel: String,
+    class_id: String,
+    token_ids: Vec<String>,
+) -> Result<Response, ContractError> {
+    if info.sender != env.contract.address {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    let escrow_addr = CHANNELS.load(deps.storage, channel.clone())?;
+    let cw721_addr = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class_id.clone())?;
+
+    Ok(Response::default()
+        .add_attribute("method", "burn_escrow_tokens")
+        .add_attribute("class_id", class_id)
+        .add_attribute("channel", channel)
+        .add_attribute("token_ids", format!("{:?}", token_ids))
+        .add_message(WasmMsg::Execute {
+            contract_addr: escrow_addr.into_string(),
+            msg: to_binary(&ics_escrow::msg::ExecuteMsg::Burn {
+                nft_address: cw721_addr.into_string(),
+                token_ids,
+            })?,
+            funds: vec![],
+        }))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

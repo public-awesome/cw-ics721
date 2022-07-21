@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg,
+    to_binary, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
 
@@ -42,6 +42,10 @@ pub fn execute(
             token_id,
             receiver,
         } => execute_withdraw(deps, env, info, nft_address, token_id, receiver),
+        ExecuteMsg::Burn {
+            nft_address,
+            token_ids,
+        } => execute_burn(deps.as_ref(), info, nft_address, token_ids),
     }
 }
 
@@ -74,6 +78,41 @@ fn execute_withdraw(
     Ok(Response::new()
         .add_attribute("action", "withdraw")
         .add_message(msg))
+}
+
+fn execute_burn(
+    deps: Deps,
+    info: MessageInfo,
+    nft_address: String,
+    token_ids: Vec<String>,
+) -> Result<Response, ContractError> {
+    let admin_address = ADMIN_ADDRESS.load(deps.storage)?;
+    if info.sender != admin_address {
+        return Err(ContractError::Unauthorized {});
+    }
+    deps.api.addr_validate(&nft_address)?;
+
+    let messages = token_ids
+        .into_iter()
+        .map(|token_id: String| -> StdResult<WasmMsg> {
+            Ok(WasmMsg::Execute {
+                contract_addr: nft_address.clone(),
+                // FIXME: cw721 doesn't have a burn option by default?
+                // Can't actually do this. Need more clever
+                // scheme. Likely will require that we're careful with
+                // how we mint.
+                //
+                // Might be OK because this should always be a
+                // contract that we have created.
+                msg: to_binary(&cw721_base::ExecuteMsg::<Empty>::Burn { token_id })?,
+                funds: vec![],
+            })
+        })
+        .collect::<StdResult<Vec<_>>>()?;
+
+    Ok(Response::new()
+        .add_attribute("method", "execute_burn")
+        .add_messages(messages))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

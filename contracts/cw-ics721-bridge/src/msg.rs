@@ -74,6 +74,13 @@ pub enum ExecuteMsg {
         token_ids: Vec<String>,
         receiver: String,
     },
+    /// Burns the specified tokens that are inside the escrow for the
+    /// specified channel. Only callable by this contract.
+    BurnEscrowTokens {
+        channel: String,
+        class_id: String,
+        token_ids: Vec<String>,
+    },
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]

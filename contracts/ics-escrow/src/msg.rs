@@ -16,6 +16,11 @@ pub enum ExecuteMsg {
         token_id: String,
         receiver: String,
     },
+    /// Burns a collection of tokens in the escrow.
+    Burn {
+        nft_address: String,
+        token_ids: Vec<String>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
