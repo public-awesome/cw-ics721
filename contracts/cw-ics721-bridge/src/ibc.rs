@@ -507,14 +507,14 @@ mod tests {
     use crate::contract::instantiate;
     use crate::msg::InstantiateMsg;
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockQuerier};
-    use cosmwasm_std::{attr, ContractResult, QuerierResult, SubMsgResponse, Timestamp, WasmQuery};
+    use cosmwasm_std::{attr, ContractResult, QuerierResult, SubMsgResponse, WasmQuery};
 
     // TODO: Check if these are ok, I kinda just stole
     //       them from ICS 20 and ours.
     const CONTRACT_PORT: &str = "wasm.address1";
     const REMOTE_PORT: &str = "stars.address1";
     const CONNECTION_ID: &str = "connection-2";
-    const DEFAULT_TIMEOUT: u64 = 3600; // 1 hour
+    // const DEFAULT_TIMEOUT: u64 = 3600; // 1 hour
 
     const ADDR1: &str = "addr1";
     const CW721_CODE_ID: u64 = 0;
@@ -573,11 +573,7 @@ mod tests {
         )
     }
 
-    fn do_instantiate(
-        mut deps: DepsMut,
-        env: Env,
-        sender: &str,
-    ) -> Result<Response, ContractError> {
+    fn do_instantiate(deps: DepsMut, env: Env, sender: &str) -> Result<Response, ContractError> {
         let msg = InstantiateMsg {
             cw721_code_id: CW721_CODE_ID,
             escrow_code_id: ESCROW_CODE_ID,
@@ -829,7 +825,6 @@ mod tests {
         // Instantiate the contract
         do_instantiate(deps.as_mut(), env.clone(), ADDR1).unwrap();
 
-        let channel = mock_channel("channel-1");
         // Add channel calls open and connect valid
         add_channel(deps.as_mut(), env, "channel-1");
     }
@@ -858,7 +853,7 @@ mod tests {
             CONNECTION_ID,
         );
 
-        let msg = IbcChannelOpenMsg::OpenInit { channel: channel };
+        let msg = IbcChannelOpenMsg::OpenInit { channel };
         ibc_channel_open(deps.as_mut(), env, msg).unwrap();
     }
 
@@ -888,7 +883,7 @@ mod tests {
             CONNECTION_ID,
         );
 
-        let msg = IbcChannelOpenMsg::OpenInit { channel: channel };
+        let msg = IbcChannelOpenMsg::OpenInit { channel };
         ibc_channel_open(deps.as_mut(), env, msg).unwrap();
     }
 
@@ -919,7 +914,7 @@ mod tests {
         );
 
         let msg = IbcChannelOpenMsg::OpenTry {
-            channel: channel,
+            channel,
             counterparty_version: "invalid_version".to_string(),
         };
         ibc_channel_open(deps.as_mut(), env, msg).unwrap();
@@ -933,7 +928,6 @@ mod tests {
         // Instantiate the contract
         do_instantiate(deps.as_mut(), env.clone(), ADDR1).unwrap();
 
-        let channel = mock_channel("channel-1");
         // Add channel calls open and connect valid
         add_channel(deps.as_mut(), env, "channel-1");
     }
