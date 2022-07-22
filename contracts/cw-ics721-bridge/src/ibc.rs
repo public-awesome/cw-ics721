@@ -504,8 +504,51 @@ fn validate_order_and_version(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, MockQuerier};
-    use cosmwasm_std::{attr, ContractResult, QuerierResult, SubMsgResponse, WasmQuery};
+    use crate::contract::instantiate;
+    use crate::msg::InstantiateMsg;
+    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MockQuerier};
+    use cosmwasm_std::{attr, ContractResult, QuerierResult, SubMsgResponse, Timestamp, WasmQuery};
+
+    // TODO: Check if these are ok, I kinda just stole
+    //       them from ICS 20 and ours.
+    const CONTRACT_PORT: &str = "wasm.address1";
+    const REMOTE_PORT: &str = "stars.address1";
+    const CONNECTION_ID: &str = "connection-2";
+    const DEFAULT_TIMEOUT: u64 = 3600; // 1 hour
+
+    const ADDR1: &str = "addr1";
+
+    fn mock_channel(channel_id: &str) -> IbcChannel {
+        IbcChannel::new(
+            IbcEndpoint {
+                port_id: CONTRACT_PORT.to_string(),
+                channel_id: channel_id.to_string(),
+            },
+            IbcEndpoint {
+                port_id: REMOTE_PORT.to_string(),
+                channel_id: format!("{}5", channel_id),
+            },
+            IbcOrder::Unordered,
+            IBC_VERSION,
+            CONNECTION_ID,
+        )
+    }
+
+    fn add_channel(mut deps: DepsMut, channel_id: &str) {
+        let channel = mock_channel(channel_id);
+        let open_msg = IbcChannelOpenMsg::new_init(channel.clone());
+        ibc_channel_open(deps.branch(), mock_env(), open_msg).unwrap();
+        let connect_msg = IbcChannelConnectMsg::new_ack(channel, IBC_VERSION);
+        ibc_channel_connect(deps.branch(), mock_env(), connect_msg).unwrap();
+    }
+
+    fn do_instantiate(mut deps: DepsMut, sender: &str) -> Result<Response, ContractError> {
+        let msg = InstantiateMsg {
+            cw721_code_id: 0,
+            escrow_code_id: 1,
+        };
+        instantiate(deps, mock_env(), mock_info(sender, &[]), msg)
+    }
 
     #[test]
     fn test_ack_success_encoding() {
@@ -741,5 +784,115 @@ mod tests {
             }),
         };
         reply(deps.as_mut(), mock_env(), rep).unwrap_err();
+    }
+
+    #[test]
+    fn test_ibc_channel_open() {
+        let mut deps = mock_dependencies();
+
+        // Instantiate the contract
+        do_instantiate(deps.as_mut(), ADDR1).unwrap();
+
+        let channel = mock_channel("channel-1");
+
+        // TODO: Do we need to call both, I just did it for the lols ngl
+        let msg = IbcChannelOpenMsg::OpenInit {
+            channel: channel.clone(),
+        };
+        ibc_channel_open(deps.as_mut(), mock_env(), msg).unwrap();
+
+        let msg = IbcChannelOpenMsg::OpenTry {
+            channel,
+            counterparty_version: IBC_VERSION.to_string(),
+        };
+        ibc_channel_open(deps.as_mut(), mock_env(), msg).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "OrderedChannel")]
+    fn test_ibc_channel_open_ordered_channel() {
+        let mut deps = mock_dependencies();
+
+        // Instantiate the contract
+        do_instantiate(deps.as_mut(), ADDR1).unwrap();
+
+        let channel_id = "channel-1";
+        let channel = IbcChannel::new(
+            IbcEndpoint {
+                port_id: CONTRACT_PORT.to_string(),
+                channel_id: channel_id.to_string(),
+            },
+            IbcEndpoint {
+                port_id: REMOTE_PORT.to_string(),
+                channel_id: format!("{}5", channel_id),
+            },
+            IbcOrder::Ordered,
+            IBC_VERSION,
+            CONNECTION_ID,
+        );
+
+        let msg = IbcChannelOpenMsg::OpenInit { channel: channel };
+        ibc_channel_open(deps.as_mut(), mock_env(), msg).unwrap();
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "InvalidVersion { actual: \"invalid_version\", expected: \"ics721-1\" }"
+    )]
+    fn test_ibc_channel_open_invalid_version() {
+        let mut deps = mock_dependencies();
+
+        // Instantiate the contract
+        do_instantiate(deps.as_mut(), ADDR1).unwrap();
+
+        let channel_id = "channel-1";
+        let channel = IbcChannel::new(
+            IbcEndpoint {
+                port_id: CONTRACT_PORT.to_string(),
+                channel_id: channel_id.to_string(),
+            },
+            IbcEndpoint {
+                port_id: REMOTE_PORT.to_string(),
+                channel_id: format!("{}5", channel_id),
+            },
+            IbcOrder::Unordered,
+            "invalid_version",
+            CONNECTION_ID,
+        );
+
+        let msg = IbcChannelOpenMsg::OpenInit { channel: channel };
+        ibc_channel_open(deps.as_mut(), mock_env(), msg).unwrap();
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "InvalidVersion { actual: \"invalid_version\", expected: \"ics721-1\" }"
+    )]
+    fn test_ibc_channel_open_invalid_version_counterparty() {
+        let mut deps = mock_dependencies();
+
+        // Instantiate the contract
+        do_instantiate(deps.as_mut(), ADDR1).unwrap();
+
+        let channel_id = "channel-1";
+        let channel = IbcChannel::new(
+            IbcEndpoint {
+                port_id: CONTRACT_PORT.to_string(),
+                channel_id: channel_id.to_string(),
+            },
+            IbcEndpoint {
+                port_id: REMOTE_PORT.to_string(),
+                channel_id: format!("{}5", channel_id),
+            },
+            IbcOrder::Unordered,
+            IBC_VERSION,
+            CONNECTION_ID,
+        );
+
+        let msg = IbcChannelOpenMsg::OpenTry {
+            channel: channel,
+            counterparty_version: "invalid_version".to_string(),
+        };
+        ibc_channel_open(deps.as_mut(), mock_env(), msg).unwrap();
     }
 }
