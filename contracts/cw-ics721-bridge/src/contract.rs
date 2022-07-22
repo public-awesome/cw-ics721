@@ -14,7 +14,7 @@ use crate::ibc::NonFungibleTokenPacketData;
 use crate::msg::{ExecuteMsg, IbcAwayMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
     UniversalNftInfoResponse, CHANNELS, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT,
-    CW721_CODE_ID, NFT_CONTRACT_TO_CLASS_ID,
+    CW721_CODE_ID, ESCROW_CODE_ID, NFT_CONTRACT_TO_CLASS_ID,
 };
 
 const CONTRACT_NAME: &str = "crates.io:cw-ics721-bridge";
@@ -25,10 +25,17 @@ pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    _msg: InstantiateMsg,
+    msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    todo!()
+
+    CW721_CODE_ID.save(deps.storage, &msg.cw721_code_id)?;
+    ESCROW_CODE_ID.save(deps.storage, &msg.escrow_code_id)?;
+
+    Ok(Response::default()
+        .add_attribute("method", "instantiate")
+        .add_attribute("cw721_code_id", msg.cw721_code_id.to_string())
+        .add_attribute("escrow_code_id", msg.escrow_code_id.to_string()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -322,7 +329,7 @@ fn execute_receive_nft(
         classId: class_id.clone(),
         classUri: class_uri,
         tokenIds: vec![token_id.clone()],
-        tokenUris: vec![token_uri.unwrap_or_default()], // Think about this later..
+        tokenUris: vec![token_uri.unwrap_or_default()], // Currently token_uri is optional in cw721 - we set to empty string as default.
         sender: sender.into_string(),
         receiver: msg.receiver,
     };

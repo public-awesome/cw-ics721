@@ -6,11 +6,11 @@ use serde::{Deserialize, Serialize};
 pub struct InstantiateMsg {
     /// Code ID of cw721 contract. A new cw721 will be instantiated
     /// for each new IBCd NFT classID.
-    cw721_code_id: u64,
+    pub cw721_code_id: u64,
     /// Code ID for ics-escrow contract. This holds NFTs while they
     /// are away on different chains until they return. A new escrow
     /// is created for each local connection tuple (port, channel).
-    escrow_code_id: u64,
+    pub escrow_code_id: u64,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
@@ -108,4 +108,5 @@ pub enum QueryMsg {
     HasClass { class_id: String },
     /// Returns the NFT Class identified by class_id
     GetClass { class_id: String },
+    // TODO: Add query for classURI given classID.
 }

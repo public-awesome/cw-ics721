@@ -97,13 +97,27 @@ fn execute_burn(
         .map(|token_id: String| -> StdResult<WasmMsg> {
             Ok(WasmMsg::Execute {
                 contract_addr: nft_address.clone(),
-                // FIXME: cw721 doesn't have a burn option by default?
-                // Can't actually do this. Need more clever
-                // scheme. Likely will require that we're careful with
-                // how we mint.
+                // This works despite the fact that we need to be
+                // compatible with the cw721 base spec (which does not
+                // have a burn method) everywhere else.
                 //
-                // Might be OK because this should always be a
-                // contract that we have created.
+                // This reason is wrapped up in how this whole machine
+                // works. For NFTs that are coming in from an external
+                // chain, the bridge contract has control over what
+                // cw721 contract is instantiated for them. It could,
+                // for example, choose to instantiate ones that point
+                // only to images of purple squares. In our case, we
+                // choose to instantiate ones with a burn method.
+                //
+                // A well behaved ICS721 contract will only ever burn
+                // NFTs it has minted in response to a foriegn chain's
+                // sending them over. There are reasons for this
+                // technically, but from a higher level this makes
+                // some sense. It wouldn't make sense if a
+                // bidirectional bridge burned your NFT.
+                //
+                // As we mint cw721s with a burn method, and we only
+                // burn NFTs that we have minted, this works.
                 msg: to_binary(&cw721_base::ExecuteMsg::<Empty>::Burn { token_id })?,
                 funds: vec![],
             })

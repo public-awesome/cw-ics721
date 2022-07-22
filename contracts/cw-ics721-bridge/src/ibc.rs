@@ -187,31 +187,34 @@ fn do_ibc_packet_receive(
         // contract itself.
         //
         // [1] https://github.com/CosmWasm/cosmwasm/blob/main/IBC.md#acknowledging-errors
-        let message = ExecuteMsg::DoInstantiateAndMint {
-            class_id: local_class_id,
-            class_uri: data.classUri,
-            token_ids: data.tokenIds,
-            token_uris: data.tokenUris,
-            // FIXME: ics20 seems to set the receiver field as a
-            // bech32 address. IF we need to do this, need to convert
-            // first.
-            receiver: data.receiver,
-        };
-        let message = WasmMsg::Execute {
-            contract_addr: env.contract.address.into_string(),
-            msg: to_binary(&message)?,
-            funds: vec![],
-        };
-        let message = SubMsg::reply_always(message, INSTANTIATE_AND_MINT_CW721_REPLY_ID);
+        let ibc_ack_check_message = SubMsg::reply_always(
+            WasmMsg::Execute {
+                contract_addr: env.contract.address.into_string(),
+                msg: to_binary(&ExecuteMsg::DoInstantiateAndMint {
+                    class_id: local_class_id,
+                    class_uri: data.classUri,
+                    token_ids: data.tokenIds,
+                    token_uris: data.tokenUris,
+                    // FIXME: ics20 seems to set the receiver field as a
+                    // bech32 address. IF we need to do this, need to convert
+                    // first.
+                    receiver: data.receiver,
+                })?,
+                funds: vec![],
+            },
+            INSTANTIATE_AND_MINT_CW721_REPLY_ID,
+        );
 
         // Dispatch submessage. We DO NOT set the ack here as it will
         // be set in the submessage reply handler if all goes well.
         Ok(IbcReceiveResponse::default()
             .add_attribute("method", "ics721_transfer_sink")
-            .add_submessage(message))
+            .add_submessage(ibc_ack_check_message))
     }
 }
 
+// TODO: document that this will only be called in response to me
+// sending a NFT somewhere.
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_ack(
     deps: DepsMut,
