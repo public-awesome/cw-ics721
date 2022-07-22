@@ -13,23 +13,6 @@ pub const FAILURE_RESPONSE_FAILURE_REPLY_ID: u64 = 6;
 pub const BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID: u64 = 7;
 pub const BURN_ESCROW_TOKENS_REPLY_ID: u64 = 8;
 
-pub fn save_class(deps: DepsMut, class_id: String, class_uri: String) -> Result<(), ContractError> {
-    if CLASS_ID_TO_NFT_CONTRACT.has(deps.storage, class_id.clone()) {
-        return Err(ContractError::ClassIdAlreadyExists {});
-    }
-
-    let validated_class_uri = deps.api.addr_validate(&class_uri)?;
-
-    if NFT_CONTRACT_TO_CLASS_ID.has(deps.storage, validated_class_uri.clone()) {
-        return Err(ContractError::ClassIdAlreadyExists {});
-    }
-
-    CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class_id.clone(), &validated_class_uri)?;
-    NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, validated_class_uri, &class_id)?;
-
-    Ok(())
-}
-
 pub fn mint(
     deps: DepsMut,
     class_id: String,

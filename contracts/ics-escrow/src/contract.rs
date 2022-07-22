@@ -118,7 +118,7 @@ fn execute_burn(
                 //
                 // As we mint cw721s with a burn method, and we only
                 // burn NFTs that we have minted, this works.
-                msg: to_binary(&cw721_base::ExecuteMsg::<Empty>::Burn { token_id })?,
+                msg: to_binary(&cw721_base::msg::ExecuteMsg::<Empty>::Burn { token_id })?,
                 funds: vec![],
             })
         })
