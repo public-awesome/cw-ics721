@@ -695,6 +695,7 @@ mod tests {
     #[test]
     fn test_stateless_reply() {
         let mut deps = mock_dependencies();
+        // List of all our stateless replies, we can test them all in one
         let reply_ids = vec![
             MINT_SUB_MSG_REPLY_ID,
             TRANSFER_SUB_MSG_REPLY_ID,
@@ -727,5 +728,18 @@ mod tests {
             let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
             assert_eq!(res.data, Some(ack_fail("some failure").unwrap()));
         }
+    }
+
+    #[test]
+    fn test_unrecognised_reply() {
+        let mut deps = mock_dependencies();
+        let rep = Reply {
+            id: 420,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![],
+                data: None,
+            }),
+        };
+        reply(deps.as_mut(), mock_env(), rep).unwrap_err();
     }
 }
