@@ -517,6 +517,8 @@ mod tests {
     const DEFAULT_TIMEOUT: u64 = 3600; // 1 hour
 
     const ADDR1: &str = "addr1";
+    const CW721_CODE_ID: u64 = 0;
+    const ESCROW_CODE_ID: u64 = 1;
 
     fn mock_channel(channel_id: &str) -> IbcChannel {
         IbcChannel::new(
@@ -534,20 +536,53 @@ mod tests {
         )
     }
 
-    fn add_channel(mut deps: DepsMut, channel_id: &str) {
+    fn add_channel(mut deps: DepsMut, env: Env, channel_id: &str) {
         let channel = mock_channel(channel_id);
         let open_msg = IbcChannelOpenMsg::new_init(channel.clone());
-        ibc_channel_open(deps.branch(), mock_env(), open_msg).unwrap();
-        let connect_msg = IbcChannelConnectMsg::new_ack(channel, IBC_VERSION);
-        ibc_channel_connect(deps.branch(), mock_env(), connect_msg).unwrap();
+        ibc_channel_open(deps.branch(), env.clone(), open_msg).unwrap();
+        let connect_msg = IbcChannelConnectMsg::new_ack(channel.clone(), IBC_VERSION);
+        let res = ibc_channel_connect(deps.branch(), env, connect_msg).unwrap();
+
+        // Sanity check our attributes
+        assert_eq!(res.attributes.len(), 3);
+        assert_eq!(
+            res.attributes,
+            vec![
+                attr("method", "ibc_channel_connect"),
+                attr("channel", channel.endpoint.channel_id),
+                attr("port", channel.endpoint.port_id)
+            ]
+        );
+        assert_eq!(res.messages.len(), 1);
+        assert_eq!(
+            res.messages[0],
+            SubMsg::reply_always(
+                WasmMsg::Instantiate {
+                    admin: None,
+                    code_id: ESCROW_CODE_ID,
+                    msg: to_binary(&ics_escrow::msg::InstantiateMsg {
+                        admin_address: "cosmos2contract".to_string(),
+                        channel_id: channel_id.to_string()
+                    })
+                    .unwrap(),
+                    funds: vec![],
+                    label: format!("channel ({}) ICS721 escrow", channel_id)
+                },
+                INSTANTIATE_ESCROW_REPLY_ID
+            )
+        )
     }
 
-    fn do_instantiate(mut deps: DepsMut, sender: &str) -> Result<Response, ContractError> {
+    fn do_instantiate(
+        mut deps: DepsMut,
+        env: Env,
+        sender: &str,
+    ) -> Result<Response, ContractError> {
         let msg = InstantiateMsg {
-            cw721_code_id: 0,
-            escrow_code_id: 1,
+            cw721_code_id: CW721_CODE_ID,
+            escrow_code_id: ESCROW_CODE_ID,
         };
-        instantiate(deps, mock_env(), mock_info(sender, &[]), msg)
+        instantiate(deps, env, mock_info(sender, &[]), msg)
     }
 
     #[test]
@@ -789,32 +824,23 @@ mod tests {
     #[test]
     fn test_ibc_channel_open() {
         let mut deps = mock_dependencies();
+        let env = mock_env();
 
         // Instantiate the contract
-        do_instantiate(deps.as_mut(), ADDR1).unwrap();
+        do_instantiate(deps.as_mut(), env.clone(), ADDR1).unwrap();
 
         let channel = mock_channel("channel-1");
-
-        // TODO: Do we need to call both, I just did it for the lols ngl
-        let msg = IbcChannelOpenMsg::OpenInit {
-            channel: channel.clone(),
-        };
-        ibc_channel_open(deps.as_mut(), mock_env(), msg).unwrap();
-
-        let msg = IbcChannelOpenMsg::OpenTry {
-            channel,
-            counterparty_version: IBC_VERSION.to_string(),
-        };
-        ibc_channel_open(deps.as_mut(), mock_env(), msg).unwrap();
+        add_channel(deps.as_mut(), env, "channel-1");
     }
 
     #[test]
     #[should_panic(expected = "OrderedChannel")]
     fn test_ibc_channel_open_ordered_channel() {
         let mut deps = mock_dependencies();
+        let env = mock_env();
 
         // Instantiate the contract
-        do_instantiate(deps.as_mut(), ADDR1).unwrap();
+        do_instantiate(deps.as_mut(), env.clone(), ADDR1).unwrap();
 
         let channel_id = "channel-1";
         let channel = IbcChannel::new(
@@ -832,7 +858,7 @@ mod tests {
         );
 
         let msg = IbcChannelOpenMsg::OpenInit { channel: channel };
-        ibc_channel_open(deps.as_mut(), mock_env(), msg).unwrap();
+        ibc_channel_open(deps.as_mut(), env, msg).unwrap();
     }
 
     #[test]
@@ -841,9 +867,10 @@ mod tests {
     )]
     fn test_ibc_channel_open_invalid_version() {
         let mut deps = mock_dependencies();
+        let env = mock_env();
 
         // Instantiate the contract
-        do_instantiate(deps.as_mut(), ADDR1).unwrap();
+        do_instantiate(deps.as_mut(), env.clone(), ADDR1).unwrap();
 
         let channel_id = "channel-1";
         let channel = IbcChannel::new(
@@ -861,7 +888,7 @@ mod tests {
         );
 
         let msg = IbcChannelOpenMsg::OpenInit { channel: channel };
-        ibc_channel_open(deps.as_mut(), mock_env(), msg).unwrap();
+        ibc_channel_open(deps.as_mut(), env, msg).unwrap();
     }
 
     #[test]
@@ -870,9 +897,10 @@ mod tests {
     )]
     fn test_ibc_channel_open_invalid_version_counterparty() {
         let mut deps = mock_dependencies();
+        let env = mock_env();
 
         // Instantiate the contract
-        do_instantiate(deps.as_mut(), ADDR1).unwrap();
+        do_instantiate(deps.as_mut(), env.clone(), ADDR1).unwrap();
 
         let channel_id = "channel-1";
         let channel = IbcChannel::new(
@@ -893,6 +921,6 @@ mod tests {
             channel: channel,
             counterparty_version: "invalid_version".to_string(),
         };
-        ibc_channel_open(deps.as_mut(), mock_env(), msg).unwrap();
+        ibc_channel_open(deps.as_mut(), env, msg).unwrap();
     }
 }
