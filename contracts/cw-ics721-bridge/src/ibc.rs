@@ -653,8 +653,8 @@ mod tests {
                     msg: _,
                 } => QuerierResult::Ok(ContractResult::Ok(
                     to_binary(&cw721::ContractInfoResponse {
-                        name: "some_class_id".to_string(),
-                        symbol: "some_class_id".to_string(),
+                        name: "wasm.address1/channel-10/address2".to_string(),
+                        symbol: "wasm.address1/channel-10/address2".to_string(),
                     })
                     .unwrap(),
                 )),
@@ -686,9 +686,46 @@ mod tests {
             res.attributes,
             vec![
                 attr("method", "instantiate_cw721_reply"),
-                attr("class_id", "some_class_id"),
+                attr("class_id", "wasm.address1/channel-10/address2"),
                 attr("cw721_addr", "cosmos2contract")
             ]
         );
+    }
+
+    #[test]
+    fn test_stateless_reply() {
+        let mut deps = mock_dependencies();
+        let reply_ids = vec![
+            MINT_SUB_MSG_REPLY_ID,
+            TRANSFER_SUB_MSG_REPLY_ID,
+            BURN_SUB_MSG_REPLY_ID,
+            INSTANTIATE_AND_MINT_CW721_REPLY_ID,
+            BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID,
+            BURN_ESCROW_TOKENS_REPLY_ID,
+            FAILURE_RESPONSE_FAILURE_REPLY_ID,
+        ];
+
+        // Success case
+        for id in &reply_ids {
+            let rep = Reply {
+                id: *id,
+                result: SubMsgResult::Ok(SubMsgResponse {
+                    events: vec![],
+                    data: None,
+                }),
+            };
+            let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
+            assert_eq!(res.data, Some(ack_success()));
+        }
+
+        // Error case
+        for id in &reply_ids {
+            let rep = Reply {
+                id: *id,
+                result: SubMsgResult::Err("some failure".to_string()),
+            };
+            let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
+            assert_eq!(res.data, Some(ack_fail("some failure").unwrap()));
+        }
     }
 }
