@@ -1,4 +1,4 @@
-use crate::state::{CLASS_ID_TO_NFT_CONTRACT, NFT_CONTRACT_TO_CLASS_ID};
+use crate::state::CLASS_ID_TO_NFT_CONTRACT;
 use crate::ContractError;
 use cosmwasm_std::{to_binary, Addr, Deps, DepsMut, Empty, StdResult, SubMsg, WasmMsg};
 use cw721::{NftInfoResponse, OwnerOfResponse};
