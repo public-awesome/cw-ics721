@@ -504,6 +504,8 @@ fn validate_order_and_version(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cosmwasm_std::testing::{mock_dependencies, mock_env, MockQuerier};
+    use cosmwasm_std::{attr, ContractResult, QuerierResult, SubMsgResponse, WasmQuery};
 
     #[test]
     fn test_ack_success_encoding() {
@@ -563,6 +565,130 @@ mod tests {
                 "wasm.addre//1/channel-10/addre//2"
             ),
             None
+        );
+    }
+
+    #[test]
+    fn test_reply_escrow() {
+        let mut querier = MockQuerier::default();
+        querier.update_wasm(|query| -> QuerierResult {
+            match query {
+                WasmQuery::Smart {
+                    contract_addr: _,
+                    msg: _,
+                } => QuerierResult::Ok(ContractResult::Ok(
+                    to_binary(&"channel-1".to_string()).unwrap(),
+                )),
+                WasmQuery::Raw { .. } => QuerierResult::Ok(ContractResult::Ok(Binary::default())),
+                WasmQuery::ContractInfo { .. } => {
+                    QuerierResult::Ok(ContractResult::Ok(Binary::default()))
+                }
+                _ => QuerierResult::Ok(ContractResult::Ok(Binary::default())),
+            }
+        });
+        let mut deps = mock_dependencies();
+        deps.querier = querier;
+
+        // This is a pre encoded message with the contract address
+        // cosmos2contract
+        // TODO: Can we form this via a function instead of hardcoding
+        //       So we can have different contract addresses
+        let reply_resp = "Cg9jb3Ntb3MyY29udHJhY3QSAA==";
+        let rep = Reply {
+            id: INSTANTIATE_ESCROW_REPLY_ID,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![],
+                data: Some(Binary::from_base64(reply_resp).unwrap()),
+            }),
+        };
+        let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
+        assert_eq!(res.data, Some(ack_success()));
+        assert_eq!(
+            res.attributes,
+            vec![
+                attr("method", "instantiate_escrow_reply"),
+                attr("escrow_addr", "cosmos2contract"),
+                attr("channel_id", "channel-1")
+            ]
+        );
+    }
+
+    #[test]
+    fn test_reply_escrow_submsg_fail() {
+        let mut querier = MockQuerier::default();
+        querier.update_wasm(|query| -> QuerierResult {
+            match query {
+                WasmQuery::Smart {
+                    contract_addr: _,
+                    msg: _,
+                } => QuerierResult::Ok(ContractResult::Ok(
+                    to_binary(&"channel-1".to_string()).unwrap(),
+                )),
+                WasmQuery::Raw { .. } => QuerierResult::Ok(ContractResult::Ok(Binary::default())),
+                WasmQuery::ContractInfo { .. } => {
+                    QuerierResult::Ok(ContractResult::Ok(Binary::default()))
+                }
+                _ => QuerierResult::Ok(ContractResult::Ok(Binary::default())),
+            }
+        });
+        let mut deps = mock_dependencies();
+        deps.querier = querier;
+
+        // The instantiate has failed for some reason
+        let rep = Reply {
+            id: INSTANTIATE_ESCROW_REPLY_ID,
+            result: SubMsgResult::Err("some failure".to_string()),
+        };
+        let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
+        assert_eq!(res.data, Some(ack_fail("some failure").unwrap()));
+    }
+
+    #[test]
+    fn test_reply_cw721() {
+        let mut querier = MockQuerier::default();
+        querier.update_wasm(|query| -> QuerierResult {
+            match query {
+                WasmQuery::Smart {
+                    contract_addr: _,
+                    msg: _,
+                } => QuerierResult::Ok(ContractResult::Ok(
+                    to_binary(&cw721::ContractInfoResponse {
+                        name: "some_class_id".to_string(),
+                        symbol: "some_class_id".to_string(),
+                    })
+                    .unwrap(),
+                )),
+                WasmQuery::Raw { .. } => QuerierResult::Ok(ContractResult::Ok(Binary::default())),
+                WasmQuery::ContractInfo { .. } => {
+                    QuerierResult::Ok(ContractResult::Ok(Binary::default()))
+                }
+                _ => QuerierResult::Ok(ContractResult::Ok(Binary::default())),
+            }
+        });
+        let mut deps = mock_dependencies();
+        deps.querier = querier;
+
+        // This is a pre encoded message with the contract address
+        // cosmos2contract
+        // TODO: Can we form this via a function instead of hardcoding
+        //       So we can have different contract addresses
+        let reply_resp = "Cg9jb3Ntb3MyY29udHJhY3QSAA==";
+        let rep = Reply {
+            id: INSTANTIATE_CW721_REPLY_ID,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![],
+                data: Some(Binary::from_base64(reply_resp).unwrap()),
+            }),
+        };
+        let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
+        // assert_eq!(res.data, Some(ack_success()));
+        assert_eq!(
+            res.attributes,
+            vec![
+                attr("method", "instantiate_cw721_reply"),
+                attr("class_id", "some_class_id"),
+                attr("cw721_addr", "cosmos2contract")
+            ]
         );
     }
 }
