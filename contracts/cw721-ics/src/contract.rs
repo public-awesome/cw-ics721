@@ -3,11 +3,13 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use cw721::Cw721ReceiveMsg;
+use cw721_base::{
+    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
+    state::TokenInfo,
+    Cw721Contract,
+};
 
 use crate::ContractError;
-use cw721_base::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use cw721_base::state::TokenInfo;
-use cw721_base::Cw721Contract;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw721-ics";
@@ -22,7 +24,8 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
-    // TODO: Do we need any custom logic here. Maybe we want to store class_id
+    // TODO: Do we need any custom logic here. Maybe we want to store
+    // class_id.
     let res = CW721ContractWrapper::default().instantiate(deps.branch(), env, info, msg)?;
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     Ok(res)

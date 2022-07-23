@@ -1,11 +1,11 @@
-use crate::{
-    ibc::{NonFungibleTokenPacketData, IBC_VERSION},
-    ContractError,
-};
-
 use cosmwasm_std::{
     from_binary, to_binary, Binary, IbcAcknowledgement, IbcChannel, IbcEndpoint, IbcOrder,
     StdError, StdResult,
+};
+
+use crate::{
+    ibc::{NonFungibleTokenPacketData, IBC_VERSION},
+    ContractError,
 };
 
 /// Tries to remove the source prefix from a given class_id. If the

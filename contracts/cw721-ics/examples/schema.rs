@@ -1,10 +1,12 @@
-use std::env::current_dir;
-use std::fs::create_dir_all;
+use std::{env::current_dir, fs::create_dir_all};
 
 use cosmwasm_schema::{export_schema, remove_schemas};
 use cosmwasm_std::Empty;
 use cw721_base::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use schemars::schema_for;
+
+// use cw721_ics::msg::{CountResponse, ExecuteMsg, InstantiateMsg,
+// QueryMsg}; use cw721_ics::state::State;
 
 fn main() {
     let mut out_dir = current_dir().unwrap();

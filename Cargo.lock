@@ -176,12 +176,14 @@ dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
  "cw-multi-test",
+ "cw-paginate",
  "cw-storage-plus",
  "cw-utils",
  "cw2",
  "cw721",
  "cw721-base",
- "ics-escrow",
+ "cw721-ics",
+ "ics721-escrow",
  "schemars",
  "serde",
  "thiserror",
@@ -204,6 +206,17 @@ dependencies = [
  "schemars",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "cw-paginate"
+version = "0.1.0"
+source = "git+https://github.com/DA0-DA0/dao-contracts.git#c37d7d76713e27f2ba86b41b31810b8279022237"
+dependencies = [
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-storage-plus",
+ "serde",
 ]
 
 [[package]]
@@ -243,9 +256,9 @@ dependencies = [
 
 [[package]]
 name = "cw721"
-version = "0.13.2"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b9fd71276795554c35899bb3a378561ed0c288d231113e9915f6ee1f42b7b5"
+checksum = "035818368a74c07dd9ed5c5a93340199ba251530162010b9f34c3809e3b97df1"
 dependencies = [
  "cosmwasm-std",
  "cw-utils",
@@ -255,9 +268,9 @@ dependencies = [
 
 [[package]]
 name = "cw721-base"
-version = "0.13.2"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b61200af4e027af2d7485dbdc37c2a9c4093b6b2f2b811732329ef456076f97e"
+checksum = "423d4efe8b649d228d1533e141c238415f49aa8a9ee4e40fce192d7a93ffd057"
 dependencies = [
  "cosmwasm-std",
  "cw-storage-plus",
@@ -449,7 +462,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ics-escrow"
+name = "ics721-escrow"
 version = "0.1.0"
 dependencies = [
  "anyhow",

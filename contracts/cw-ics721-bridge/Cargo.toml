@@ -19,13 +19,16 @@ cosmwasm-storage = "1.0.0"
 cw-storage-plus = "0.13.4"
 cw-utils = "0.13.4"
 cw2 = "0.13.4"
-cw721 = "0.13"
-cw721-base = { version = "0.13", features = ["library"] }
-schemars = "0.8.8"
+cw721 = "0.13.4"
+cw721-base = { version = "0.13.4", features = ["library"] }
+schemars = "0.8.10"
 serde = { version = "1.0.140", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.31" }
-ics-escrow = { version = "0.1.0", path = "../ics-escrow" }
+ics721-escrow = { version = "0.1.0", path = "../ics721-escrow", features = ["library"] }
+cw-paginate = { git = "https://github.com/DA0-DA0/dao-contracts.git" }
 
 [dev-dependencies]
 cosmwasm-schema = "1.0.0"
 cw-multi-test = "0.13.4"
+cw721-ics = { path = "../cw721-ics", version = "*" }
+ics721-escrow = { path = "../ics721-escrow", version = "*" }

@@ -31,8 +31,9 @@ pub struct UniversalNftInfoResponse {
 
 #[cfg(test)]
 mod tests {
-    use super::UniversalNftInfoResponse;
     use cosmwasm_std::{from_binary, to_binary, Coin, Empty};
+
+    use super::UniversalNftInfoResponse;
 
     #[test]
     fn test_universal_deserialize() {

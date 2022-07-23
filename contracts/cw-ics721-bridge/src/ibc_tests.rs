@@ -1,33 +1,28 @@
-use crate::contract::instantiate;
-use crate::helpers::BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID;
-use crate::helpers::BURN_ESCROW_TOKENS_REPLY_ID;
-use crate::helpers::BURN_SUB_MSG_REPLY_ID;
-use crate::helpers::FAILURE_RESPONSE_FAILURE_REPLY_ID;
-use crate::helpers::INSTANTIATE_AND_MINT_CW721_REPLY_ID;
-use crate::helpers::INSTANTIATE_CW721_REPLY_ID;
-use crate::helpers::INSTANTIATE_ESCROW_REPLY_ID;
-use crate::helpers::MINT_SUB_MSG_REPLY_ID;
-use crate::helpers::TRANSFER_SUB_MSG_REPLY_ID;
-use crate::ibc::ibc_channel_connect;
-use crate::ibc::ibc_channel_open;
-use crate::ibc::ibc_packet_receive;
-use crate::ibc::reply;
-use crate::ibc::NonFungibleTokenPacketData;
-use crate::ibc::IBC_VERSION;
-use crate::msg::ExecuteMsg;
-use crate::msg::InstantiateMsg;
-use crate::ContractError;
-use cosmwasm_std::IbcAcknowledgement;
-use cosmwasm_std::IbcPacketReceiveMsg;
 use cosmwasm_std::{
     attr,
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier},
-    to_binary, Binary, ContractResult, DepsMut, Env, IbcChannel, IbcChannelConnectMsg,
-    IbcChannelOpenMsg, IbcEndpoint, IbcOrder, IbcPacket, IbcTimeout, QuerierResult, Reply,
-    Response, SubMsg, SubMsgResponse, SubMsgResult, Timestamp, WasmMsg, WasmQuery,
+    to_binary, Binary, ContractResult, DepsMut, Env, IbcAcknowledgement, IbcChannel,
+    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder, IbcPacket, IbcPacketReceiveMsg,
+    IbcTimeout, QuerierResult, Reply, Response, SubMsg, SubMsgResponse, SubMsgResult, Timestamp,
+    WasmMsg, WasmQuery,
 };
 
-use crate::ibc_helpers::{ack_fail, ack_success, try_get_ack_error};
+use crate::{
+    contract::instantiate,
+    helpers::{
+        BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID, BURN_ESCROW_TOKENS_REPLY_ID, BURN_SUB_MSG_REPLY_ID,
+        FAILURE_RESPONSE_FAILURE_REPLY_ID, INSTANTIATE_AND_MINT_CW721_REPLY_ID,
+        INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_ESCROW_REPLY_ID, MINT_SUB_MSG_REPLY_ID,
+        TRANSFER_SUB_MSG_REPLY_ID,
+    },
+    ibc::{
+        ibc_channel_connect, ibc_channel_open, ibc_packet_receive, reply,
+        NonFungibleTokenPacketData, IBC_VERSION,
+    },
+    ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
+    msg::{ExecuteMsg, InstantiateMsg},
+    ContractError,
+};
 
 const CONTRACT_PORT: &str = "wasm.address1";
 const REMOTE_PORT: &str = "stars.address1";
@@ -95,7 +90,7 @@ fn add_channel(mut deps: DepsMut, env: Env, channel_id: &str) {
             WasmMsg::Instantiate {
                 admin: None,
                 code_id: ESCROW_CODE_ID,
-                msg: to_binary(&ics_escrow::msg::InstantiateMsg {
+                msg: to_binary(&ics721_escrow::msg::InstantiateMsg {
                     admin_address: "cosmos2contract".to_string(),
                     channel_id: channel_id.to_string()
                 })

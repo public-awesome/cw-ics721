@@ -8,20 +8,22 @@ use cw_utils::parse_reply_instantiate_data;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::Never;
-use crate::helpers::{
-    BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID, BURN_ESCROW_TOKENS_REPLY_ID, BURN_SUB_MSG_REPLY_ID,
-    FAILURE_RESPONSE_FAILURE_REPLY_ID, INSTANTIATE_AND_MINT_CW721_REPLY_ID,
-    INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_ESCROW_REPLY_ID, MINT_SUB_MSG_REPLY_ID,
-    TRANSFER_SUB_MSG_REPLY_ID,
+use crate::{
+    error::Never,
+    helpers::{
+        BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID, BURN_ESCROW_TOKENS_REPLY_ID, BURN_SUB_MSG_REPLY_ID,
+        FAILURE_RESPONSE_FAILURE_REPLY_ID, INSTANTIATE_AND_MINT_CW721_REPLY_ID,
+        INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_ESCROW_REPLY_ID, MINT_SUB_MSG_REPLY_ID,
+        TRANSFER_SUB_MSG_REPLY_ID,
+    },
+    ibc_helpers::{
+        ack_fail, ack_success, get_endpoint_prefix, try_get_ack_error, try_pop_source_prefix,
+        validate_order_and_version,
+    },
+    msg::ExecuteMsg,
+    state::{CHANNELS, CLASS_ID_TO_NFT_CONTRACT, ESCROW_CODE_ID, NFT_CONTRACT_TO_CLASS_ID},
+    ContractError,
 };
-use crate::ibc_helpers::{
-    ack_fail, ack_success, get_endpoint_prefix, try_get_ack_error, try_pop_source_prefix,
-    validate_order_and_version,
-};
-use crate::msg::ExecuteMsg;
-use crate::state::{CLASS_ID_TO_NFT_CONTRACT, ESCROW_CODE_ID, NFT_CONTRACT_TO_CLASS_ID};
-use crate::{state::CHANNELS, ContractError};
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[allow(non_snake_case)]
@@ -67,7 +69,7 @@ pub fn ibc_channel_connect(
 ) -> Result<IbcBasicResponse, ContractError> {
     validate_order_and_version(msg.channel(), msg.counterparty_version())?;
 
-    let message = ics_escrow::msg::InstantiateMsg {
+    let message = ics721_escrow::msg::InstantiateMsg {
         admin_address: env.contract.address.into_string(),
         channel_id: msg.channel().endpoint.channel_id.clone(),
     };
@@ -305,7 +307,7 @@ fn handle_packet_fail(
         .map(|token_id| -> StdResult<SubMsg<Empty>> {
             let wasm = WasmMsg::Execute {
                 contract_addr: escrow_addr.to_string(),
-                msg: to_binary(&ics_escrow::msg::ExecuteMsg::Withdraw {
+                msg: to_binary(&ics721_escrow::msg::ExecuteMsg::Withdraw {
                     nft_address: nft_address.to_string(),
                     token_id: token_id.clone(),
                     receiver: message.sender.clone(),
@@ -377,7 +379,7 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
 
             let channel_id: String = deps.querier.query_wasm_smart(
                 escrow_addr.clone(),
-                &ics_escrow::msg::QueryMsg::ChannelId {},
+                &ics721_escrow::msg::QueryMsg::ChannelId {},
             )?;
 
             CHANNELS.save(deps.storage, channel_id.clone(), &escrow_addr)?;

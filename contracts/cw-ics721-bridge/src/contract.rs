@@ -6,15 +6,18 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 
-use crate::error::ContractError;
-use crate::helpers::{
-    burn, get_class, get_nft, get_owner, has_class, transfer, INSTANTIATE_CW721_REPLY_ID,
-};
-use crate::ibc::NonFungibleTokenPacketData;
-use crate::msg::{ExecuteMsg, IbcAwayMsg, InstantiateMsg, QueryMsg};
-use crate::state::{
-    UniversalNftInfoResponse, CHANNELS, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT,
-    CW721_ICS_CODE_ID, ESCROW_CODE_ID, NFT_CONTRACT_TO_CLASS_ID,
+use crate::{
+    error::ContractError,
+    helpers::{
+        burn, get_class, get_nft, get_owner, get_uri, has_class, list_channels, list_class_ids,
+        transfer, INSTANTIATE_CW721_REPLY_ID,
+    },
+    ibc::NonFungibleTokenPacketData,
+    msg::{ExecuteMsg, IbcAwayMsg, InstantiateMsg, QueryMsg},
+    state::{
+        UniversalNftInfoResponse, CHANNELS, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT,
+        CW721_ICS_CODE_ID, ESCROW_CODE_ID, NFT_CONTRACT_TO_CLASS_ID,
+    },
 };
 
 const CONTRACT_NAME: &str = "crates.io:cw-ics721-bridge";
@@ -332,7 +335,9 @@ fn execute_receive_nft(
         classId: class_id.clone(),
         classUri: class_uri,
         tokenIds: vec![token_id.clone()],
-        tokenUris: vec![token_uri.unwrap_or_default()], // Currently token_uri is optional in cw721 - we set to empty string as default.
+        tokenUris: vec![token_uri.unwrap_or_default()], /* Currently token_uri is optional in
+                                                         * cw721 - we set to empty string as
+                                                         * default. */
         sender: sender.into_string(),
         receiver: msg.receiver,
     };
@@ -384,7 +389,7 @@ fn execute_batch_transfer_from_channel(
     let transfer_messages = token_ids
         .iter()
         .map(|token_id| -> StdResult<WasmMsg> {
-            let message = ics_escrow::msg::ExecuteMsg::Withdraw {
+            let message = ics721_escrow::msg::ExecuteMsg::Withdraw {
                 nft_address: cw721_addr.to_string(),
                 token_id: token_id.to_string(),
                 receiver: receiver.clone(),
@@ -427,7 +432,7 @@ fn execute_burn_escrow_tokens(
         .add_attribute("token_ids", format!("{:?}", token_ids))
         .add_message(WasmMsg::Execute {
             contract_addr: escrow_addr.into_string(),
-            msg: to_binary(&ics_escrow::msg::ExecuteMsg::Burn {
+            msg: to_binary(&ics721_escrow::msg::ExecuteMsg::Burn {
                 nft_address: cw721_addr.into_string(),
                 token_ids,
             })?,
@@ -444,8 +449,12 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetNft { class_id, token_id } => to_binary(&get_nft(deps, class_id, token_id)?),
         QueryMsg::HasClass { class_id } => to_binary(&has_class(deps, class_id)?),
         QueryMsg::GetClass { class_id } => to_binary(&get_class(deps, class_id)?),
-        QueryMsg::GetClassUri { class_id } => {
-            to_binary(&CLASS_ID_TO_CLASS_URI.load(deps.storage, class_id)?)
+        QueryMsg::GetUri { class_id } => to_binary(&get_uri(deps, class_id)?),
+        QueryMsg::ListChannels { start_after, limit } => {
+            to_binary(&list_channels(deps, start_after, limit)?)
+        }
+        QueryMsg::ListClassIds { start_after, limit } => {
+            to_binary(&list_class_ids(deps, start_after, limit)?)
         }
     }
 }

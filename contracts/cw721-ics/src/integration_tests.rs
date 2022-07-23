@@ -129,14 +129,15 @@ mod tests {
         // ADDR1 transfers to ADDR2, valid as ADDR1 owns the token
         transfer_nft(&mut app, addr.clone(), ADDR1, ADDR2, token_id).unwrap();
 
-        // Now ADDR2 owns the token, let's approve ADDR3 and let them transfer it back to ADDR1
+        // Now ADDR2 owns the token, let's approve ADDR3 and let them transfer
+        // it back to ADDR1
         add_approval(&mut app, addr.clone(), ADDR2, ADDR3, token_id).unwrap();
 
         // Now try and transfer back to ADDR1 as the approved ADDR3
         transfer_nft(&mut app, addr.clone(), ADDR3, ADDR1, token_id).unwrap();
 
-        // ADDR1 now owns and approvals have been reset, let's add ADDR3 as an operator and try
-        // to transfer back to ADDR2
+        // ADDR1 now owns and approvals have been reset, let's add ADDR3 as an
+        // operator and try to transfer back to ADDR2
         add_operator(&mut app, addr.clone(), ADDR1, ADDR3).unwrap();
 
         // Now try to transfer back to ADDR2 as the operator ADDR3
@@ -156,7 +157,8 @@ mod tests {
         let token_id = "1";
         mint(&mut app, addr.clone(), MINTER, token_id, ADDR1, None).unwrap();
 
-        // Try and transfer as non-owner, non-approved, non-operator, non-minter
+        // Try and transfer as non-owner, non-approved, non-operator,
+        // non-minter
         transfer_nft(&mut app, addr, ADDR2, ADDR3, token_id).unwrap();
     }
 }

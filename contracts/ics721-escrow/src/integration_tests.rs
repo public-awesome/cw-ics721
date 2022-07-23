@@ -1,7 +1,8 @@
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use cosmwasm_std::{Addr, Empty};
 use cw721::OwnerOfResponse;
 use cw_multi_test::{App, AppResponse, Contract, ContractWrapper, Executor};
+
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 /// Name of the NFT collection
 const NAME: &str = "Interchain Nifties";
