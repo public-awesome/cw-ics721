@@ -226,21 +226,24 @@ fn execute_do_instantiate_and_mint(
         // getting lost.
         CLASS_ID_TO_CLASS_URI.save(deps.storage, class_id.clone(), &class_uri)?;
 
-        let message = cw721_base::msg::InstantiateMsg {
-            // Name of the collection MUST be class_id as this is how
-            // we create a map entry on reply.
-            name: class_id.clone(),
-            symbol: class_id.clone(), // TODO: What should we put here?
-            minter: env.contract.address.to_string(),
-        };
-        let message = WasmMsg::Instantiate {
-            admin: None, // TODO: Any reason to set ourselves as admin?
-            code_id: CW721_CODE_ID.load(deps.storage)?,
-            msg: to_binary(&message)?,
-            funds: vec![],
-            label: format!("{} ICS721 cw721 backing contract", class_id),
-        };
-        let message = SubMsg::<Empty>::reply_on_success(message, INSTANTIATE_CW721_REPLY_ID);
+        let message = SubMsg::<Empty>::reply_on_success(
+            WasmMsg::Instantiate {
+                admin: None, // TODO: Any reason to set ourselves as admin?
+                code_id: CW721_CODE_ID.load(deps.storage)?,
+                msg: to_binary(
+                    &(cw721_base::msg::InstantiateMsg {
+                        // Name of the collection MUST be class_id as this is how
+                        // we create a map entry on reply.
+                        name: class_id.clone(),
+                        symbol: class_id.clone(), // TODO: What should we put here?
+                        minter: env.contract.address.to_string(),
+                    }),
+                )?,
+                funds: vec![],
+                label: format!("{} ICS721 cw721 backing contract", class_id),
+            },
+            INSTANTIATE_CW721_REPLY_ID,
+        );
         vec![message]
     };
 
