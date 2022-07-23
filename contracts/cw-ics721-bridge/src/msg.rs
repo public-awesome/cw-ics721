@@ -13,7 +13,7 @@ pub struct InstantiateMsg {
     pub escrow_code_id: u64,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     /// Transfer the NFT identified by class_id and token_id to receiver

@@ -40,8 +40,12 @@ pub enum ContractError {
         expected: Option<String>,
         actual: Option<String>,
     },
+
+    #[error("tokenId list has different length than tokenUri list")]
+    TokenInfoLenMissmatch {},
 }
 
 /// Enum that can never be constructed. Used as an error type where we
 /// can not error.
+#[derive(Debug)]
 pub enum Never {}
