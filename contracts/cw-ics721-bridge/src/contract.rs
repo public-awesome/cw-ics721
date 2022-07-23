@@ -14,7 +14,7 @@ use crate::ibc::NonFungibleTokenPacketData;
 use crate::msg::{ExecuteMsg, IbcAwayMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
     UniversalNftInfoResponse, CHANNELS, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT,
-    CW721_CODE_ID, ESCROW_CODE_ID, NFT_CONTRACT_TO_CLASS_ID,
+    CW721_ICS_CODE_ID, ESCROW_CODE_ID, NFT_CONTRACT_TO_CLASS_ID,
 };
 
 const CONTRACT_NAME: &str = "crates.io:cw-ics721-bridge";
@@ -29,12 +29,12 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    CW721_CODE_ID.save(deps.storage, &msg.cw721_code_id)?;
+    CW721_ICS_CODE_ID.save(deps.storage, &msg.cw721_ics_code_id)?;
     ESCROW_CODE_ID.save(deps.storage, &msg.escrow_code_id)?;
 
     Ok(Response::default()
         .add_attribute("method", "instantiate")
-        .add_attribute("cw721_code_id", msg.cw721_code_id.to_string())
+        .add_attribute("cw721_code_id", msg.cw721_ics_code_id.to_string())
         .add_attribute("escrow_code_id", msg.escrow_code_id.to_string()))
 }
 
@@ -229,7 +229,7 @@ fn execute_do_instantiate_and_mint(
         let message = SubMsg::<Empty>::reply_on_success(
             WasmMsg::Instantiate {
                 admin: None, // TODO: Any reason to set ourselves as admin?
-                code_id: CW721_CODE_ID.load(deps.storage)?,
+                code_id: CW721_ICS_CODE_ID.load(deps.storage)?,
                 msg: to_binary(
                     &(cw721_base::msg::InstantiateMsg {
                         // Name of the collection MUST be class_id as this is how

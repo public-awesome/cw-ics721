@@ -6,7 +6,7 @@ use serde::Deserialize;
 pub const CHANNELS: Map<String, Addr> = Map::new("channels");
 
 /// The code ID we will use for instantiating new cw721s.
-pub const CW721_CODE_ID: Item<u64> = Item::new("cw721_code_id");
+pub const CW721_ICS_CODE_ID: Item<u64> = Item::new("cw721_code_id");
 
 // The code ID we will use when instantiating escrow contracts.
 pub const ESCROW_CODE_ID: Item<u64> = Item::new("escrow_code_id");

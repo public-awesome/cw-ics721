@@ -29,13 +29,11 @@ use cosmwasm_std::{
 
 use crate::ibc_helpers::{ack_fail, ack_success, try_get_ack_error};
 
-// TODO: Check if these are ok, I kinda just stole
-//       them from ICS 20 and ours.
 const CONTRACT_PORT: &str = "wasm.address1";
 const REMOTE_PORT: &str = "stars.address1";
 const CONNECTION_ID: &str = "connection-2";
 const CHANNEL_ID: &str = "channel-1";
-// const DEFAULT_TIMEOUT: u64 = 3600; // 1 hour
+const DEFAULT_TIMEOUT: u64 = 42; // Seconds.
 
 const ADDR1: &str = "addr1";
 const CW721_CODE_ID: u64 = 0;
@@ -68,8 +66,8 @@ fn mock_packet(data: Binary) -> IbcPacket {
             port_id: CONTRACT_PORT.to_string(),
             channel_id: CHANNEL_ID.to_string(),
         },
-        42,
-        IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
+        42, // Packet sequence number.
+        IbcTimeout::with_timestamp(Timestamp::from_seconds(DEFAULT_TIMEOUT)),
     )
 }
 
@@ -112,7 +110,7 @@ fn add_channel(mut deps: DepsMut, env: Env, channel_id: &str) {
 
 fn do_instantiate(deps: DepsMut, env: Env, sender: &str) -> Result<Response, ContractError> {
     let msg = InstantiateMsg {
-        cw721_code_id: CW721_CODE_ID,
+        cw721_ics_code_id: CW721_CODE_ID,
         escrow_code_id: ESCROW_CODE_ID,
     };
     instantiate(deps, env, mock_info(sender, &[]), msg)

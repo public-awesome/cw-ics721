@@ -4,9 +4,15 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
-    /// Code ID of cw721 contract. A new cw721 will be instantiated
-    /// for each new IBCd NFT classID.
-    pub cw721_code_id: u64,
+    /// Code ID of cw721-ics contract. A new cw721-ics will be
+    /// instantiated for each new IBCd NFT classID.
+    ///
+    /// NOTE: this _must_ correspond to the cw721-ics contract which
+    /// should have been distributed along with this sourcecode. Using
+    /// a regular cw721 may cause the ICS 721 interface implemented by
+    /// this contract to stop working, and IBCd away NFTs to be
+    /// unreturnable (cw721 does not have a burn method in the spec).
+    pub cw721_ics_code_id: u64,
     /// Code ID for ics-escrow contract. This holds NFTs while they
     /// are away on different chains until they return. A new escrow
     /// is created for each local connection tuple (port, channel).
@@ -106,7 +112,6 @@ pub enum QueryMsg {
     /// Returns true if the NFT class identified by class_id already
     /// exists
     HasClass { class_id: String },
-    /// Returns the NFT Class identified by class_id
+    /// Returns the NFT contract identified by class_id
     GetClass { class_id: String },
-    // TODO: Add query for classURI given classID.
 }

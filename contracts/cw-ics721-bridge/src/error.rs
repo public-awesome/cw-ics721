@@ -47,5 +47,5 @@ pub enum ContractError {
 
 /// Enum that can never be constructed. Used as an error type where we
 /// can not error.
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum Never {}
