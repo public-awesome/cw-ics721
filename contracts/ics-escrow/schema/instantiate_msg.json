@@ -3,10 +3,14 @@
   "title": "InstantiateMsg",
   "type": "object",
   "required": [
-    "admin_address"
+    "admin_address",
+    "channel_id"
   ],
   "properties": {
     "admin_address": {
+      "type": "string"
+    },
+    "channel_id": {
       "type": "string"
     }
   }

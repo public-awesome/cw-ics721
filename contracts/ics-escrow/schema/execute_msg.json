@@ -11,12 +11,12 @@
         "withdraw": {
           "type": "object",
           "required": [
-            "class_uri",
+            "nft_address",
             "receiver",
             "token_id"
           ],
           "properties": {
-            "class_uri": {
+            "nft_address": {
               "type": "string"
             },
             "receiver": {
@@ -24,6 +24,34 @@
             },
             "token_id": {
               "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Burns a collection of tokens in the escrow.",
+      "type": "object",
+      "required": [
+        "burn"
+      ],
+      "properties": {
+        "burn": {
+          "type": "object",
+          "required": [
+            "nft_address",
+            "token_ids"
+          ],
+          "properties": {
+            "nft_address": {
+              "type": "string"
+            },
+            "token_ids": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           }
         }

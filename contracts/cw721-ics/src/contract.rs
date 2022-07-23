@@ -1,8 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult};
-// TODO: Readd back and setup CW2 correctly
-// use cw2::set_contract_version;
+use cw2::set_contract_version;
 use cw721::Cw721ReceiveMsg;
 
 use crate::ContractError;
@@ -11,21 +10,22 @@ use cw721_base::state::TokenInfo;
 use cw721_base::Cw721Contract;
 
 // version info for migration info
-// TODO: Readd these back and setup CW2 correctly
-// const CONTRACT_NAME: &str = "crates.io:cw721-ics";
-// const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+const CONTRACT_NAME: &str = "crates.io:cw721-ics";
+const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub type CW721ContractWrapper<'a> = Cw721Contract<'a, Empty, Empty>;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    deps: DepsMut,
+    mut deps: DepsMut,
     env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     // TODO: Do we need any custom logic here. Maybe we want to store class_id
-    CW721ContractWrapper::default().instantiate(deps, env, info, msg)
+    let res = CW721ContractWrapper::default().instantiate(deps.branch(), env, info, msg)?;
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    Ok(res)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

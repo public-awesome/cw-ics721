@@ -114,4 +114,6 @@ pub enum QueryMsg {
     HasClass { class_id: String },
     /// Returns the NFT contract identified by class_id
     GetClass { class_id: String },
+    /// Returns the class URI identified by class_id
+    GetClassUri { class_id: String },
 }

@@ -444,5 +444,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetNft { class_id, token_id } => to_binary(&get_nft(deps, class_id, token_id)?),
         QueryMsg::HasClass { class_id } => to_binary(&has_class(deps, class_id)?),
         QueryMsg::GetClass { class_id } => to_binary(&get_class(deps, class_id)?),
+        QueryMsg::GetClassUri { class_id } => {
+            to_binary(&CLASS_ID_TO_CLASS_URI.load(deps.storage, class_id)?)
+        }
     }
 }

@@ -1,6 +1,30 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "QueryMsg",
-  "type": "string",
-  "enum": []
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "admin_address"
+      ],
+      "properties": {
+        "admin_address": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "channel_id"
+      ],
+      "properties": {
+        "channel_id": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
 }
