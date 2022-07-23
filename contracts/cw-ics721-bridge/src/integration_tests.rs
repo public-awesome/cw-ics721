@@ -1,7 +1,10 @@
 use cosmwasm_std::{Addr, Empty};
 use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 
-use crate::msg::{ChannelInfoResponse, InstantiateMsg, QueryMsg};
+use crate::{
+    msg::{ChannelInfoResponse, ExecuteMsg, InstantiateMsg, QueryMsg},
+    ContractError,
+};
 
 const COMMUNITY_POOL: &str = "community_pool";
 
@@ -33,28 +36,32 @@ fn bridge_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
-#[test]
-fn test_instantiate() {
-    let mut app = App::default();
-
+fn instantiate_bridge(app: &mut App) -> Addr {
     let cw721_id = app.store_code(cw721_contract());
     let escrow_id = app.store_code(escrow_contract());
     let bridge_id = app.store_code(bridge_contract());
 
-    let bridge = app
-        .instantiate_contract(
-            bridge_id,
-            Addr::unchecked(COMMUNITY_POOL),
-            &InstantiateMsg {
-                cw721_ics_code_id: cw721_id,
-                escrow_code_id: escrow_id,
-            },
-            &[],
-            "cw-ics721-bridge",
-            None,
-        )
-        .unwrap();
+    app.instantiate_contract(
+        bridge_id,
+        Addr::unchecked(COMMUNITY_POOL),
+        &InstantiateMsg {
+            cw721_ics_code_id: cw721_id,
+            escrow_code_id: escrow_id,
+        },
+        &[],
+        "cw-ics721-bridge",
+        None,
+    )
+    .unwrap()
+}
 
+#[test]
+fn test_instantiate() {
+    let mut app = App::default();
+
+    let bridge = instantiate_bridge(&mut app);
+
+    // Make sure that our channels list is empty to start.
     let channels: Vec<ChannelInfoResponse> = app
         .wrap()
         .query_wasm_smart(
@@ -67,4 +74,201 @@ fn test_instantiate() {
         .unwrap();
 
     assert!(channels.is_empty())
+}
+
+#[test]
+fn test_do_instantiate_and_mint() {
+    let mut app = App::default();
+
+    let bridge = instantiate_bridge(&mut app);
+
+    app.execute_contract(
+        bridge.clone(),
+        bridge.clone(),
+        &ExecuteMsg::DoInstantiateAndMint {
+            class_id: "bad kids".to_string(),
+            class_uri: Some("https://moonphase.is".to_string()),
+            token_ids: vec!["1".to_string(), "2".to_string()],
+            token_uris: vec![
+                "https://moonphase.is/image.svg".to_string(),
+                "https://moonphase.is/image.svg".to_string(),
+            ],
+            receiver: "ekez".to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    // Get the address of the instantiated NFT.
+    let nft: Addr = app
+        .wrap()
+        .query_wasm_smart(
+            bridge.clone(),
+            &QueryMsg::GetClass {
+                class_id: "bad kids".to_string(),
+            },
+        )
+        .unwrap();
+
+    // Check that token_uri was set properly.
+    let token_info: cw721::NftInfoResponse<Empty> = app
+        .wrap()
+        .query_wasm_smart(
+            nft.clone(),
+            &cw721::Cw721QueryMsg::NftInfo {
+                token_id: "1".to_string(),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        token_info.token_uri,
+        Some("https://moonphase.is/image.svg".to_string())
+    );
+    let token_info: cw721::NftInfoResponse<Empty> = app
+        .wrap()
+        .query_wasm_smart(
+            nft.clone(),
+            &cw721::Cw721QueryMsg::NftInfo {
+                token_id: "2".to_string(),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        token_info.token_uri,
+        Some("https://moonphase.is/image.svg".to_string())
+    );
+
+    // Check that we can transfer the NFT via the ICS721 interface.
+    app.execute_contract(
+        Addr::unchecked("ekez"),
+        bridge.clone(),
+        &ExecuteMsg::Transfer {
+            class_id: "bad kids".to_string(),
+            token_id: "1".to_string(),
+            receiver: nft.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let owner: cw721::OwnerOfResponse = app
+        .wrap()
+        .query_wasm_smart(
+            bridge,
+            &QueryMsg::GetOwner {
+                token_id: "1".to_string(),
+                class_id: "bad kids".to_string(),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(owner.owner, nft.to_string());
+
+    // Check that this state matches the state of the underlying
+    // cw721.
+    let base_owner: cw721::OwnerOfResponse = app
+        .wrap()
+        .query_wasm_smart(
+            nft,
+            &cw721::Cw721QueryMsg::OwnerOf {
+                token_id: "1".to_string(),
+                include_expired: None,
+            },
+        )
+        .unwrap();
+
+    assert_eq!(base_owner, owner);
+}
+
+#[test]
+fn test_do_instantiate_and_mint_no_instantiate() {
+    let mut app = App::default();
+
+    let bridge = instantiate_bridge(&mut app);
+
+    // This will instantiate a new contract for the class ID and then
+    // do a mint.
+    app.execute_contract(
+        bridge.clone(),
+        bridge.clone(),
+        &ExecuteMsg::DoInstantiateAndMint {
+            class_id: "bad kids".to_string(),
+            class_uri: Some("https://moonphase.is".to_string()),
+            token_ids: vec!["1".to_string()],
+            token_uris: vec!["https://moonphase.is/image.svg".to_string()],
+            receiver: "ekez".to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    // This will only do a mint as the contract for the class ID has
+    // already been instantiated.
+    app.execute_contract(
+        bridge.clone(),
+        bridge.clone(),
+        &ExecuteMsg::DoInstantiateAndMint {
+            class_id: "bad kids".to_string(),
+            class_uri: Some("https://moonphase.is".to_string()),
+            token_ids: vec!["2".to_string()],
+            token_uris: vec!["https://moonphase.is/image.svg".to_string()],
+            receiver: "ekez".to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    // Get the address of the instantiated NFT.
+    let nft: Addr = app
+        .wrap()
+        .query_wasm_smart(
+            bridge,
+            &QueryMsg::GetClass {
+                class_id: "bad kids".to_string(),
+            },
+        )
+        .unwrap();
+
+    // Make sure we have our tokens.
+    let tokens: cw721::TokensResponse = app
+        .wrap()
+        .query_wasm_smart(
+            nft,
+            &cw721::Cw721QueryMsg::AllTokens {
+                start_after: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+
+    assert_eq!(tokens.tokens, vec!["1".to_string(), "2".to_string()])
+}
+
+#[test]
+fn test_do_instantiate_and_mint_permissions() {
+    let mut app = App::default();
+
+    let bridge = instantiate_bridge(&mut app);
+
+    // Method is only callable by the contract itself.
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked("ekez"),
+            bridge,
+            &ExecuteMsg::DoInstantiateAndMint {
+                class_id: "bad kids".to_string(),
+                class_uri: Some("https://moonphase.is".to_string()),
+                token_ids: vec!["1".to_string()],
+                token_uris: vec!["https://moonphase.is/image.svg".to_string()],
+                receiver: "ekez".to_string(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::Unauthorized {});
 }
