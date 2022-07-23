@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     attr,
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier},
-    to_binary, Binary, ContractResult, DepsMut, Env, IbcAcknowledgement, IbcChannel,
+    to_binary, to_vec, Binary, ContractResult, DepsMut, Env, IbcAcknowledgement, IbcChannel,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder, IbcPacket, IbcPacketReceiveMsg,
     IbcTimeout, QuerierResult, Reply, Response, SubMsg, SubMsgResponse, SubMsgResult, Timestamp,
     WasmMsg, WasmQuery,
@@ -120,10 +120,10 @@ fn build_ics_packet(
     receiver: &str,
 ) -> NonFungibleTokenPacketData {
     NonFungibleTokenPacketData {
-        classId: class_id.to_string(),
-        classUri: class_uri.map(|s| s.to_string()),
-        tokenIds: token_ids.into_iter().map(|s| s.to_string()).collect(),
-        tokenUris: token_uris.into_iter().map(|s| s.to_string()).collect(),
+        class_id: class_id.to_string(),
+        class_uri: class_uri.map(|s| s.to_string()),
+        token_ids: token_ids.into_iter().map(|s| s.to_string()).collect(),
+        token_uris: token_uris.into_iter().map(|s| s.to_string()).collect(),
         sender: sender.to_string(),
         receiver: receiver.to_string(),
     }
@@ -686,4 +686,25 @@ fn ibc_receive_sink_chain_empty_class_id() {
             INSTANTIATE_AND_MINT_CW721_REPLY_ID
         )
     )
+}
+
+#[test]
+fn test_packet_json() {
+    let packet = build_ics_packet(
+        "stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n",
+        Some("https://metadata-url.com/my-metadata"),
+        vec!["1", "2", "3"],
+        vec![
+            "https://metadata-url.com/my-metadata1",
+            "https://metadata-url.com/my-metadata2",
+            "https://metadata-url.com/my-metadata3",
+        ],
+        "stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n",
+        "wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc",
+    );
+    // Example message generated from the SDK
+    let expected = r#"{"classId":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","classUri":"https://metadata-url.com/my-metadata","tokenIds":["1","2","3"],"tokenUris":["https://metadata-url.com/my-metadata1","https://metadata-url.com/my-metadata2","https://metadata-url.com/my-metadata3"],"sender":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","receiver":"wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc"}"#;
+
+    let encdoded = String::from_utf8(to_vec(&packet).unwrap()).unwrap();
+    assert_eq!(expected, encdoded.as_str());
 }

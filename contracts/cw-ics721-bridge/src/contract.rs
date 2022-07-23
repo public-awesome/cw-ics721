@@ -332,12 +332,12 @@ fn execute_receive_nft(
     )?;
 
     let ibc_message = NonFungibleTokenPacketData {
-        classId: class_id.clone(),
-        classUri: class_uri,
-        tokenIds: vec![token_id.clone()],
-        tokenUris: vec![token_uri.unwrap_or_default()], /* Currently token_uri is optional in
-                                                         * cw721 - we set to empty string as
-                                                         * default. */
+        class_id: class_id.clone(),
+        class_uri,
+        token_ids: vec![token_id.clone()],
+        token_uris: vec![token_uri.unwrap_or_default()], /* Currently token_uri is optional in
+                                                          * cw721 - we set to empty string as
+                                                          * default. */
         sender: sender.into_string(),
         receiver: msg.receiver,
     };

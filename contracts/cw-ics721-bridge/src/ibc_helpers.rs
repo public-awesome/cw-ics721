@@ -105,7 +105,7 @@ pub(crate) fn validate_order_and_version(
 
 impl NonFungibleTokenPacketData {
     pub fn validate(&self) -> Result<(), ContractError> {
-        if self.tokenIds.len() != self.tokenUris.len() {
+        if self.token_ids.len() != self.token_uris.len() {
             return Err(ContractError::TokenInfoLenMissmatch {});
         }
 

@@ -26,21 +26,21 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, JsonSchema)]
-#[allow(non_snake_case)]
+#[serde(rename_all = "camelCase")]
 pub struct NonFungibleTokenPacketData {
     /// Uniquely identifies the collection which the tokens being
     /// transfered belong to on the sending chain.
-    pub classId: String,
+    pub class_id: String,
     /// URL that points to metadata about the collection. This is not
     /// validated.
-    pub classUri: Option<String>,
+    pub class_uri: Option<String>,
     /// Uniquely identifies the tokens in the NFT collection being
     /// transfered.
-    pub tokenIds: Vec<String>,
+    pub token_ids: Vec<String>,
     /// URL that points to metadata for each token being
     /// transfered. `tokenUris[N]` should hold the metadata for
     /// `tokenIds[N]` and both lists should have the same length.
-    pub tokenUris: Vec<String>,
+    pub token_uris: Vec<String>,
     /// The address sending the tokens on the sending chain.
     pub sender: String,
     /// The address that should receive the tokens on the receiving
@@ -140,7 +140,7 @@ fn do_ibc_packet_receive(
 
     // Check if this token is returning to this chain. If it is, we
     // pop the path from the classID.
-    if let Some(class_id) = try_pop_source_prefix(&packet.src, &data.classId) {
+    if let Some(class_id) = try_pop_source_prefix(&packet.src, &data.class_id) {
         // The token has previously left this chain to go to the other
         // chain and is in the escrow. Unescrow the token and give it
         // to the receiver.
@@ -168,7 +168,7 @@ fn do_ibc_packet_receive(
         let message = ExecuteMsg::BatchTransferFromChannel {
             channel: packet.dest.channel_id,
             class_id: class_id.to_string(),
-            token_ids: data.tokenIds,
+            token_ids: data.token_ids,
             receiver: data.receiver,
         };
 
@@ -187,7 +187,7 @@ fn do_ibc_packet_receive(
         // one. Push to classID and dispatch submessage to create new x
         // cw721 (if needed) and mint for the receiver.
         let local_prefix = get_endpoint_prefix(&packet.dest);
-        let local_class_id = format!("{}{}", local_prefix, data.classId);
+        let local_class_id = format!("{}{}", local_prefix, data.class_id);
 
         // We can not dispatch multiple submessages and still handle
         // errors and rollbacks correctly [1]. As such, we bundle
@@ -200,9 +200,9 @@ fn do_ibc_packet_receive(
                 contract_addr: env.contract.address.into_string(),
                 msg: to_binary(&ExecuteMsg::DoInstantiateAndMint {
                     class_id: local_class_id,
-                    class_uri: data.classUri,
-                    token_ids: data.tokenIds,
-                    token_uris: data.tokenUris,
+                    class_uri: data.class_uri,
+                    token_ids: data.token_ids,
+                    token_uris: data.token_uris,
                     // FIXME: ics20 seems to set the receiver field as a
                     // bech32 address. IF we need to do this, need to convert
                     // first.
@@ -248,13 +248,13 @@ pub fn ibc_packet_ack(
         // We can't do the actual burning here because this method
         // should be infalliable.
         let prefix = get_endpoint_prefix(&ack.original_packet.src);
-        let messages = if msg.classId.starts_with(&prefix) {
+        let messages = if msg.class_id.starts_with(&prefix) {
             let message = WasmMsg::Execute {
                 contract_addr: env.contract.address.into_string(),
                 msg: to_binary(&ExecuteMsg::BurnEscrowTokens {
                     channel: ack.original_packet.src.channel_id,
-                    class_id: msg.classId.clone(),
-                    token_ids: msg.tokenIds.clone(),
+                    class_id: msg.class_id.clone(),
+                    token_ids: msg.token_ids.clone(),
                 })?,
                 funds: vec![],
             };
@@ -271,8 +271,8 @@ pub fn ibc_packet_ack(
             .add_attribute("method", "acknowledge")
             .add_attribute("sender", msg.sender)
             .add_attribute("receiver", msg.receiver)
-            .add_attribute("classId", msg.classId)
-            .add_attribute("token_ids", format!("{:?}", msg.tokenIds)))
+            .add_attribute("classId", msg.class_id)
+            .add_attribute("token_ids", format!("{:?}", msg.token_ids)))
     }
 }
 
@@ -299,10 +299,10 @@ fn handle_packet_fail(
     // happened. TODO: do we need to handle this? Otherwise, this
     // method is faliable.
     let message: NonFungibleTokenPacketData = from_binary(&packet.data)?;
-    let nft_address = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, message.classId.clone())?;
+    let nft_address = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, message.class_id.clone())?;
 
     let return_nfts = message
-        .tokenIds
+        .token_ids
         .iter() // Can't into_iter() here because we use a reference in the closure.
         .map(|token_id| -> StdResult<SubMsg<Empty>> {
             let wasm = WasmMsg::Execute {
@@ -329,8 +329,8 @@ fn handle_packet_fail(
     Ok(IbcBasicResponse::new()
         .add_submessages(return_nfts)
         .add_attribute("method", "handle_packet_fail")
-        .add_attribute("token_ids", format!("{:?}", message.tokenIds))
-        .add_attribute("class_id", message.classId)
+        .add_attribute("token_ids", format!("{:?}", message.token_ids))
+        .add_attribute("class_id", message.class_id)
         .add_attribute("escrow", escrow_addr)
         .add_attribute("channel_id", packet.src.channel_id)
         .add_attribute("address_refunded", message.sender)
