@@ -458,3 +458,101 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use cosmwasm_std::{
+        testing::{mock_dependencies, mock_info, MockQuerier},
+        Addr, ContractResult, CosmosMsg, IbcTimeout, QuerierResult, Timestamp,
+    };
+    use cw721::NftInfoResponse;
+
+    use super::*;
+
+    const NFT_ADDR: &str = "nft";
+
+    #[test]
+    fn test_receive_nft() {
+        let mut querier = MockQuerier::default();
+        querier.update_wasm(|query| -> QuerierResult {
+            match query {
+                cosmwasm_std::WasmQuery::Smart {
+                    contract_addr,
+                    msg: _,
+                } => {
+                    if *contract_addr == NFT_ADDR {
+                        QuerierResult::Ok(ContractResult::Ok(
+                            to_binary(&NftInfoResponse::<Option<Empty>> {
+                                token_uri: Some("https://moonphase.is/image.svg".to_string()),
+                                extension: None,
+                            })
+                            .unwrap(),
+                        ))
+                    } else {
+                        unimplemented!()
+                    }
+                }
+                cosmwasm_std::WasmQuery::Raw {
+                    contract_addr: _,
+                    key: _,
+                } => unimplemented!(),
+                cosmwasm_std::WasmQuery::ContractInfo { contract_addr: _ } => unimplemented!(),
+                _ => unimplemented!(),
+            }
+        });
+
+        let mut deps = mock_dependencies();
+        deps.querier = querier;
+
+        let info = mock_info(NFT_ADDR, &[]);
+        let token_id = "1".to_string();
+        let sender = "ekez".to_string();
+        let msg = to_binary(&IbcAwayMsg {
+            receiver: "callum".to_string(),
+            channel_id: "channel-1".to_string(),
+            timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
+        })
+        .unwrap();
+
+        CHANNELS
+            .save(
+                deps.as_mut().storage,
+                "channel-1".to_string(),
+                &Addr::unchecked("escrow"),
+            )
+            .unwrap();
+
+        let res = execute_receive_nft(deps.as_mut(), info, token_id, sender, msg).unwrap();
+        assert_eq!(res.messages.len(), 2);
+
+        assert_eq!(
+            res.messages[1],
+            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "nft".to_string(),
+                funds: vec![],
+                msg: to_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                    recipient: "escrow".to_string(),
+                    token_id: "1".to_string(),
+                })
+                .unwrap()
+            }))
+        );
+
+        assert_eq!(
+            res.messages[1],
+            SubMsg::new(CosmosMsg::Ibc(IbcMsg::SendPacket {
+                channel_id: "channel-1".to_string(),
+                timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
+                data: to_binary(&NonFungibleTokenPacketData {
+                    class_id: NFT_ADDR.to_string(),
+                    class_uri: None,
+                    token_ids: vec!["1".to_string()],
+                    token_uris: vec!["https://moonphase.is/image.svg".to_string()],
+                    sender: "ekez".to_string(),
+                    receiver: "callum".to_string(),
+                })
+                .unwrap()
+            }))
+        )
+    }
+}
