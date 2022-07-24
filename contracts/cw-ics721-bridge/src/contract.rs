@@ -526,7 +526,7 @@ mod tests {
         assert_eq!(res.messages.len(), 2);
 
         assert_eq!(
-            res.messages[1],
+            res.messages[0],
             SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "nft".to_string(),
                 funds: vec![],
