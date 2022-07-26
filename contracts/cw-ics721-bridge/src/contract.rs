@@ -211,17 +211,12 @@ fn execute_do_instantiate_and_mint(
     // Optionally, instantiate a new cw721 contract if one does not
     // yet exist.
     let submessages = if CLASS_ID_TO_NFT_CONTRACT.has(deps.storage, class_id.clone()) {
-        let expected = CLASS_ID_TO_CLASS_URI.load(deps.storage, class_id.clone())?;
-        if expected != class_uri {
-            // classUri information for a classID shouldn't change
-            // across sends. TODO: is this the case? what are we
-            // suposed to do if not..?
-            return Err(ContractError::ClassUriClash {
-                class_id,
-                expected,
-                actual: class_uri,
-            });
-        }
+        // NOTE: We do not check that the incoming `class_uri` matches
+        // the `class_uri` of other NFTs we have seen that are part of
+        // the collection. The result of this is that, from the
+        // perspective of our chain, the first NFT of a collection to
+        // arrive sets the class level metadata for all preceding
+        // NFTs.
         vec![]
     } else {
         // Store mapping from classID to classUri. cw721 does not do
