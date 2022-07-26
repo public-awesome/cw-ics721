@@ -264,8 +264,6 @@ pub fn ibc_packet_ack(
             vec![]
         };
 
-        // cw-plus' ics20 implementation doesn't add an ack_success
-        // here. TODO: should we?
         Ok(IbcBasicResponse::new()
             .add_submessages(messages)
             .add_attribute("method", "acknowledge")

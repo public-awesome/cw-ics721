@@ -100,8 +100,8 @@ fn execute_burn(
             Ok(WasmMsg::Execute {
                 contract_addr: nft_address.clone(),
                 // This works despite the fact that we need to be
-                // compatible with the cw721 base spec (which does not
-                // have a burn method) everywhere else.
+                // compatible with the cw721 base spec which (before
+                // the 0.13.4 release) did not have a burn method.
                 //
                 // This reason is wrapped up in how this whole machine
                 // works. For NFTs that are coming in from an external
