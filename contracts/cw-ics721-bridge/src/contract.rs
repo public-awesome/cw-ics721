@@ -306,6 +306,7 @@ fn execute_receive_nft(
             &info.sender.to_string(),
         )?;
         CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, info.sender.to_string(), &info.sender)?;
+        CLASS_ID_TO_CLASS_URI.save(deps.storage, info.sender.to_string(), &None)?;
     }
 
     // Class ID is the IBCd ID, or the contract address.
@@ -458,7 +459,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 mod tests {
     use cosmwasm_std::{
         testing::{mock_dependencies, mock_info, MockQuerier},
-        Addr, ContractResult, CosmosMsg, IbcTimeout, QuerierResult, Timestamp,
+        Addr, ContractResult, CosmosMsg, IbcTimeout, QuerierResult, Timestamp, WasmQuery,
     };
     use cw721::NftInfoResponse;
 
@@ -466,35 +467,37 @@ mod tests {
 
     const NFT_ADDR: &str = "nft";
 
+    fn nft_info_response_mock_querier(query: &WasmQuery) -> QuerierResult {
+        match query {
+            cosmwasm_std::WasmQuery::Smart {
+                contract_addr,
+                msg: _,
+            } => {
+                if *contract_addr == NFT_ADDR {
+                    QuerierResult::Ok(ContractResult::Ok(
+                        to_binary(&NftInfoResponse::<Option<Empty>> {
+                            token_uri: Some("https://moonphase.is/image.svg".to_string()),
+                            extension: None,
+                        })
+                        .unwrap(),
+                    ))
+                } else {
+                    unimplemented!()
+                }
+            }
+            cosmwasm_std::WasmQuery::Raw {
+                contract_addr: _,
+                key: _,
+            } => unimplemented!(),
+            cosmwasm_std::WasmQuery::ContractInfo { contract_addr: _ } => unimplemented!(),
+            _ => unimplemented!(),
+        }
+    }
+
     #[test]
     fn test_receive_nft() {
         let mut querier = MockQuerier::default();
-        querier.update_wasm(|query| -> QuerierResult {
-            match query {
-                cosmwasm_std::WasmQuery::Smart {
-                    contract_addr,
-                    msg: _,
-                } => {
-                    if *contract_addr == NFT_ADDR {
-                        QuerierResult::Ok(ContractResult::Ok(
-                            to_binary(&NftInfoResponse::<Option<Empty>> {
-                                token_uri: Some("https://moonphase.is/image.svg".to_string()),
-                                extension: None,
-                            })
-                            .unwrap(),
-                        ))
-                    } else {
-                        unimplemented!()
-                    }
-                }
-                cosmwasm_std::WasmQuery::Raw {
-                    contract_addr: _,
-                    key: _,
-                } => unimplemented!(),
-                cosmwasm_std::WasmQuery::ContractInfo { contract_addr: _ } => unimplemented!(),
-                _ => unimplemented!(),
-            }
-        });
+        querier.update_wasm(nft_info_response_mock_querier);
 
         let mut deps = mock_dependencies();
         deps.querier = querier;
@@ -549,5 +552,39 @@ mod tests {
                 .unwrap()
             }))
         )
+    }
+
+    #[test]
+    fn test_receive_sets_uri() {
+        let mut querier = MockQuerier::default();
+        querier.update_wasm(nft_info_response_mock_querier);
+
+        let mut deps = mock_dependencies();
+        deps.querier = querier;
+
+        let info = mock_info(NFT_ADDR, &[]);
+        let token_id = "1".to_string();
+        let sender = "ekez".to_string();
+        let msg = to_binary(&IbcAwayMsg {
+            receiver: "ekez".to_string(),
+            channel_id: "channel-1".to_string(),
+            timeout: IbcTimeout::with_timestamp(Timestamp::from_nanos(42)),
+        })
+        .unwrap();
+
+        CHANNELS
+            .save(
+                deps.as_mut().storage,
+                "channel-1".to_string(),
+                &Addr::unchecked("escrow"),
+            )
+            .unwrap();
+
+        execute_receive_nft(deps.as_mut(), info, token_id, sender, msg).unwrap();
+
+        let class_uri = CLASS_ID_TO_CLASS_URI
+            .load(deps.as_ref().storage, "nft".to_string())
+            .unwrap();
+        assert_eq!(class_uri, None);
     }
 }
