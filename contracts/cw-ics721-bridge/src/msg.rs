@@ -24,15 +24,6 @@ pub struct InstantiateMsg {
 #[cfg_attr(test, derive(Debug, Clone))]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
-    /// Transfer the NFT identified by class_id and token_id to
-    /// receiver
-    Transfer {
-        class_id: String,
-        token_id: String,
-        receiver: String,
-    },
-    /// Burn the NFT identified by class_id and token_id
-    Burn { class_id: String, token_id: String },
     /// Mints a NFT of collection class_id for receiver with the
     /// provided id and metadata. Only callable by this contract.
     Mint {
@@ -116,7 +107,7 @@ pub enum QueryMsg {
     /// `cw721::NftInfoResponse`.
     GetNft { class_id: String, token_id: String },
     /// Returns true if the NFT class identified by class_id already
-    /// exists.
+    /// exists (it has been received). Returns bool.
     HasClass { class_id: String },
     /// Returns the NFT contract identified by class_id. Returns
     /// `Addr`.

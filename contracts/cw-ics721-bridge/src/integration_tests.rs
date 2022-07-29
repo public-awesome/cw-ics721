@@ -10,9 +10,9 @@ const COMMUNITY_POOL: &str = "community_pool";
 
 fn cw721_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cw721_ics::contract::execute,
-        cw721_ics::contract::instantiate,
-        cw721_ics::contract::query,
+        cw721_base::entry::execute,
+        cw721_base::entry::instantiate,
+        cw721_base::entry::query,
     );
     Box::new(contract)
 }
@@ -143,11 +143,10 @@ fn test_do_instantiate_and_mint() {
     // Check that we can transfer the NFT via the ICS721 interface.
     app.execute_contract(
         Addr::unchecked("ekez"),
-        bridge.clone(),
-        &ExecuteMsg::Transfer {
-            class_id: "bad kids".to_string(),
+        nft.clone(),
+        &cw721_base::msg::ExecuteMsg::<Empty>::TransferNft {
+            recipient: nft.to_string(),
             token_id: "1".to_string(),
-            receiver: nft.to_string(),
         },
         &[],
     )

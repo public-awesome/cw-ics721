@@ -18,9 +18,6 @@ Three contracts orchestrate this:
 1. `cw-ics721-bridge` implements the "NFT transfer bridge" and "NFT
    asset tracking module" parts of the ICS 721 spec.
 2. `ics-escrow` escrows NFTs while are away on foreign chains.
-3. `cw721-ics` is a cw721 implementation that is modified to allow the
-   asset tracking module to transfer and send NFTs on behalf of users
-   interacting with that contract and the ICS 721 interface.
 
 ## Sending NFTs
 
@@ -63,24 +60,3 @@ not previously been sent from the chain it:
    collection.
 3. Mints new cw721 NFTs using the instantiated cw721 for the
    collection being sent over for the receivers.
-
-## Asset transfer module compatability
-
-In order to be ICS 721 compliant, we need to implement asset tracking
-module
-[interface](https://github.com/cosmos/ibc/tree/main/spec/app/ics-721-nft-transfer#sub-protocols)
-defined in the specification. To this end, the bridge contract
-implements all of the methods described therein. In order for messages
-like `Transfer` and `Burn` to work, the bridge contract needs to be
-able to perform those actions on behalf of an address. For example:
-
-1. Address A tells the bridge contract they would like to send their
-   NFT to address B.
-2. Bridge contract fires off a submessage to `cw721-ics` to do that
-   transfer.
-
-The `cw721-ics` contract is needed here as a vanilla cw721 contract
-would see the sender field on the submessage set as the bridge
-contract's address and fail the transaction. For all NFT contracts
-instantiated by the bridge the cw721-ics contract is used. This allows
-for ICS721 interface compatability.

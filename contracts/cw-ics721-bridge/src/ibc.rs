@@ -11,10 +11,9 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::Never,
     helpers::{
-        BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID, BURN_ESCROW_TOKENS_REPLY_ID, BURN_SUB_MSG_REPLY_ID,
+        BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID, BURN_ESCROW_TOKENS_REPLY_ID,
         FAILURE_RESPONSE_FAILURE_REPLY_ID, INSTANTIATE_AND_MINT_CW721_REPLY_ID,
         INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_ESCROW_REPLY_ID, MINT_SUB_MSG_REPLY_ID,
-        TRANSFER_SUB_MSG_REPLY_ID,
     },
     ibc_helpers::{
         ack_fail, ack_success, get_endpoint_prefix, try_get_ack_error, try_pop_source_prefix,
@@ -393,8 +392,6 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
         // These messages don't need to do any state changes in the
         // reply - just need to commit an ack.
         MINT_SUB_MSG_REPLY_ID
-        | TRANSFER_SUB_MSG_REPLY_ID
-        | BURN_SUB_MSG_REPLY_ID
         | INSTANTIATE_AND_MINT_CW721_REPLY_ID
         | BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID
         | BURN_ESCROW_TOKENS_REPLY_ID

@@ -2,7 +2,7 @@
 name = "ics721-escrow"
 version = "0.1.0"
 authors = ["callumanderson <callumanderson745@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -19,13 +19,12 @@ cosmwasm-storage = "1.0.0"
 cw-storage-plus = "0.13.4"
 cw2 = "0.13.4"
 cw721 = "0.13.4"
-cw721-base = { version = "0.13.4", features = ["library"] }
+cw721-base = { version = "0.13.4", features = [] } # TODO: add library back in when: https://github.com/CosmWasm/cw-nfts/pull/76
 schemars = "0.8.10"
 serde = { version = "1.0.140", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.31" }
 
 [dev-dependencies]
-cw721-ics = { version = "*", path = "../cw721-ics" }
 anyhow = "1.0.58"
 cosmwasm-schema = "1.0.0"
 cw-multi-test = "0.13.4"

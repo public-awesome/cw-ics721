@@ -10,17 +10,16 @@ use cosmwasm_std::{
 use crate::{
     contract::instantiate,
     helpers::{
-        BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID, BURN_ESCROW_TOKENS_REPLY_ID, BURN_SUB_MSG_REPLY_ID,
+        BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID, BURN_ESCROW_TOKENS_REPLY_ID,
         FAILURE_RESPONSE_FAILURE_REPLY_ID, INSTANTIATE_AND_MINT_CW721_REPLY_ID,
         INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_ESCROW_REPLY_ID, MINT_SUB_MSG_REPLY_ID,
-        TRANSFER_SUB_MSG_REPLY_ID,
     },
     ibc::{
         ibc_channel_connect, ibc_channel_open, ibc_packet_receive, reply,
         NonFungibleTokenPacketData, IBC_VERSION,
     },
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
-    msg::{ExecuteMsg, InstantiateMsg},
+    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
     ContractError,
 };
 
@@ -259,8 +258,6 @@ fn test_stateless_reply() {
     // List of all our stateless replies, we can test them all in one
     let reply_ids = vec![
         MINT_SUB_MSG_REPLY_ID,
-        TRANSFER_SUB_MSG_REPLY_ID,
-        BURN_SUB_MSG_REPLY_ID,
         INSTANTIATE_AND_MINT_CW721_REPLY_ID,
         BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID,
         BURN_ESCROW_TOKENS_REPLY_ID,
@@ -504,9 +501,9 @@ fn test_ibc_channel_connect_invalid_version_counterparty() {
 
 #[test]
 fn test_ibc_packet_receive_invalid_packet_data() {
-    let data = to_binary(&ExecuteMsg::Burn {
-        class_id: "bad kids".to_string(),
-        token_id: "1".to_string(),
+    let data = to_binary(&QueryMsg::ListChannels {
+        start_after: None,
+        limit: None,
     })
     .unwrap();
 

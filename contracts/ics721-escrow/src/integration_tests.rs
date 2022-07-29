@@ -25,9 +25,9 @@ fn contract_escrow() -> Box<dyn Contract<Empty>> {
 
 fn contract_cw721() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cw721_ics::contract::execute,
-        cw721_ics::contract::instantiate,
-        cw721_ics::contract::query,
+        cw721_base::entry::execute,
+        cw721_base::entry::instantiate,
+        cw721_base::entry::query,
     );
     Box::new(contract)
 }

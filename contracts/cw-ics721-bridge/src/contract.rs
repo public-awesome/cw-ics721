@@ -9,8 +9,8 @@ use cw2::set_contract_version;
 use crate::{
     error::ContractError,
     helpers::{
-        burn, get_class, get_nft, get_owner, get_uri, has_class, list_channels, list_class_ids,
-        transfer, INSTANTIATE_CW721_REPLY_ID,
+        get_class, get_nft, get_owner, get_uri, has_class, list_channels, list_class_ids,
+        INSTANTIATE_CW721_REPLY_ID,
     },
     ibc::NonFungibleTokenPacketData,
     msg::{ExecuteMsg, IbcAwayMsg, InstantiateMsg, QueryMsg},
@@ -49,14 +49,6 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Transfer {
-            class_id,
-            token_id,
-            receiver,
-        } => execute_transfer(deps.as_ref(), env, info, class_id, token_id, receiver),
-        ExecuteMsg::Burn { class_id, token_id } => {
-            execute_burn(deps.as_ref(), env, info, class_id, token_id)
-        }
         ExecuteMsg::Mint {
             class_id,
             token_ids,
@@ -105,49 +97,6 @@ pub fn execute(
             token_ids,
         } => execute_burn_escrow_tokens(deps.as_ref(), env, info, channel, class_id, token_ids),
     }
-}
-
-fn execute_transfer(
-    deps: Deps,
-    env: Env,
-    info: MessageInfo,
-    class_id: String,
-    token_id: String,
-    receiver: String,
-) -> Result<Response, ContractError> {
-    // This will error if the class_id does not exist so no need to check
-    let owner = get_owner(deps, class_id.clone(), token_id.clone())?;
-
-    // Check if we are the owner or the contract itself
-    if info.sender != env.contract.address && info.sender != owner.owner {
-        return Err(ContractError::Unauthorized {});
-    }
-
-    let msg = transfer(deps, class_id, token_id, receiver)?;
-    Ok(Response::new()
-        .add_attribute("action", "transfer")
-        .add_submessage(msg))
-}
-
-fn execute_burn(
-    deps: Deps,
-    env: Env,
-    info: MessageInfo,
-    class_id: String,
-    token_id: String,
-) -> Result<Response, ContractError> {
-    // This will error if the class_id does not exist so no need to check
-    let owner = get_owner(deps, class_id.clone(), token_id.clone())?;
-
-    // Check if we are the owner or the contract itself
-    if info.sender != env.contract.address && info.sender != owner.owner {
-        return Err(ContractError::Unauthorized {});
-    }
-
-    let msg = burn(deps, class_id, token_id)?;
-    Ok(Response::new()
-        .add_attribute("action", "burn")
-        .add_submessage(msg))
 }
 
 fn execute_mint(

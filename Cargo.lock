@@ -182,7 +182,6 @@ dependencies = [
  "cw2",
  "cw721",
  "cw721-base",
- "cw721-ics",
  "ics721-escrow",
  "schemars",
  "serde",
@@ -211,7 +210,7 @@ dependencies = [
 [[package]]
 name = "cw-paginate"
 version = "0.1.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts.git#c37d7d76713e27f2ba86b41b31810b8279022237"
+source = "git+https://github.com/DA0-DA0/dao-contracts.git#14e846768f7a7a8b27a10c86e175c3eb72eec7fe"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -277,24 +276,6 @@ dependencies = [
  "cw-utils",
  "cw2",
  "cw721",
- "schemars",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "cw721-ics"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cosmwasm-storage",
- "cw-multi-test",
- "cw-storage-plus",
- "cw2",
- "cw721",
- "cw721-base",
  "schemars",
  "serde",
  "thiserror",
@@ -474,7 +455,6 @@ dependencies = [
  "cw2",
  "cw721",
  "cw721-base",
- "cw721-ics",
  "schemars",
  "serde",
  "thiserror",
@@ -533,9 +513,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.40"
+version = "1.0.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd96a1e8ed2596c337f8eae5f24924ec83f5ad5ab21ea8e455d3566c69fbcaf7"
+checksum = "c278e965f1d8cf32d6e0e96de3d3e79712178ae67986d9cf9151f51e95aac89b"
 dependencies = [
  "unicode-ident",
 ]

@@ -1,5 +1,6 @@
 [workspace]
 members = ["contracts/*"]
+resolver = "2"
 
 [profile.release]
 codegen-units = 1
@@ -11,5 +12,5 @@ debug-assertions = false
 panic = 'abort'
 incremental = false
 # Please do not disable these. Doing so will cause overflow checks in
-# all workspace members to stop working. Overflows should be errors. 
+# all workspace members to stop working. Overflows should be errors.
 overflow-checks = true
