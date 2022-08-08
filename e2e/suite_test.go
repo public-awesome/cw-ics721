@@ -2,14 +2,11 @@ package e2e_test
 
 import (
 	"encoding/json"
-	"testing"
 
 	"fmt"
 
 	wasmibctesting "github.com/CosmWasm/wasmd/x/wasm/ibctesting"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	channeltypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	ibctesting "github.com/cosmos/ibc-go/v3/testing"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -33,15 +30,23 @@ func (suite *TransferTestSuite) SetupTest() {
 	suite.chainB = suite.coordinator.GetChain(wasmibctesting.GetChainID(1))
 	suite.coordinator.CommitBlock(suite.chainA, suite.chainB)
 
-	chainAStoreResp := suite.chainA.StoreCodeFile("contracts/ics721.wasm")
+	// Store the bridge contract.
+	chainAStoreResp := suite.chainA.StoreCodeFile("artifacts/cw_ics721_bridge.wasm")
 	require.Equal(suite.T(), uint64(1), chainAStoreResp.CodeID)
-	chainBStoreResp := suite.chainB.StoreCodeFile("contracts/ics721.wasm")
+	chainBStoreResp := suite.chainB.StoreCodeFile("artifacts/cw_ics721_bridge.wasm")
 	require.Equal(suite.T(), uint64(1), chainBStoreResp.CodeID)
 
-	instantiateICS721 := InstantiateICS721{
-		100,
+	// Store the escrow contract.
+	chainAStoreResp = suite.chainA.StoreCodeFile("artifacts/ics721_escrow.wasm")
+	require.Equal(suite.T(), uint64(2), chainAStoreResp.CodeID)
+	chainBStoreResp = suite.chainB.StoreCodeFile("artifacts/ics721_escrow.wasm")
+	require.Equal(suite.T(), uint64(2), chainBStoreResp.CodeID)
+
+	// Store the cw721_base contract.
+
+	instantiateICS721 := InstantiateICS721Bridge{
+		1,
 		2,
-		"cw721",
 	}
 	instantiateICS721Raw, err := json.Marshal(instantiateICS721)
 	require.NoError(suite.T(), err)
@@ -52,31 +57,31 @@ func (suite *TransferTestSuite) SetupTest() {
 	fmt.Println(info.IBCPortID)
 }
 
-func (suite *TransferTestSuite) TestICSConnection() {
-	var (
-		sourcePortID      = suite.chainA.ContractInfo(suite.chainAICSAddress).IBCPortID
-		counterpartPortID = suite.chainB.ContractInfo(suite.chainBICSAddress).IBCPortID
-	)
-	suite.coordinator.CommitBlock(suite.chainA, suite.chainB)
-	suite.coordinator.UpdateTime()
+// func (suite *TransferTestSuite) TestICSConnection() {
+// 	var (
+// 		sourcePortID      = suite.chainA.ContractInfo(suite.chainAICSAddress).IBCPortID
+// 		counterpartPortID = suite.chainB.ContractInfo(suite.chainBICSAddress).IBCPortID
+// 	)
+// 	suite.coordinator.CommitBlock(suite.chainA, suite.chainB)
+// 	suite.coordinator.UpdateTime()
 
-	require.Equal(suite.T(), suite.chainA.CurrentHeader.Time, suite.chainB.CurrentHeader.Time)
-	path := wasmibctesting.NewPath(suite.chainA, suite.chainB)
-	path.EndpointA.ChannelConfig = &ibctesting.ChannelConfig{
-		PortID:  sourcePortID,
-		Version: "ics721-1",
-		Order:   channeltypes.UNORDERED,
-	}
-	path.EndpointB.ChannelConfig = &ibctesting.ChannelConfig{
-		PortID:  counterpartPortID,
-		Version: "ics721-1",
-		Order:   channeltypes.UNORDERED,
-	}
+// 	require.Equal(suite.T(), suite.chainA.CurrentHeader.Time, suite.chainB.CurrentHeader.Time)
+// 	path := wasmibctesting.NewPath(suite.chainA, suite.chainB)
+// 	path.EndpointA.ChannelConfig = &ibctesting.ChannelConfig{
+// 		PortID:  sourcePortID,
+// 		Version: "ics721-1",
+// 		Order:   channeltypes.UNORDERED,
+// 	}
+// 	path.EndpointB.ChannelConfig = &ibctesting.ChannelConfig{
+// 		PortID:  counterpartPortID,
+// 		Version: "ics721-1",
+// 		Order:   channeltypes.UNORDERED,
+// 	}
 
-	suite.coordinator.SetupConnections(path)
-	suite.coordinator.CreateChannels(path)
-}
+// 	suite.coordinator.SetupConnections(path)
+// 	suite.coordinator.CreateChannels(path)
+// }
 
-func TestTransferTest(t *testing.T) {
-	suite.Run(t, new(TransferTestSuite))
-}
+// func TestTransferTest(t *testing.T) {
+// 	suite.Run(t, new(TransferTestSuite))
+// }

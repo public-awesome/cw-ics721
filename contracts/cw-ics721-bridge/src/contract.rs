@@ -32,12 +32,12 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    CW721_ICS_CODE_ID.save(deps.storage, &msg.cw721_ics_code_id)?;
+    CW721_ICS_CODE_ID.save(deps.storage, &msg.cw721_base_code_id)?;
     ESCROW_CODE_ID.save(deps.storage, &msg.escrow_code_id)?;
 
     Ok(Response::default()
         .add_attribute("method", "instantiate")
-        .add_attribute("cw721_code_id", msg.cw721_ics_code_id.to_string())
+        .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string())
         .add_attribute("escrow_code_id", msg.escrow_code_id.to_string()))
 }
 

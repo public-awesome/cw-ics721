@@ -13,7 +13,7 @@ pub struct InstantiateMsg {
     /// a regular cw721 may cause the ICS 721 interface implemented by
     /// this contract to stop working, and IBCd away NFTs to be
     /// unreturnable (cw721 does not have a burn method in the spec).
-    pub cw721_ics_code_id: u64,
+    pub cw721_base_code_id: u64,
     /// Code ID for ics-escrow contract. This holds NFTs while they
     /// are away on different chains until they return. A new escrow
     /// is created for each local connection tuple (port, channel).

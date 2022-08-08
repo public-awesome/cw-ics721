@@ -45,7 +45,7 @@ fn instantiate_bridge(app: &mut App) -> Addr {
         bridge_id,
         Addr::unchecked(COMMUNITY_POOL),
         &InstantiateMsg {
-            cw721_ics_code_id: cw721_id,
+            cw721_base_code_id: cw721_id,
             escrow_code_id: escrow_id,
         },
         &[],
