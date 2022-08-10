@@ -77,6 +77,27 @@ fn test_instantiate() {
 }
 
 #[test]
+fn test_do_instantiate_and_mint_weird_data() {
+    let mut app = App::default();
+
+    let bridge = instantiate_bridge(&mut app);
+
+    app.execute_contract(
+        bridge.clone(),
+        bridge.clone(),
+        &ExecuteMsg::DoInstantiateAndMint {
+            class_id: "bad kids".to_string(),
+            class_uri: None,
+            token_ids: vec!["1".to_string()],
+            token_uris: vec!["".to_string()], // Empty string should be allowed.
+            receiver: "ekez".to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+}
+
+#[test]
 fn test_do_instantiate_and_mint() {
     let mut app = App::default();
 

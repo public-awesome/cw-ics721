@@ -120,8 +120,8 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 
 	// Instantiate a cw721 to send on chain A.
 	cw721Instantiate := InstantiateCw721{
-		"bad kids",
-		"bkids",
+		"bad/kids",
+		"bad/kids",
 		suite.chainA.SenderAccount.GetAddress().String(),
 	}
 	instantiateRaw, err := json.Marshal(cw721Instantiate)
@@ -137,8 +137,11 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	})
 	require.NoError(suite.T(), err)
 
-	ibcAway := fmt.Sprintf(`{ "receiver": "%s", "channel_id": "%s", "timeout": { "timestamp": "%d" } }`, suite.chainB.SenderAccount.GetAddress().String(), path.EndpointA.ChannelID, suite.chainA.CurrentHeader.Time.UnixNano()+int64(10000000000000000))
+	ibcAway := fmt.Sprintf(`{ "receiver": "%s", "channel_id": "%s", "timeout": { "timestamp": "%d" } }`, suite.chainB.SenderAccount.GetAddress().String(), path.EndpointA.ChannelID, suite.coordinator.CurrentTime.UnixNano()+1000000000000)
 	ibcAwayEncoded := b64.StdEncoding.EncodeToString([]byte(ibcAway))
+
+	// Pretty sure this is correct.
+	suite.T().Log(ibcAwayEncoded)
 
 	// Send the NFT away to chain B.
 	_, err = suite.chainA.SendMsgs(&wasmtypes.MsgExecuteContract{
@@ -150,8 +153,33 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 
 	require.NoError(suite.T(), err)
 
-	err = suite.coordinator.RelayAndAckPendingPackets(path)
+	src := path.EndpointA
+	dest := path.EndpointB
+	toSend := src.Chain.PendingSendPackets
+	suite.T().Logf("Relay %d Packets A->B\n", len(toSend))
+
+	// send this to the other side
+	suite.coordinator.IncrementTime()
+	suite.coordinator.CommitBlock(src.Chain)
+	err = dest.UpdateClient()
 	require.NoError(suite.T(), err)
+
+	for _, packet := range toSend {
+		suite.T().Logf("sending: %v", string(packet.Data))
+		err = dest.RecvPacket(packet)
+		require.NoError(suite.T(), err)
+	}
+	src.Chain.PendingSendPackets = nil
+
+	// get all the acks to relay dest->src
+	toAck := dest.Chain.PendingAckPackets
+	// TODO: assert >= len(toSend)?
+	suite.T().Logf("Ack %d Packets B->A\n", len(toAck))
+	ackData := dest.Chain.PendingAckPackets[0].Ack
+	suite.T().Logf("ack: %v", string(ackData))
+
+	// err = suite.coordinator.RelayAndAckPendingPackets(path)
+	// require.NoError(suite.T(), err)
 
 	// Check that the NFT has been transfered away from the sender
 	// on chain A.

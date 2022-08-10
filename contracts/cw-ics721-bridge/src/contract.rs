@@ -114,6 +114,7 @@ fn execute_mint(
     if token_ids.len() != token_uris.len() {
         return Err(ContractError::ImbalancedTokenInfo {});
     }
+
     let receiver = deps.api.addr_validate(&receiver)?;
     let cw721_addr = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class_id)?;
 
@@ -181,8 +182,8 @@ fn execute_do_instantiate_and_mint(
                     &(cw721_base::msg::InstantiateMsg {
                         // Name of the collection MUST be class_id as this is how
                         // we create a map entry on reply.
-                        name: class_id.clone(),
-                        symbol: class_id.clone(), // TODO: What should we put here?
+                        name: "bad/kids".to_string(),
+                        symbol: "bad/kids".to_string(), // TODO: What should we put here?
                         minter: env.contract.address.to_string(),
                     }),
                 )?,
