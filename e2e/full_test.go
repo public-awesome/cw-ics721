@@ -90,7 +90,6 @@ func storeWasmFile(t *testing.T, file string, creator sdk.AccAddress, ctx sdk.Co
 	require.NoError(t, err)
 	require.NotNil(t, res)
 
-	println("bridge contract has loaded!")
 	return res.CodeID
 
 }
