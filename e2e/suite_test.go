@@ -148,41 +148,10 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "1", "msg": "%s" } }`, suite.chainABridge.String(), ibcAwayEncoded)),
 		Funds:    []sdk.Coin{},
 	})
-
 	require.NoError(suite.T(), err)
 
-	src := path.EndpointA
-	dest := path.EndpointB
-	toSend := src.Chain.PendingSendPackets
-
-	suite.T().Logf("Relay %d Packets A->B\n", len(toSend))
-
-	// send this to the other side
-	suite.coordinator.IncrementTime()
-	suite.coordinator.CommitBlock(src.Chain)
-	err = dest.UpdateClient()
+	err = suite.coordinator.RelayAndAckPendingPackets(path)
 	require.NoError(suite.T(), err)
-
-	for _, packet := range toSend {
-		// Data does appear to be correctly encoded
-		// here. Removing the `from_binary` call in
-		// `do_ibc_packet_receive` and replacing it with a
-		// hardcoded packet does not change the error.
-		suite.T().Logf("Packet data: %v", string(packet.Data))
-		err = dest.RecvPacket(packet)
-		require.NoError(suite.T(), err)
-	}
-	src.Chain.PendingSendPackets = nil
-
-	// get all the acks to relay dest->src
-	toAck := dest.Chain.PendingAckPackets
-	// TODO: assert >= len(toSend)?
-	suite.T().Logf("Ack %d Packets B->A\n", len(toAck))
-	ackData := dest.Chain.PendingAckPackets[0].Ack
-	suite.T().Logf("ack: %v", string(ackData))
-
-	// err = suite.coordinator.RelayAndAckPendingPackets(path)
-	// require.NoError(suite.T(), err)
 
 	// Check that the NFT has been transfered away from the sender
 	// on chain A.
@@ -196,15 +165,102 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	require.NoError(suite.T(), err)
 	require.NotEqual(suite.T(), suite.chainA.SenderAccount, resp.Owner)
 
+	chainBClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, cw721.String())
+
+	// Check that the receiver on the receiving chain now owns the NFT.
 	getOwnerQuery := GetOwnerQuery{
 		GetOwner: GetOwnerQueryData{
 			TokenID: "1",
-			ClassID: fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, cw721.String()),
+			ClassID: chainBClassID,
 		},
 	}
-
 	err = suite.chainB.SmartQuery(suite.chainBBridge.String(), getOwnerQuery, &resp)
 	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), suite.chainB.SenderAccount.GetAddress().String(), resp.Owner)
+
+	// Get the address of the instantiated cw721.
+	getClassQuery := GetClassQuery{
+		GetClass: GetClassQueryData{
+			ClassID: chainBClassID,
+		},
+	}
+	chainBCw721 := ""
+
+	err = suite.chainB.SmartQuery(suite.chainBBridge.String(), getClassQuery, &chainBCw721)
+	require.NoError(suite.T(), err)
+	suite.T().Logf("Chain B cw721: %s", chainBCw721)
+
+	// Check that the contract info for the instantiated cw721 was
+	// set correctly.
+	contractInfo := ContractInfoResponse{}
+	contractInfoQuery := ContractInfoQuery{
+		ContractInfo: ContractInfoQueryData{},
+	}
+	err = suite.chainB.SmartQuery(chainBCw721, contractInfoQuery, &contractInfo)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), ContractInfoResponse{
+		Name:   chainBClassID,
+		Symbol: chainBClassID,
+	}, contractInfo)
+
+	//
+	// Send the NFT back!
+	//
+
+	ibcAway = fmt.Sprintf(`{ "receiver": "%s", "channel_id": "%s", "timeout": { "timestamp": "%d" } }`, suite.chainA.SenderAccount.GetAddress().String(), path.EndpointB.ChannelID, suite.coordinator.CurrentTime.UnixNano()+1000000000000)
+	ibcAwayEncoded = b64.StdEncoding.EncodeToString([]byte(ibcAway))
+
+	// Send the NFT away to chain A.
+	_, err = suite.chainB.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainB.SenderAccount.GetAddress().String(),
+		Contract: chainBCw721,
+		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "1", "msg": "%s" } }`, suite.chainBBridge.String(), ibcAwayEncoded)),
+		Funds:    []sdk.Coin{},
+	})
+
+	require.NoError(suite.T(), err)
+
+	err = suite.coordinator.RelayAndAckPendingPackets(path.Invert())
+	require.NoError(suite.T(), err)
+
+	// Check that the NFT has been received on the other side.
+	err = suite.chainA.SmartQuery(cw721.String(), ownerOfQuery, &resp)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), resp.Owner)
+
+	// Check that the GetClass query returns what we expect for
+	// local NFTs.
+	getClassQuery = GetClassQuery{
+		GetClass: GetClassQueryData{
+			ClassID: cw721.String(),
+		},
+	}
+	getClassResp := ""
+
+	err = suite.chainA.SmartQuery(suite.chainABridge.String(), getClassQuery, &getClassResp)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), cw721.String(), getClassResp)
+
+	// FIXME: Why does uncommenting this query on chainA change
+	// the error text in the burn check below?
+
+	// getOwnerQuery = GetOwnerQuery{
+	// 	GetOwner: GetOwnerQueryData{
+	// 		TokenID: "1",
+	// 		ClassID: cw721.String(),
+	// 	},
+	// }
+	// err = suite.chainA.SmartQuery(suite.chainABridge.String(), getOwnerQuery, &resp)
+	// require.NoError(suite.T(), err)
+	// require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), resp.
+
+	//
+	// Check that the NFT was burned on the remote chain.
+	//
+	err = suite.chainB.SmartQuery(suite.chainBBridge.String(), getOwnerQuery, &resp)
+	// This should fail as the NFT is burned and the load from
+	// storage will cause it to error.
+	require.ErrorContains(suite.T(), err, "wasm, code: 9: query wasm contract failed")
 }
 
 // FIXME: I am not sure we can actually catch the failure here as the
