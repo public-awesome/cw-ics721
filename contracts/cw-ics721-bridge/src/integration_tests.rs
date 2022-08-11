@@ -45,7 +45,7 @@ fn instantiate_bridge(app: &mut App) -> Addr {
         bridge_id,
         Addr::unchecked(COMMUNITY_POOL),
         &InstantiateMsg {
-            cw721_ics_code_id: cw721_id,
+            cw721_base_code_id: cw721_id,
             escrow_code_id: escrow_id,
         },
         &[],
@@ -74,6 +74,27 @@ fn test_instantiate() {
         .unwrap();
 
     assert!(channels.is_empty())
+}
+
+#[test]
+fn test_do_instantiate_and_mint_weird_data() {
+    let mut app = App::default();
+
+    let bridge = instantiate_bridge(&mut app);
+
+    app.execute_contract(
+        bridge.clone(),
+        bridge,
+        &ExecuteMsg::DoInstantiateAndMint {
+            class_id: "bad kids".to_string(),
+            class_uri: None,
+            token_ids: vec!["1".to_string()],
+            token_uris: vec!["".to_string()], // Empty string should be allowed.
+            receiver: "ekez".to_string(),
+        },
+        &[],
+    )
+    .unwrap();
 }
 
 #[test]

@@ -32,12 +32,12 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    CW721_ICS_CODE_ID.save(deps.storage, &msg.cw721_ics_code_id)?;
+    CW721_ICS_CODE_ID.save(deps.storage, &msg.cw721_base_code_id)?;
     ESCROW_CODE_ID.save(deps.storage, &msg.escrow_code_id)?;
 
     Ok(Response::default()
         .add_attribute("method", "instantiate")
-        .add_attribute("cw721_code_id", msg.cw721_ics_code_id.to_string())
+        .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string())
         .add_attribute("escrow_code_id", msg.escrow_code_id.to_string()))
 }
 
@@ -114,6 +114,7 @@ fn execute_mint(
     if token_ids.len() != token_uris.len() {
         return Err(ContractError::ImbalancedTokenInfo {});
     }
+
     let receiver = deps.api.addr_validate(&receiver)?;
     let cw721_addr = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class_id)?;
 
@@ -177,17 +178,18 @@ fn execute_do_instantiate_and_mint(
             WasmMsg::Instantiate {
                 admin: None, // TODO: Any reason to set ourselves as admin?
                 code_id: CW721_ICS_CODE_ID.load(deps.storage)?,
-                msg: to_binary(
-                    &(cw721_base::msg::InstantiateMsg {
-                        // Name of the collection MUST be class_id as this is how
-                        // we create a map entry on reply.
-                        name: class_id.clone(),
-                        symbol: class_id.clone(), // TODO: What should we put here?
-                        minter: env.contract.address.to_string(),
-                    }),
-                )?,
+                msg: to_binary(&cw721_base::msg::InstantiateMsg {
+                    // Name of the collection MUST be class_id as this is how
+                    // we create a map entry on reply.
+                    name: class_id.to_string(),
+                    symbol: class_id.to_string(), // TODO: What should we put here?
+                    minter: env.contract.address.to_string(),
+                })?,
                 funds: vec![],
-                label: format!("{} ICS721 cw721 backing contract", class_id),
+                // Attempting to fit the class ID in the label field
+                // can make this field too long which causes weird
+                // data errors in the SDK.
+                label: "ICS771 backing cw721".to_string(),
             },
             INSTANTIATE_CW721_REPLY_ID,
         );

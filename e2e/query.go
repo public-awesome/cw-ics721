@@ -5,7 +5,7 @@ import (
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/public-awesome/stargaze/v4/app"
+	"github.com/public-awesome/stargaze/v6/app"
 	"github.com/stretchr/testify/require"
 )
 
