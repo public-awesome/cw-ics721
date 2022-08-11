@@ -81,6 +81,7 @@ pub enum ExecuteMsg {
         class_id: String,
         token_ids: Vec<String>,
     },
+    Noop {},
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]

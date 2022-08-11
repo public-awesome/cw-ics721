@@ -10,7 +10,7 @@ use crate::{
     error::ContractError,
     helpers::{
         get_class, get_nft, get_owner, get_uri, has_class, list_channels, list_class_ids,
-        INSTANTIATE_CW721_REPLY_ID,
+        INSTANTIATE_CW721_REPLY_ID, MINT_SUB_MSG_REPLY_ID,
     },
     ibc::NonFungibleTokenPacketData,
     msg::{ExecuteMsg, IbcAwayMsg, InstantiateMsg, QueryMsg},
@@ -96,6 +96,7 @@ pub fn execute(
             class_id,
             token_ids,
         } => execute_burn_escrow_tokens(deps.as_ref(), env, info, channel, class_id, token_ids),
+        ExecuteMsg::Noop {} => Ok(Response::default()),
     }
 }
 
@@ -174,21 +175,22 @@ fn execute_do_instantiate_and_mint(
         // getting lost.
         CLASS_ID_TO_CLASS_URI.save(deps.storage, class_id.clone(), &class_uri)?;
 
+        // Code ID is not the problem. Hardcoding it does not solve
+        // our issues.
+
         let message = SubMsg::<Empty>::reply_on_success(
             WasmMsg::Instantiate {
                 admin: None, // TODO: Any reason to set ourselves as admin?
-                code_id: CW721_ICS_CODE_ID.load(deps.storage)?,
-                msg: to_binary(
-                    &(cw721_base::msg::InstantiateMsg {
-                        // Name of the collection MUST be class_id as this is how
-                        // we create a map entry on reply.
-                        name: "bad/kids".to_string(),
-                        symbol: "bad/kids".to_string(), // TODO: What should we put here?
-                        minter: env.contract.address.to_string(),
-                    }),
-                )?,
+                code_id: 3,
+                msg: to_binary(&cw721_base::msg::InstantiateMsg {
+                    // Name of the collection MUST be class_id as this is how
+                    // we create a map entry on reply.
+                    name: class_id.to_string(),
+                    symbol: class_id.to_string(), // TODO: What should we put here?
+                    minter: env.contract.address.to_string(),
+                })?,
                 funds: vec![],
-                label: format!("{} ICS721 cw721 backing contract", class_id),
+                label: "ICS771 backing cw721".to_string(),
             },
             INSTANTIATE_CW721_REPLY_ID,
         );
@@ -216,6 +218,7 @@ fn execute_do_instantiate_and_mint(
         .add_attribute("method", "do_instantiate_and_mint")
         .add_submessages(submessages)
         .add_message(mint_message))
+    // .add_message(mint_message))
 }
 
 fn execute_receive_nft(

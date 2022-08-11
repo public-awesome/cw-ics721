@@ -64,9 +64,8 @@ func (suite *TransferTestSuite) SetupTest() {
 	require.NoError(suite.T(), err)
 	suite.chainABridge = suite.chainA.InstantiateContract(1, instantiateICS721Raw)
 	suite.chainBBridge = suite.chainB.InstantiateContract(1, instantiateICS721Raw)
-	info := suite.chainA.ContractInfo(suite.chainABridge)
-	fmt.Println(suite.chainABridge.String(), suite.chainBBridge.String())
-	fmt.Println(info.IBCPortID)
+
+	suite.T().Logf("(chain A bridge, chain B bridge) = (%s, %s)", suite.chainABridge.String(), suite.chainBBridge.String())
 }
 
 func (suite *TransferTestSuite) TestEstablishConnection() {
@@ -128,6 +127,8 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	require.NoError(suite.T(), err)
 	cw721 := suite.chainA.InstantiateContract(3, instantiateRaw)
 
+	suite.T().Logf("chain A cw721: %s", cw721.String())
+
 	// Mint a new NFT to be sent away.
 	_, err = suite.chainA.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   suite.chainA.SenderAccount.GetAddress().String(),
@@ -139,9 +140,6 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 
 	ibcAway := fmt.Sprintf(`{ "receiver": "%s", "channel_id": "%s", "timeout": { "timestamp": "%d" } }`, suite.chainB.SenderAccount.GetAddress().String(), path.EndpointA.ChannelID, suite.coordinator.CurrentTime.UnixNano()+1000000000000)
 	ibcAwayEncoded := b64.StdEncoding.EncodeToString([]byte(ibcAway))
-
-	// Pretty sure this is correct.
-	suite.T().Log(ibcAwayEncoded)
 
 	// Send the NFT away to chain B.
 	_, err = suite.chainA.SendMsgs(&wasmtypes.MsgExecuteContract{
@@ -156,6 +154,7 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	src := path.EndpointA
 	dest := path.EndpointB
 	toSend := src.Chain.PendingSendPackets
+
 	suite.T().Logf("Relay %d Packets A->B\n", len(toSend))
 
 	// send this to the other side
@@ -165,7 +164,11 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	require.NoError(suite.T(), err)
 
 	for _, packet := range toSend {
-		suite.T().Logf("sending: %v", string(packet.Data))
+		// Data does appear to be correctly encoded
+		// here. Removing the `from_binary` call in
+		// `do_ibc_packet_receive` and replacing it with a
+		// hardcoded packet does not change the error.
+		suite.T().Logf("Packet data: %v", string(packet.Data))
 		err = dest.RecvPacket(packet)
 		require.NoError(suite.T(), err)
 	}

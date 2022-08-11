@@ -136,6 +136,14 @@ fn do_ibc_packet_receive(
 ) -> Result<IbcReceiveResponse, ContractError> {
     let data: NonFungibleTokenPacketData = from_binary(&packet.data)?;
     data.validate()?;
+    // let data = NonFungibleTokenPacketData {
+    //     class_id: "cosmos17p9rzwnnfxcjp32un9ug7yhhzgtkhvl9jfksztgw5uh69wac2pgspeq65p".to_string(),
+    //     class_uri: None,
+    //     token_ids: vec!["1".to_string()],
+    //     token_uris: vec!["".to_string()],
+    //     sender: "cosmos1xel3rgjs9wpnd0qmq6yxqv6m2ce6n2qsyylss3".to_string(),
+    //     receiver: "cosmos15mm76axgukjy94ycz8xay4sdmvyk2tev6gkf4e".to_string(),
+    // };
 
     // Check if this token is returning to this chain. If it is, we
     // pop the path from the classID.
