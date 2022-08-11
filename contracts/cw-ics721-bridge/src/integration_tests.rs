@@ -84,7 +84,7 @@ fn test_do_instantiate_and_mint_weird_data() {
 
     app.execute_contract(
         bridge.clone(),
-        bridge.clone(),
+        bridge,
         &ExecuteMsg::DoInstantiateAndMint {
             class_id: "bad kids".to_string(),
             class_uri: None,
