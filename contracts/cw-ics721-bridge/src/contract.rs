@@ -9,8 +9,8 @@ use cw2::set_contract_version;
 use crate::{
     error::ContractError,
     helpers::{
-        get_class, get_nft, get_owner, get_uri, has_class, list_channels, list_class_ids,
-        INSTANTIATE_CW721_REPLY_ID,
+        get_class, get_class_id_for_nft_contract, get_nft, get_owner, get_uri, has_class,
+        list_channels, list_class_ids, INSTANTIATE_CW721_REPLY_ID,
     },
     ibc::NonFungibleTokenPacketData,
     msg::{ExecuteMsg, IbcAwayMsg, InstantiateMsg, QueryMsg},
@@ -402,6 +402,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::ListClassIds { start_after, limit } => {
             to_binary(&list_class_ids(deps, start_after, limit)?)
+        }
+        QueryMsg::GetClassIdForNftContract { contract } => {
+            to_binary(&get_class_id_for_nft_contract(deps, contract)?)
         }
     }
 }

@@ -47,3 +47,13 @@ type ContractInfoResponse struct {
 	Name   string `json:"name"`
 	Symbol string `json:"symbol"`
 }
+
+type GetClassIDForNFTContractResponse struct {
+	ClassID string `json:"class_id,omitempty""`
+}
+type GetClassIDForNFTContractQueryData struct {
+	Contract string `json:"contract"`
+}
+type GetClassIDForNFTContractQuery struct {
+	GetClassIDForNFTContract GetClassIDForNFTContractQueryData `json:"get_class_id_for_nft_contract"`
+}

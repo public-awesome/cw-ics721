@@ -1,10 +1,11 @@
 use cosmwasm_std::{
-    from_binary, to_binary, Binary, IbcAcknowledgement, IbcChannel, IbcEndpoint, IbcOrder,
+    from_binary, to_binary, Binary, Deps, IbcAcknowledgement, IbcChannel, IbcEndpoint, IbcOrder,
     StdError, StdResult,
 };
 
 use crate::{
     ibc::{NonFungibleTokenPacketData, IBC_VERSION},
+    state::{CHANNELS, CLASS_ID_TO_NFT_CONTRACT},
     ContractError,
 };
 
@@ -20,6 +21,38 @@ pub(crate) fn try_pop_source_prefix<'a>(
     // strings. We can not trust classID as it comes from an external
     // IBC connection.
     class_id.strip_prefix(&source_prefix)
+}
+
+pub(crate) fn were_previously_sent_out_on_this_channel(
+    deps: Deps,
+    class_id: String,
+    token_ids: Vec<String>,
+    local_channel: &IbcEndpoint,
+) -> StdResult<bool> {
+    let nft_contract =
+        if let Some(contract) = CLASS_ID_TO_NFT_CONTRACT.may_load(deps.storage, class_id)? {
+            contract
+        } else {
+            // If we have no NFT contract for a class ID with this
+            // name we definately did not previously send this NFT
+            // out.
+            return Ok(false);
+        };
+    let escrow = CHANNELS.load(deps.storage, local_channel.channel_id.clone())?;
+
+    let owners: Vec<cw721::OwnerOfResponse> = token_ids
+        .into_iter()
+        .map(|token_id| -> StdResult<_> {
+            deps.querier.query_wasm_smart(
+                nft_contract.clone(),
+                &cw721::Cw721QueryMsg::OwnerOf {
+                    token_id,
+                    include_expired: None,
+                },
+            )
+        })
+        .collect::<StdResult<_>>()?;
+    Ok(owners.iter().all(|owner| owner.owner == escrow))
 }
 
 /// Gets the classID prefix for a given IBC endpoint.

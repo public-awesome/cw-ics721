@@ -116,6 +116,10 @@ pub enum QueryMsg {
     /// class_id. Returns GetUriResponse.
     GetUri { class_id: String },
 
+    /// Gets the classID this contract has stored for a given NFT
+    /// contract. Returns `GetClassIdForNftContractResponse`.
+    GetClassIdForNftContract { contract: String },
+
     /// Paginated query over all the channels this contract is
     /// connected to. Returns `Vec<ChannelInfoResponse>`.
     ListChannels {
@@ -146,4 +150,10 @@ pub struct ClassIdInfoResponse {
 #[derive(Serialize, Deserialize, JsonSchema)]
 pub struct GetUriResponse {
     pub uri: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+pub struct GetClassIdForNftContractResponse {
+    // The classId for the NFT contract, if any.
+    pub class_id: Option<String>,
 }

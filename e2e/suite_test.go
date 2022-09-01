@@ -191,6 +191,17 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	require.NoError(suite.T(), err)
 	suite.T().Logf("Chain B cw721: %s", chainBCw721)
 
+	// Check that the classID for the contract has been set properly.
+	getClassIDQuery := GetClassIDForNFTContractQuery{
+		GetClassIDForNFTContract: GetClassIDForNFTContractQueryData{
+			Contract: chainBCw721,
+		},
+	}
+	getClassIDResponse := GetClassIDForNFTContractResponse{}
+	err = suite.chainB.SmartQuery(suite.chainBBridge.String(), getClassIDQuery, &getClassIDResponse)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), fmt.Sprintf("%s/%s/%s", counterpartPortID, "channel-0", cw721), getClassIDResponse.ClassID)
+
 	// Check that the contract info for the instantiated cw721 was
 	// set correctly.
 	contractInfo := ContractInfoResponse{}
@@ -302,26 +313,16 @@ func TestIBC(t *testing.T) {
 	suite.Run(t, new(TransferTestSuite))
 }
 
-func TestSendBetweenManyChains(t *testing.T) {
-	numChains := 10
-	// This is the path the NFT will take. At the end of this the
-	// initial sender on the initial chain is expected to have
-	// this.
-	//
-	// TODO: break this into funciton. Allow specifying the path
-	// as well as information about what the final state should
-	// be.
-	//
-	// FIXME: something wrong with this path:
-	// journey := []int{1, 5, 3, 1, 3, 5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 8, 7, 6, 5, 4, 3, 2, 1}
-	journey := []int{1, 5, 3, 1, 3, 5, 1}
+func TestSendBetweenThreeChains(t *testing.T) {
+	numChains := 3
+	journey := []int{0, 1, 2, 1, 0}
 
 	coordinator := wasmibctesting.NewCoordinator(t, numChains)
 
 	var bridge sdk.AccAddress
-	var cw721 string
+	var initialCw721 string
 	tokenID := "1"
-	classID := ""
+	classIDPrefix := ""
 
 	for i := 0; i < numChains; i++ {
 		chain := coordinator.GetChain(wasmibctesting.GetChainID(i))
@@ -354,12 +355,12 @@ func TestSendBetweenManyChains(t *testing.T) {
 		}
 		instantiateRaw, err := json.Marshal(cw721Instantiate)
 		require.NoError(t, err)
-		cw721 = chain.InstantiateContract(3, instantiateRaw).String()
-		classID = cw721
+		initialCw721 = chain.InstantiateContract(3, instantiateRaw).String()
+		classIDPrefix = fmt.Sprintf("wasm.%s/channel-0/", initialCw721)
 
 		_, err = chain.SendMsgs(&wasmtypes.MsgExecuteContract{
 			Sender:   chain.SenderAccount.GetAddress().String(),
-			Contract: cw721,
+			Contract: initialCw721,
 			Msg:      []byte(fmt.Sprintf(`{ "mint": { "token_id": "%s", "owner": "%s" } }`, tokenID, chain.SenderAccount.GetAddress().String())),
 			Funds:    []sdk.Coin{},
 		})
@@ -405,7 +406,7 @@ func TestSendBetweenManyChains(t *testing.T) {
 		addPath(path, start, end)
 		return getPath(start, end)
 	}
-	getNextClassID := func(path *wasmibctesting.Path, classID string) string {
+	_ = func(path *wasmibctesting.Path, classID string) string {
 		prefix := fmt.Sprintf("%s/%s/", path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID)
 		if strings.HasPrefix(classID, prefix) {
 			return strings.TrimPrefix(classID, prefix)
@@ -416,6 +417,16 @@ func TestSendBetweenManyChains(t *testing.T) {
 	for i := 0; i < len(journey)-1; i++ {
 		startIdx := journey[i]
 		endIdx := journey[i+1]
+		// Because each chain is exactly the same and the
+		// start one is chain zero, the classID that is
+		// expected is just the prefix we constructed
+		// multiplied by the number of hops.
+		//
+		// FIXME: this is not true for all journeys and only
+		// works on ones where the path is constantly
+		// incrementing.
+		classID := fmt.Sprintf("%s%s", strings.Repeat(classIDPrefix, startIdx), initialCw721)
+
 		t.Logf("traveling from %d -> %d", startIdx, endIdx)
 		t.Logf("using classID: (%s)", classID)
 
@@ -434,7 +445,7 @@ func TestSendBetweenManyChains(t *testing.T) {
 		err := startChain.SmartQuery(bridge.String(), getClassQuery, &getClassResp)
 
 		// Native NFT by default.
-		cw721 := cw721
+		cw721 := initialCw721
 		if err == nil {
 			// We're already in the system and have come
 			// in from another chain.
@@ -457,8 +468,6 @@ func TestSendBetweenManyChains(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		classID = getNextClassID(path, classID)
-
 		coordinator.RelayAndAckPendingPackets(path)
 	}
 
@@ -471,7 +480,7 @@ func TestSendBetweenManyChains(t *testing.T) {
 			TokenID: "1",
 		},
 	}
-	err := startChain.SmartQuery(cw721, ownerOfQuery, &resp)
+	err := startChain.SmartQuery(initialCw721, ownerOfQuery, &resp)
 	require.NoError(t, err)
 	require.NotEqual(t, startChain.SenderAccount, resp.Owner)
 }

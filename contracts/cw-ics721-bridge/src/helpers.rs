@@ -2,8 +2,10 @@ use cosmwasm_std::{Addr, Deps, Empty, StdResult};
 use cw721::{NftInfoResponse, OwnerOfResponse};
 
 use crate::{
-    msg::{ChannelInfoResponse, ClassIdInfoResponse, GetUriResponse},
-    state::{CHANNELS, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT},
+    msg::{
+        ChannelInfoResponse, ClassIdInfoResponse, GetClassIdForNftContractResponse, GetUriResponse,
+    },
+    state::{CHANNELS, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT, NFT_CONTRACT_TO_CLASS_ID},
 };
 
 pub const MINT_SUB_MSG_REPLY_ID: u64 = 0;
@@ -49,6 +51,16 @@ pub fn get_class(deps: Deps, class_id: String) -> StdResult<Addr> {
 pub fn get_uri(deps: Deps, class_id: String) -> StdResult<GetUriResponse> {
     let uri = CLASS_ID_TO_CLASS_URI.load(deps.storage, class_id)?;
     Ok(GetUriResponse { uri })
+}
+
+pub fn get_class_id_for_nft_contract(
+    deps: Deps,
+    contract: String,
+) -> StdResult<GetClassIdForNftContractResponse> {
+    Ok(GetClassIdForNftContractResponse {
+        class_id: NFT_CONTRACT_TO_CLASS_ID
+            .may_load(deps.storage, deps.api.addr_validate(&contract)?)?,
+    })
 }
 
 pub fn list_channels(

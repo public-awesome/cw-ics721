@@ -17,7 +17,7 @@ use crate::{
     },
     ibc_helpers::{
         ack_fail, ack_success, get_endpoint_prefix, try_get_ack_error, try_pop_source_prefix,
-        validate_order_and_version,
+        validate_order_and_version, were_previously_sent_out_on_this_channel,
     },
     msg::ExecuteMsg,
     state::{CHANNELS, CLASS_ID_TO_NFT_CONTRACT, ESCROW_CODE_ID, NFT_CONTRACT_TO_CLASS_ID},
@@ -130,43 +130,29 @@ pub fn ibc_packet_receive(
 }
 
 fn do_ibc_packet_receive(
-    _deps: Deps,
+    deps: Deps,
     env: Env,
     packet: IbcPacket,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let data: NonFungibleTokenPacketData = from_binary(&packet.data)?;
     data.validate()?;
 
-    // Check if this token is returning to this chain. If it is, we
-    // pop the path from the classID.
-    if let Some(class_id) = try_pop_source_prefix(&packet.src, &data.class_id) {
+    let cannidate_local_class_id = try_pop_source_prefix(&packet.src, &data.class_id);
+
+    if cannidate_local_class_id.is_some()
+        && were_previously_sent_out_on_this_channel(
+            deps,
+            cannidate_local_class_id.unwrap().to_string(),
+            data.token_ids.clone(),
+            &packet.dest,
+        )?
+    {
         // The token has previously left this chain to go to the other
         // chain and is in the escrow. Unescrow the token and give it
         // to the receiver.
-        //
-        // For each tokenID:
-        //   1. Get the escrow address for this destination port and
-        //      channel.
-        //   2. Get the cw721 address for this classID.
-        //   3. Transfer the tokenID from escrow to receiver.
-        //
-        // See `execute_receive_nft` for a description of why this works.
-
-        // The escrow protects us from overwithdrawal by an evil chain
-        // because the cw721s underlying all this will start failing
-        // the transactions as the escrow for the channel will run out
-        // of NFTs. If we held all these in the bridge contract a
-        // malicious chain could connect to us using the same source
-        // prefix as a different chain and drain all of its funds.
-        //
-        // TL;DR - Don't get rid of the escrows. Make sure to use
-        // `packet.dest` in the channel field below.
-
-        // Transfer all of the requested NFTs out of the channel and
-        // to the receiver.
         let message = ExecuteMsg::BatchTransferFromChannel {
             channel: packet.dest.channel_id,
-            class_id: class_id.to_string(),
+            class_id: cannidate_local_class_id.unwrap().to_string(),
             token_ids: data.token_ids,
             receiver: data.receiver,
         };
