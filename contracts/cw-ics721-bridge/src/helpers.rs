@@ -2,19 +2,12 @@ use cosmwasm_std::{Addr, Deps, Empty, StdResult};
 use cw721::{NftInfoResponse, OwnerOfResponse};
 
 use crate::{
-    msg::{
-        ChannelInfoResponse, ClassIdInfoResponse, GetClassIdForNftContractResponse, GetUriResponse,
-    },
-    state::{CHANNELS, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT, NFT_CONTRACT_TO_CLASS_ID},
+    msg::{ClassIdInfoResponse, GetClassIdForNftContractResponse, GetUriResponse},
+    state::{CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT, NFT_CONTRACT_TO_CLASS_ID},
 };
 
-pub const MINT_SUB_MSG_REPLY_ID: u64 = 0;
-pub const INSTANTIATE_AND_MINT_CW721_REPLY_ID: u64 = 3;
 pub const INSTANTIATE_CW721_REPLY_ID: u64 = 4;
-pub const INSTANTIATE_ESCROW_REPLY_ID: u64 = 5;
-pub const FAILURE_RESPONSE_FAILURE_REPLY_ID: u64 = 6;
-pub const BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID: u64 = 7;
-pub const BURN_ESCROW_TOKENS_REPLY_ID: u64 = 8;
+pub const ACK_AND_DO_NOTHING: u64 = 0;
 
 pub fn get_owner(deps: Deps, class_id: String, token_id: String) -> StdResult<OwnerOfResponse> {
     let class_uri = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class_id)?;
@@ -61,27 +54,6 @@ pub fn get_class_id_for_nft_contract(
         class_id: NFT_CONTRACT_TO_CLASS_ID
             .may_load(deps.storage, deps.api.addr_validate(&contract)?)?,
     })
-}
-
-pub fn list_channels(
-    deps: Deps,
-    start_after: Option<String>,
-    limit: Option<u32>,
-) -> StdResult<Vec<ChannelInfoResponse>> {
-    let channels = cw_paginate::paginate_map(
-        deps,
-        &CHANNELS,
-        start_after,
-        limit,
-        cosmwasm_std::Order::Ascending,
-    )?;
-    Ok(channels
-        .into_iter()
-        .map(|(channel_id, escrow_addr)| ChannelInfoResponse {
-            channel_id,
-            escrow_addr: escrow_addr.into_string(),
-        })
-        .collect())
 }
 
 pub fn list_class_ids(

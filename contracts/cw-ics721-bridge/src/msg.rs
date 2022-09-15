@@ -14,16 +14,24 @@ pub struct InstantiateMsg {
     /// this contract to stop working, and IBCd away NFTs to be
     /// unreturnable (cw721 does not have a burn method in the spec).
     pub cw721_base_code_id: u64,
-    /// Code ID for ics-escrow contract. This holds NFTs while they
-    /// are away on different chains until they return. A new escrow
-    /// is created for each local connection tuple (port, channel).
-    pub escrow_code_id: u64,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[cfg_attr(test, derive(Debug, Clone))]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
+    /// Receives a NFT to be IBC transfered away. The `msg` field must
+    /// be a binary encoded `IbcAwayMsg`.
+    ReceiveNft(cw721::Cw721ReceiveMsg),
+    /// Mesages used internally by the contract. These may only be
+    /// called by the contract itself.
+    Callback(CallbackMsg),
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[cfg_attr(test, derive(Debug, Clone))]
+#[serde(rename_all = "snake_case")]
+pub enum CallbackMsg {
     /// Mints a NFT of collection class_id for receiver with the
     /// provided id and metadata. Only callable by this contract.
     Mint {
@@ -42,13 +50,9 @@ pub enum ExecuteMsg {
         receiver: String,
     },
     /// Much like mint, but will instantiate a new cw721 contract iff
-    /// the classID does not have one yet. Needed because we can only
-    /// dispatch one submessage at a time from `ibc_packet_receive`
-    /// and properly handle IBC error handling. Only callable by this
-    /// contract.
+    /// the classID does not have one yet.
     DoInstantiateAndMint {
-        /// The class_id to mint for. This must have previously been
-        /// created with `SaveClass`.
+        /// The ics721 class ID to mint for.
         class_id: String,
         /// The URI for this class ID.
         class_uri: Option<String>,
@@ -63,22 +67,14 @@ pub enum ExecuteMsg {
         /// address, not a bech32 public key.
         receiver: String,
     },
-    /// Receives a NFT to be IBC transfered away. The `msg` field must
-    /// be a binary encoded `IbcAwayMsg`.
-    ReceiveNft(cw721::Cw721ReceiveMsg),
-    /// Transfers a group of NFTs from the escrow for a the given
-    /// channel. Callable only by the contract.
-    BatchTransferFromChannel {
-        channel: String,
+    /// Transfers a number of NFTs identified by CLASS_ID and
+    /// TOKEN_IDS to RECEIVER.
+    BatchTransfer {
+        /// The ics721 class ID of the tokens to be transfered.
         class_id: String,
-        token_ids: Vec<String>,
+        /// The address that should receive the tokens.
         receiver: String,
-    },
-    /// Burns the specified tokens that are inside the escrow for the
-    /// specified channel. Only callable by this contract.
-    BurnEscrowTokens {
-        channel: String,
-        class_id: String,
+        /// The tokens (of CLASS_ID) that should be sent.
         token_ids: Vec<String>,
     },
 }
@@ -120,12 +116,6 @@ pub enum QueryMsg {
     /// contract. Returns `GetClassIdForNftContractResponse`.
     GetClassIdForNftContract { contract: String },
 
-    /// Paginated query over all the channels this contract is
-    /// connected to. Returns `Vec<ChannelInfoResponse>`.
-    ListChannels {
-        start_after: Option<String>,
-        limit: Option<u32>,
-    },
     /// Paginated query over all the class IDs this contract has seen
     /// and their associated cw721 contracts. Returns
     /// `Vec<ClassIdInfoResponse>`.

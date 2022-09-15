@@ -10,13 +10,14 @@ use crate::{
     error::ContractError,
     helpers::{
         get_class, get_class_id_for_nft_contract, get_nft, get_owner, get_uri, has_class,
-        list_channels, list_class_ids, INSTANTIATE_CW721_REPLY_ID,
+        list_class_ids, INSTANTIATE_CW721_REPLY_ID,
     },
     ibc::NonFungibleTokenPacketData,
-    msg::{ExecuteMsg, IbcAwayMsg, InstantiateMsg, QueryMsg},
+    msg::{CallbackMsg, ExecuteMsg, IbcAwayMsg, InstantiateMsg, QueryMsg},
     state::{
-        UniversalNftInfoResponse, CHANNELS, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT,
+        UniversalNftInfoResponse, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT,
         CW721_ICS_CODE_ID, ESCROW_CODE_ID, NFT_CONTRACT_TO_CLASS_ID,
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL,
     },
 };
 
@@ -49,12 +50,12 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Mint {
+        ExecuteMsg::Callback(CallbackMsg::Mint {
             class_id,
             token_ids,
             token_uris,
             receiver,
-        } => execute_mint(
+        }) => execute_mint(
             deps.as_ref(),
             env,
             info,
@@ -63,39 +64,25 @@ pub fn execute(
             token_uris,
             receiver,
         ),
-        ExecuteMsg::DoInstantiateAndMint {
+        ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
             class_id,
             class_uri,
             token_ids,
             token_uris,
             receiver,
-        } => execute_do_instantiate_and_mint(
+        }) => execute_do_instantiate_and_mint(
             deps, env, info, class_id, class_uri, token_ids, token_uris, receiver,
         ),
+        ExecuteMsg::Callback(CallbackMsg::BatchTransfer {
+            class_id,
+            receiver,
+            token_ids,
+        }) => execute_batch_transfer(deps.as_ref(), class_id, receiver, token_ids),
         ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
             sender,
             token_id,
             msg,
         }) => execute_receive_nft(deps, info, token_id, sender, msg),
-        ExecuteMsg::BatchTransferFromChannel {
-            channel,
-            class_id,
-            token_ids,
-            receiver,
-        } => execute_batch_transfer_from_channel(
-            deps.as_ref(),
-            info,
-            env,
-            channel,
-            class_id,
-            token_ids,
-            receiver,
-        ),
-        ExecuteMsg::BurnEscrowTokens {
-            channel,
-            class_id,
-            token_ids,
-        } => execute_burn_escrow_tokens(deps.as_ref(), env, info, channel, class_id, token_ids),
     }
 }
 
@@ -204,12 +191,12 @@ fn execute_do_instantiate_and_mint(
     // [1] https://github.com/CosmWasm/cosmwasm/blob/main/SEMANTICS.md#order-and-rollback
     let mint_message = WasmMsg::Execute {
         contract_addr: env.contract.address.into_string(),
-        msg: to_binary(&ExecuteMsg::Mint {
+        msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::Mint {
             class_id,
             token_ids,
             token_uris,
             receiver,
-        })?,
+        }))?,
         funds: vec![],
     };
 
@@ -217,6 +204,32 @@ fn execute_do_instantiate_and_mint(
         .add_attribute("method", "do_instantiate_and_mint")
         .add_submessages(submessages)
         .add_message(mint_message))
+}
+
+fn execute_batch_transfer(
+    deps: Deps,
+    class_id: String,
+    receiver: String,
+    token_ids: Vec<String>,
+) -> Result<Response, ContractError> {
+    let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class_id)?;
+    let receiver = deps.api.addr_validate(&receiver)?;
+    Ok(Response::default().add_messages(
+        token_ids
+            .into_iter()
+            .map(|token_id| {
+                Ok(WasmMsg::Execute {
+                    contract_addr: nft_contract.to_string(),
+                    msg: to_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                        recipient: receiver.to_string(),
+                        token_id,
+                    })?,
+                    funds: vec![],
+                })
+            })
+            .collect::<StdResult<Vec<WasmMsg>>>()?
+            .into_iter(),
+    ))
 }
 
 fn execute_receive_nft(
@@ -294,97 +307,18 @@ fn execute_receive_nft(
         timeout: msg.timeout,
     };
 
-    // Transfer message to send NFT to escrow for channel.
-    let channel_escrow = CHANNELS.load(deps.storage, msg.channel_id.clone())?;
-
-    let transfer_message = cw721::Cw721ExecuteMsg::TransferNft {
-        recipient: channel_escrow.to_string(),
-        token_id: token_id.clone(),
-    };
-    let transfer_message = WasmMsg::Execute {
-        contract_addr: info.sender.into_string(),
-        msg: to_binary(&transfer_message)?,
-        funds: vec![],
-    };
+    OUTGOING_CLASS_TOKEN_TO_CHANNEL.save(
+        deps.storage,
+        (class_id.clone(), token_id.clone()),
+        &msg.channel_id,
+    )?;
 
     Ok(Response::default()
         .add_attribute("method", "execute_receive_nft")
         .add_attribute("token_id", token_id)
         .add_attribute("class_id", class_id)
-        .add_attribute("escrow", channel_escrow)
         .add_attribute("channel_id", msg.channel_id)
-        .add_message(transfer_message)
         .add_message(ibc_message))
-}
-
-fn execute_batch_transfer_from_channel(
-    deps: Deps,
-    info: MessageInfo,
-    env: Env,
-    channel: String,
-    class_id: String,
-    token_ids: Vec<String>,
-    receiver: String,
-) -> Result<Response, ContractError> {
-    if info.sender != env.contract.address {
-        return Err(ContractError::Unauthorized {});
-    }
-
-    let escrow_addr = CHANNELS.load(deps.storage, channel.clone())?;
-    let cw721_addr = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class_id)?;
-
-    let transfer_messages = token_ids
-        .iter()
-        .map(|token_id| -> StdResult<WasmMsg> {
-            let message = ics721_escrow::msg::ExecuteMsg::Withdraw {
-                nft_address: cw721_addr.to_string(),
-                token_id: token_id.to_string(),
-                receiver: receiver.clone(),
-            };
-            Ok(WasmMsg::Execute {
-                contract_addr: escrow_addr.to_string(),
-                msg: to_binary(&message)?,
-                funds: vec![],
-            })
-        })
-        .collect::<StdResult<Vec<_>>>()?;
-
-    Ok(Response::default()
-        .add_attribute("method", "execute_batch_transfer_from_channel")
-        .add_attribute("channel", channel)
-        .add_attribute("token_ids", format!("{:?}", token_ids))
-        .add_attribute("receiver", receiver)
-        .add_messages(transfer_messages))
-}
-
-fn execute_burn_escrow_tokens(
-    deps: Deps,
-    env: Env,
-    info: MessageInfo,
-    channel: String,
-    class_id: String,
-    token_ids: Vec<String>,
-) -> Result<Response, ContractError> {
-    if info.sender != env.contract.address {
-        return Err(ContractError::Unauthorized {});
-    }
-
-    let escrow_addr = CHANNELS.load(deps.storage, channel.clone())?;
-    let cw721_addr = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class_id.clone())?;
-
-    Ok(Response::default()
-        .add_attribute("method", "burn_escrow_tokens")
-        .add_attribute("class_id", class_id)
-        .add_attribute("channel", channel)
-        .add_attribute("token_ids", format!("{:?}", token_ids))
-        .add_message(WasmMsg::Execute {
-            contract_addr: escrow_addr.into_string(),
-            msg: to_binary(&ics721_escrow::msg::ExecuteMsg::Burn {
-                nft_address: cw721_addr.into_string(),
-                token_ids,
-            })?,
-            funds: vec![],
-        }))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -397,9 +331,6 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::HasClass { class_id } => to_binary(&has_class(deps, class_id)?),
         QueryMsg::GetClass { class_id } => to_binary(&get_class(deps, class_id)?),
         QueryMsg::GetUri { class_id } => to_binary(&get_uri(deps, class_id)?),
-        QueryMsg::ListChannels { start_after, limit } => {
-            to_binary(&list_channels(deps, start_after, limit)?)
-        }
         QueryMsg::ListClassIds { start_after, limit } => {
             to_binary(&list_class_ids(deps, start_after, limit)?)
         }

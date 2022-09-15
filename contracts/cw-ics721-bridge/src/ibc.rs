@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    entry_point, from_binary, to_binary, Deps, DepsMut, Empty, Env, IbcBasicResponse,
+    entry_point, from_binary, to_binary, Addr, DepsMut, Empty, Env, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacket, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, Reply, Response, StdResult,
     SubMsg, SubMsgResult, WasmMsg,
@@ -10,17 +10,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::Never,
-    helpers::{
-        BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID, BURN_ESCROW_TOKENS_REPLY_ID,
-        FAILURE_RESPONSE_FAILURE_REPLY_ID, INSTANTIATE_AND_MINT_CW721_REPLY_ID,
-        INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_ESCROW_REPLY_ID, MINT_SUB_MSG_REPLY_ID,
-    },
+    helpers::{ACK_AND_DO_NOTHING, INSTANTIATE_CW721_REPLY_ID},
     ibc_helpers::{
         ack_fail, ack_success, get_endpoint_prefix, try_get_ack_error, try_pop_source_prefix,
-        validate_order_and_version, were_previously_sent_out_on_this_channel,
+        validate_order_and_version,
     },
-    msg::ExecuteMsg,
-    state::{CHANNELS, CLASS_ID_TO_NFT_CONTRACT, ESCROW_CODE_ID, NFT_CONTRACT_TO_CLASS_ID},
+    msg::{CallbackMsg, ExecuteMsg},
+    state::{
+        CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID,
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+    },
     ContractError,
 };
 
@@ -62,33 +61,16 @@ pub fn ibc_channel_open(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_channel_connect(
-    deps: DepsMut,
-    env: Env,
+    _deps: DepsMut,
+    _env: Env,
     msg: IbcChannelConnectMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     validate_order_and_version(msg.channel(), msg.counterparty_version())?;
 
-    let message = ics721_escrow::msg::InstantiateMsg {
-        admin_address: env.contract.address.into_string(),
-        channel_id: msg.channel().endpoint.channel_id.clone(),
-    };
-    let message = WasmMsg::Instantiate {
-        admin: None,
-        code_id: ESCROW_CODE_ID.load(deps.storage)?,
-        msg: to_binary(&message)?,
-        funds: vec![],
-        label: format!(
-            "channel ({}) ICS721 escrow",
-            msg.channel().endpoint.channel_id
-        ),
-    };
-    let message = SubMsg::<Empty>::reply_always(message, INSTANTIATE_ESCROW_REPLY_ID);
-
     Ok(IbcBasicResponse::new()
         .add_attribute("method", "ibc_channel_connect")
         .add_attribute("channel", &msg.channel().endpoint.channel_id)
-        .add_attribute("port", &msg.channel().endpoint.port_id)
-        .add_submessage(message))
+        .add_attribute("port", &msg.channel().endpoint.port_id))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -120,7 +102,7 @@ pub fn ibc_packet_receive(
     // Regardless of if our processing of this packet works we need to
     // commit an ACK to the chain. As such, we wrap all handling logic
     // in a seprate function and on error write out an error ack.
-    match do_ibc_packet_receive(deps.as_ref(), env, msg.packet) {
+    match do_ibc_packet_receive(deps, env, msg.packet) {
         Ok(response) => Ok(response),
         Err(error) => Ok(IbcReceiveResponse::new()
             .add_attribute("method", "ibc_packet_receive")
@@ -130,127 +112,244 @@ pub fn ibc_packet_receive(
 }
 
 fn do_ibc_packet_receive(
-    deps: Deps,
+    deps: DepsMut,
     env: Env,
     packet: IbcPacket,
 ) -> Result<IbcReceiveResponse, ContractError> {
+    enum Action {
+        Transfer {
+            class_id: String,
+            token_id: String,
+        },
+        InstantiateAndMint {
+            class_id: String,
+            token_id: String,
+            token_uri: String,
+        },
+    }
+
+    struct TransferInfo {
+        pub class_id: String,
+        pub token_ids: Vec<String>,
+    }
+    struct InstantiateAndMintInfo {
+        pub class_id: String,
+        pub token_ids: Vec<String>,
+        pub token_uris: Vec<String>,
+    }
+    struct WhatToDo {
+        pub transfer: Option<TransferInfo>,
+        pub iandm: Option<InstantiateAndMintInfo>,
+    }
+
+    impl WhatToDo {
+        pub fn add_action(mut self, action: Action) -> Self {
+            match action {
+                Action::Transfer { class_id, token_id } => {
+                    self.transfer = Some(
+                        self.transfer
+                            .map(|mut info| {
+                                info.token_ids.push(token_id.clone());
+                                info
+                            })
+                            .unwrap_or_else(|| TransferInfo {
+                                class_id,
+                                token_ids: vec![token_id],
+                            }),
+                    )
+                }
+                Action::InstantiateAndMint {
+                    class_id,
+                    token_id,
+                    token_uri,
+                } => {
+                    self.iandm = Some(
+                        self.iandm
+                            .map(|mut info| {
+                                info.token_ids.push(token_id.clone());
+                                info.token_uris.push(token_uri.clone());
+                                info
+                            })
+                            .unwrap_or_else(|| InstantiateAndMintInfo {
+                                class_id,
+                                token_ids: vec![token_id],
+                                token_uris: vec![token_uri],
+                            }),
+                    )
+                }
+            }
+            self
+        }
+
+        pub fn into_submessages(
+            self,
+            contract: Addr,
+            receiver: Addr,
+            class_uri: Option<String>,
+        ) -> StdResult<Vec<SubMsg<Empty>>> {
+            let mut messages = Vec::with_capacity(2);
+            if let Some(TransferInfo {
+                class_id,
+                token_ids,
+            }) = self.transfer
+            {
+                messages.push(SubMsg::reply_always(
+                    WasmMsg::Execute {
+                        contract_addr: contract.to_string(),
+                        msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::BatchTransfer {
+                            class_id,
+                            receiver: receiver.to_string(),
+                            token_ids,
+                        }))?,
+                        funds: vec![],
+                    },
+                    ACK_AND_DO_NOTHING,
+                ));
+            }
+            if let Some(InstantiateAndMintInfo {
+                class_id,
+                token_ids,
+                token_uris,
+            }) = self.iandm
+            {
+                messages.push(SubMsg::reply_always(
+                    WasmMsg::Execute {
+                        contract_addr: contract.into_string(),
+                        msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
+                            class_id,
+                            class_uri,
+                            token_ids,
+                            token_uris,
+                            receiver: receiver.into_string(),
+                        }))?,
+                        funds: vec![],
+                    },
+                    ACK_AND_DO_NOTHING,
+                ))
+            }
+            Ok(messages)
+        }
+    }
+
     let data: NonFungibleTokenPacketData = from_binary(&packet.data)?;
     data.validate()?;
 
-    let cannidate_local_class_id = try_pop_source_prefix(&packet.src, &data.class_id);
+    let local_class_id = try_pop_source_prefix(&packet.src, &data.class_id);
+    let receiver = deps.api.addr_validate(&data.receiver)?;
+    let token_count = data.token_ids.len();
 
-    if cannidate_local_class_id.is_some()
-        && were_previously_sent_out_on_this_channel(
-            deps,
-            cannidate_local_class_id.unwrap().to_string(),
-            data.token_ids.clone(),
-            &packet.dest,
-        )?
-    {
-        // The token has previously left this chain to go to the other
-        // chain and is in the escrow. Unescrow the token and give it
-        // to the receiver.
-        let message = ExecuteMsg::BatchTransferFromChannel {
-            channel: packet.dest.channel_id,
-            class_id: cannidate_local_class_id.unwrap().to_string(),
-            token_ids: data.token_ids,
-            receiver: data.receiver,
-        };
-
-        let message = WasmMsg::Execute {
-            contract_addr: env.contract.address.into_string(),
-            msg: to_binary(&message)?,
-            funds: vec![],
-        };
-        let message = SubMsg::reply_always(message, BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID);
-
-        Ok(IbcReceiveResponse::default()
-            .add_attribute("method", "ics721_transfer_source")
-            .add_submessage(message))
-    } else {
-        // The token is being sent to this chain from another
-        // one. Push to classID and dispatch submessage to create new x
-        // cw721 (if needed) and mint for the receiver.
-        let local_prefix = get_endpoint_prefix(&packet.dest);
-        let local_class_id = format!("{}{}", local_prefix, data.class_id);
-
-        // We can not dispatch multiple submessages and still handle
-        // errors and rollbacks correctly [1]. As such, we bundle
-        // these steps into one message that is only callable by the
-        // contract itself.
-        //
-        // [1] https://github.com/CosmWasm/cosmwasm/blob/main/IBC.md#acknowledging-errors
-        let ibc_ack_check_message = SubMsg::reply_always(
-            WasmMsg::Execute {
-                contract_addr: env.contract.address.into_string(),
-                msg: to_binary(&ExecuteMsg::DoInstantiateAndMint {
+    // Say we're connected to three identical chains A, B, and C. For
+    // each of these chains call the local channel ID `C` and the
+    // local port `P`. After taking the path (A -> B -> C) the class
+    // ID on C is `P/C/P/C/P/C/contract_address`.
+    //
+    // Now, lets say the next hop we take is from (C -> A). A receives
+    // a packet with prefix `P/C`. According to the logic on the spec,
+    // it would recognize this as its prefix and attempt to release
+    // its local version of the NFT (from the prefix alone, it seems
+    // like this has previously been transfered away!). This attempt
+    // to release fails though as there has never been a transfer from
+    // (A -> C)!
+    //
+    // What do we need to do instead? Before attempting the transfer,
+    // we need to verify that the incoming NFT has previously been
+    // transfered out. If it has not, we should not attempt the
+    // transfer and instead (correctly) treat it as a new NFT that we
+    // have not seen before and create a new local cw721 contract.
+    let messages = data
+        .token_ids
+        .into_iter()
+        .zip(data.token_uris.into_iter())
+        .try_fold(
+            Vec::<Action>::with_capacity(token_count),
+            |mut messages, (token, token_uri)| -> StdResult<_> {
+                if let Some(local_class_id) = local_class_id {
+                    let key = (local_class_id.to_string(), token.clone());
+                    let outgoing_channel =
+                        OUTGOING_CLASS_TOKEN_TO_CHANNEL.may_load(deps.storage, key.clone())?;
+                    if outgoing_channel.map_or(false, |outgoing_channel| {
+                        outgoing_channel == packet.dest.channel_id
+                    }) {
+                        // We previously sent this NFT out on this
+                        // channel. Unlock the local version for the
+                        // receiver.
+                        OUTGOING_CLASS_TOKEN_TO_CHANNEL.remove(deps.storage, key);
+                        messages.push(Action::Transfer {
+                            class_id: local_class_id.to_string(),
+                            token_id: token,
+                        });
+                        return Ok(messages);
+                    }
+                }
+                // It's not something we've sent out before we make a
+                // new NFT.
+                let local_prefix = get_endpoint_prefix(&packet.dest);
+                let local_class_id = format!("{}{}", local_prefix, data.class_id);
+                INCOMING_CLASS_TOKEN_TO_CHANNEL.save(
+                    deps.storage,
+                    (local_class_id.clone(), token.clone()),
+                    &packet.dest.channel_id,
+                )?;
+                messages.push(Action::InstantiateAndMint {
                     class_id: local_class_id,
-                    class_uri: data.class_uri,
-                    token_ids: data.token_ids,
-                    token_uris: data.token_uris,
-                    // FIXME: ics20 seems to set the receiver field as a
-                    // bech32 address. IF we need to do this, need to convert
-                    // first.
-                    receiver: data.receiver,
-                })?,
-                funds: vec![],
+                    token_id: token,
+                    token_uri,
+                });
+                Ok(messages)
             },
-            INSTANTIATE_AND_MINT_CW721_REPLY_ID,
-        );
+        )?
+        .into_iter()
+        .fold(
+            WhatToDo {
+                transfer: None,
+                iandm: None,
+            },
+            WhatToDo::add_action,
+        )
+        .into_submessages(env.contract.address, receiver, data.class_uri)?;
 
-        // Dispatch submessage. We DO NOT set the ack here as it will
-        // be set in the submessage reply handler if all goes well.
-        Ok(IbcReceiveResponse::default()
-            .add_attribute("method", "ics721_transfer_sink")
-            .add_submessage(ibc_ack_check_message))
-    }
+    Ok(IbcReceiveResponse::default().add_submessages(messages))
 }
 
-// TODO: document that this will only be called in response to me
-// sending a NFT somewhere.
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_ack(
     deps: DepsMut,
-    env: Env,
     ack: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     if let Some(error) = try_get_ack_error(&ack.acknowledgement)? {
-        handle_packet_fail(deps.as_ref(), ack.original_packet, &error)
+        handle_packet_fail(deps, ack.original_packet, &error)
     } else {
         let msg: NonFungibleTokenPacketData = from_binary(&ack.original_packet.data)?;
 
-        // We only receive ACKs from our own packets. As such, if we
-        // get an ACK it means that we have sent a IBC message. If
-        // we're here, it means it has succeded.
-        //
-        // Now, if we were the sink chain for this NFT and the NFT is
-        // returning to its source chain, we need to burn it. For
-        // example, if chain B sent us a NFT and then it got sent back
-        // to chain B we should not keep that NFT in an escrow. This
-        // is because the purpose of the escrows is to do book keeping
-        // for _outgoing_ NFTs.
-        //
-        // We can't do the actual burning here because this method
-        // should be infalliable.
-        let prefix = get_endpoint_prefix(&ack.original_packet.src);
-        let messages = if msg.class_id.starts_with(&prefix) {
-            let message = WasmMsg::Execute {
-                contract_addr: env.contract.address.into_string(),
-                msg: to_binary(&ExecuteMsg::BurnEscrowTokens {
-                    channel: ack.original_packet.src.channel_id,
-                    class_id: msg.class_id.clone(),
-                    token_ids: msg.token_ids.clone(),
-                })?,
-                funds: vec![],
-            };
-            let message = SubMsg::reply_always(message, BURN_ESCROW_TOKENS_REPLY_ID);
-            vec![message]
-        } else {
-            vec![]
-        };
+        let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, msg.class_id.clone())?;
+        // Burn all of the tokens being transfered out that were
+        // previously transfered in on this channel.
+        let burn_notices = msg.token_ids.iter().cloned().try_fold(
+            Vec::<WasmMsg>::new(),
+            |mut messages, token| -> StdResult<_> {
+                let key = (msg.class_id.clone(), token.clone());
+                let source_channel =
+                    INCOMING_CLASS_TOKEN_TO_CHANNEL.may_load(deps.storage, key.clone())?;
+                if source_channel.map_or(false, |source_channel| {
+                    source_channel == ack.original_packet.dest.channel_id
+                }) {
+                    // This tokens journey is complete, for now.
+                    INCOMING_CLASS_TOKEN_TO_CHANNEL.remove(deps.storage, key);
+                    messages.push(WasmMsg::Execute {
+                        contract_addr: nft_contract.to_string(),
+                        msg: to_binary(&cw721::Cw721ExecuteMsg::Burn { token_id: token })?,
+                        funds: vec![],
+                    })
+                }
+                Ok(messages)
+            },
+        )?;
+
+        // TODO(ekez): do we want to error here if
+        // `!burn_notices.is_empty() && burn_notices.len() != msg.token_ids.len()`?
 
         Ok(IbcBasicResponse::new()
-            .add_submessages(messages)
+            .add_messages(burn_notices)
             .add_attribute("method", "acknowledge")
             .add_attribute("sender", msg.sender)
             .add_attribute("receiver", msg.receiver)
@@ -265,56 +364,42 @@ pub fn ibc_packet_timeout(
     _env: Env,
     msg: IbcPacketTimeoutMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    handle_packet_fail(deps.as_ref(), msg.packet, "timeout")
+    handle_packet_fail(deps, msg.packet, "timeout")
 }
 
 fn handle_packet_fail(
-    deps: Deps,
+    deps: DepsMut,
     packet: IbcPacket,
     error: &str,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // On fail, return the NFT from the escrow. We'll only ever handle
-    // our own packets in this method so we use the packet source
-    // which, as a result, is trusted.
-    let escrow_addr = CHANNELS.load(deps.storage, packet.src.channel_id.clone())?;
-
-    // If this deserialization fails something truly strange has
-    // happened. TODO: do we need to handle this? Otherwise, this
-    // method is faliable.
+    // Roll it back!
     let message: NonFungibleTokenPacketData = from_binary(&packet.data)?;
     let nft_address = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, message.class_id.clone())?;
+    let receiver = deps.api.addr_validate(&message.receiver)?;
 
-    let return_nfts = message
+    let messages = message
         .token_ids
-        .iter() // Can't into_iter() here because we use a reference in the closure.
-        .map(|token_id| -> StdResult<SubMsg<Empty>> {
-            let wasm = WasmMsg::Execute {
-                contract_addr: escrow_addr.to_string(),
-                msg: to_binary(&ics721_escrow::msg::ExecuteMsg::Withdraw {
-                    nft_address: nft_address.to_string(),
-                    token_id: token_id.clone(),
-                    receiver: message.sender.clone(),
-                })?, // FIXME: how do we handle a failure here?
+        .iter()
+        .cloned()
+        .map(|token_id| -> StdResult<_> {
+            OUTGOING_CLASS_TOKEN_TO_CHANNEL
+                .remove(deps.storage, (message.class_id.clone(), token_id.clone()));
+            Ok(WasmMsg::Execute {
+                contract_addr: nft_address.to_string(),
+                msg: to_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                    recipient: receiver.to_string(),
+                    token_id,
+                })?,
                 funds: vec![],
-            };
-            // cw-plus' ics20 implementation fail ACKs the fail, so we
-            // do to. More likely than not, more than one of these
-            // will fail if any fail and there are more than one. In
-            // that case, the ack_fail will still get written as it'll
-            // just repeatedly override itself.
-            Ok(SubMsg::reply_on_error(
-                wasm,
-                FAILURE_RESPONSE_FAILURE_REPLY_ID,
-            ))
+            })
         })
         .collect::<StdResult<Vec<_>>>()?;
 
     Ok(IbcBasicResponse::new()
-        .add_submessages(return_nfts)
+        .add_messages(messages)
         .add_attribute("method", "handle_packet_fail")
         .add_attribute("token_ids", format!("{:?}", message.token_ids))
         .add_attribute("class_id", message.class_id)
-        .add_attribute("escrow", escrow_addr)
         .add_attribute("channel_id", packet.src.channel_id)
         .add_attribute("address_refunded", message.sender)
         .add_attribute("error", error))
@@ -350,38 +435,9 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
                 .add_attribute("class_id", class_id)
                 .add_attribute("cw721_addr", cw721_addr))
         }
-        INSTANTIATE_ESCROW_REPLY_ID => {
-            if let SubMsgResult::Err(err) = reply.result {
-                return Ok(Response::new().set_data(
-                    ack_fail(&err).unwrap_or_else(|_e| ack_fail(ACK_ERROR_FALLBACK).unwrap()),
-                ));
-            }
-
-            let res = parse_reply_instantiate_data(reply)?;
-            let escrow_addr = deps.api.addr_validate(&res.contract_address)?;
-
-            let channel_id: String = deps.querier.query_wasm_smart(
-                escrow_addr.clone(),
-                &ics721_escrow::msg::QueryMsg::ChannelId {},
-            )?;
-
-            CHANNELS.save(deps.storage, channel_id.clone(), &escrow_addr)?;
-
-            // This reply gets called from `ibc_channel_connect` so we
-            // need to add an ack.
-            Ok(Response::default()
-                .add_attribute("method", "instantiate_escrow_reply")
-                .add_attribute("escrow_addr", escrow_addr)
-                .add_attribute("channel_id", channel_id)
-                .set_data(ack_success()))
-        }
         // These messages don't need to do any state changes in the
         // reply - just need to commit an ack.
-        MINT_SUB_MSG_REPLY_ID
-        | INSTANTIATE_AND_MINT_CW721_REPLY_ID
-        | BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID
-        | BURN_ESCROW_TOKENS_REPLY_ID
-        | FAILURE_RESPONSE_FAILURE_REPLY_ID => {
+        ACK_AND_DO_NOTHING => {
             match reply.result {
                 // On success, set a successful ack. Nothing else to do.
                 SubMsgResult::Ok(_) => Ok(Response::new().set_data(ack_success())),
