@@ -98,11 +98,6 @@ func StoreICS721Bridge(t *testing.T, creator sdk.AccAddress, ctx sdk.Context, ap
 	return storeWasmFile(t, "../artifacts/cw_ics721_bridge.wasm", creator, ctx, app)
 }
 
-func StoreEscrow(t *testing.T, creator sdk.AccAddress, ctx sdk.Context, app *app.App) uint64 {
-	return storeWasmFile(t, "../artifacts/ics721_escrow.wasm", creator, ctx, app)
-
-}
-
 func StoreCw721Base(t *testing.T, creator sdk.AccAddress, ctx sdk.Context, app *app.App) uint64 {
 	return storeWasmFile(t, "../artifacts/cw721_base.wasm", creator, ctx, app)
 }
@@ -117,12 +112,6 @@ func TestStoreBridge(t *testing.T) {
 	require.Equal(t, uint64(1), bridgeCodeID)
 }
 
-func TestStoreEscrow(t *testing.T) {
-	creator, ctx, app, _ := LoadChain(t)
-	escrowCodeID := StoreEscrow(t, creator, ctx, app)
-	require.Equal(t, uint64(1), escrowCodeID)
-}
-
 func TestStoreCw721(t *testing.T) {
 	creator, ctx, app, _ := LoadChain(t)
 	cw721CodeID := StoreCw721Base(t, creator, ctx, app)
@@ -132,27 +121,21 @@ func TestStoreCw721(t *testing.T) {
 func TestStoreMultiple(t *testing.T) {
 	creator, ctx, app, _ := LoadChain(t)
 
-	escrowCodeID := StoreEscrow(t, creator, ctx, app)
-	require.Equal(t, uint64(1), escrowCodeID)
-
 	bridgeCodeID := StoreICS721Bridge(t, creator, ctx, app)
-	require.Equal(t, uint64(2), bridgeCodeID)
+	require.Equal(t, uint64(1), bridgeCodeID)
 
 	cw721CodeID := StoreCw721Base(t, creator, ctx, app)
-	require.Equal(t, uint64(3), cw721CodeID)
+	require.Equal(t, uint64(2), cw721CodeID)
 }
 
 func TestInstantiateBridge(t *testing.T) {
 	creator, ctx, app, _ := LoadChain(t)
 
-	escrowCodeID := StoreEscrow(t, creator, ctx, app)
-	require.Equal(t, uint64(1), escrowCodeID)
-
 	bridgeCodeID := StoreICS721Bridge(t, creator, ctx, app)
-	require.Equal(t, uint64(2), bridgeCodeID)
+	require.Equal(t, uint64(1), bridgeCodeID)
 
 	cw721CodeID := StoreCw721Base(t, creator, ctx, app)
-	require.Equal(t, uint64(3), cw721CodeID)
+	require.Equal(t, uint64(2), cw721CodeID)
 
-	InstantiateBridge(t, ctx, app, creator.String(), cw721CodeID, escrowCodeID, bridgeCodeID)
+	InstantiateBridge(t, ctx, app, creator.String(), cw721CodeID, bridgeCodeID)
 }

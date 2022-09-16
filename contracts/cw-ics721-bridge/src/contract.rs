@@ -16,8 +16,7 @@ use crate::{
     msg::{CallbackMsg, ExecuteMsg, IbcAwayMsg, InstantiateMsg, QueryMsg},
     state::{
         UniversalNftInfoResponse, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT,
-        CW721_ICS_CODE_ID, ESCROW_CODE_ID, NFT_CONTRACT_TO_CLASS_ID,
-        OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+        CW721_ICS_CODE_ID, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
     },
 };
 
@@ -34,12 +33,10 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     CW721_ICS_CODE_ID.save(deps.storage, &msg.cw721_base_code_id)?;
-    ESCROW_CODE_ID.save(deps.storage, &msg.escrow_code_id)?;
 
     Ok(Response::default()
         .add_attribute("method", "instantiate")
-        .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string())
-        .add_attribute("escrow_code_id", msg.escrow_code_id.to_string()))
+        .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -50,6 +47,12 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
+        ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+            sender,
+            token_id,
+            msg,
+        }) => execute_receive_nft(deps, info, token_id, sender, msg),
+
         ExecuteMsg::Callback(CallbackMsg::Mint {
             class_id,
             token_ids,
@@ -77,12 +80,7 @@ pub fn execute(
             class_id,
             receiver,
             token_ids,
-        }) => execute_batch_transfer(deps.as_ref(), class_id, receiver, token_ids),
-        ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
-            sender,
-            token_id,
-            msg,
-        }) => execute_receive_nft(deps, info, token_id, sender, msg),
+        }) => execute_batch_transfer(deps.as_ref(), env, info, class_id, receiver, token_ids),
     }
 }
 
@@ -208,10 +206,15 @@ fn execute_do_instantiate_and_mint(
 
 fn execute_batch_transfer(
     deps: Deps,
+    env: Env,
+    info: MessageInfo,
     class_id: String,
     receiver: String,
     token_ids: Vec<String>,
 ) -> Result<Response, ContractError> {
+    if info.sender != env.contract.address {
+        return Err(ContractError::Unauthorized {});
+    }
     let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class_id)?;
     let receiver = deps.api.addr_validate(&receiver)?;
     Ok(Response::default().add_messages(
@@ -242,50 +245,28 @@ fn execute_receive_nft(
     let sender = deps.api.addr_validate(&sender)?;
     let msg: IbcAwayMsg = from_binary(&msg)?;
 
-    // When we receive a NFT over IBC we want to avoid parsing of the
-    // classId field at all costs. String parsing has interesting time
-    // complexity issues and is error prone.
-    //
-    // We would normally need to parse the classId field when we
-    // receive a NFT from another chain, and the top of the classId
-    // stack is our own chain. In this case, it is possible that upon
-    // that NFT arriving at this chain it will be unpacked back into a
-    // native NFT. To determine this we could either:
-    //
-    // (1) Check if the classId has no '/' characters. Or,
-    // (2) Store each NFT we receive in our maps (giving it a classID
-    //     of its own address) and do the same lookup / transfer
-    //     regardless of if the NFT is becoming a native one.
-    //
-    // To avoid special logic when receiving packets, we go the save
-    // route. We can change this back later if we'd like.
-    if !NFT_CONTRACT_TO_CLASS_ID.has(deps.storage, info.sender.clone()) {
-        // This is a new NFT so we give it a "classID". If the map
-        // does have the key, it means that either (a) we have seen
-        // the contract before, or (b) this is a NFT that we received
-        // over IBC and made a new contract for.
-        NFT_CONTRACT_TO_CLASS_ID.save(
-            deps.storage,
-            info.sender.clone(),
-            &info.sender.to_string(),
-        )?;
+    let class_id = if NFT_CONTRACT_TO_CLASS_ID.has(deps.storage, info.sender.clone()) {
+        NFT_CONTRACT_TO_CLASS_ID.load(deps.storage, info.sender.clone())?
+    } else {
+        let class_id = info.sender.to_string();
+        // If we do not yet have a class ID for this contract, it is a
+        // local NFT and its class ID is its conract address.
+        NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, info.sender.clone(), &class_id)?;
         CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, info.sender.to_string(), &info.sender)?;
+        // We set class level metadata to None for local NFTs.
+        //
+        // Merging and usage of this PR may change that:
+        // <https://github.com/CosmWasm/cw-nfts/pull/75>
         CLASS_ID_TO_CLASS_URI.save(deps.storage, info.sender.to_string(), &None)?;
-    }
+        class_id
+    };
 
-    // Class ID is the IBCd ID, or the contract address.
-    let class_id = NFT_CONTRACT_TO_CLASS_ID.load(deps.storage, info.sender.clone())?;
-
-    // Can't allow specifying the class URI in the message as this
-    // could cause multiple different class IDs to be submitted for
-    // the same NFT collection by users. No way to decide on 'correct'
-    // one.
     let class_uri = CLASS_ID_TO_CLASS_URI
         .may_load(deps.storage, class_id.clone())?
         .flatten();
 
     let UniversalNftInfoResponse { token_uri, .. } = deps.querier.query_wasm_smart(
-        info.sender.clone(),
+        info.sender,
         &cw721::Cw721QueryMsg::NftInfo {
             token_id: token_id.clone(),
         },

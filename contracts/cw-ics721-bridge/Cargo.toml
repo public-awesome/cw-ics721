@@ -24,7 +24,6 @@ cw721-base = { version = "0.13.4", features = [] } # TODO: add library back in w
 schemars = "0.8.10"
 serde = { version = "1.0.140", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.31" }
-ics721-escrow = { version = "0.1.0", path = "../ics721-escrow", features = ["library"] }
 cw-paginate = { git = "https://github.com/DA0-DA0/dao-contracts.git" }
 
 [dev-dependencies]

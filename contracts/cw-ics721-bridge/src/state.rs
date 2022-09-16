@@ -2,9 +2,6 @@ use cosmwasm_std::{Addr, Empty};
 use cw_storage_plus::{Item, Map};
 use serde::Deserialize;
 
-// /// Maps channel IDs to the escrow address for that channel.
-// pub const CHANNELS: Map<String, Addr> = Map::new("channels");
-
 /// The code ID we will use for instantiating new cw721s.
 pub const CW721_ICS_CODE_ID: Item<u64> = Item::new("cw721_code_id");
 

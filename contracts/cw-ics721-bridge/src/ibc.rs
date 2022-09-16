@@ -116,11 +116,12 @@ fn do_ibc_packet_receive(
     env: Env,
     packet: IbcPacket,
 ) -> Result<IbcReceiveResponse, ContractError> {
+    /// Every incoming token has some associated action.
     enum Action {
-        Transfer {
-            class_id: String,
-            token_id: String,
-        },
+        /// We have seen this token before, it should be transfered.
+        Transfer { class_id: String, token_id: String },
+        /// We have not seen this token before, a new one needs to be
+        /// created.
         InstantiateAndMint {
             class_id: String,
             token_id: String,
@@ -128,15 +129,19 @@ fn do_ibc_packet_receive(
         },
     }
 
+    /// Used to aggregate Action::Transfer actions.
     struct TransferInfo {
         pub class_id: String,
         pub token_ids: Vec<String>,
     }
+    /// Used to aggregate Action::InstantiateAndMint actions.
     struct InstantiateAndMintInfo {
         pub class_id: String,
         pub token_ids: Vec<String>,
         pub token_uris: Vec<String>,
     }
+    /// Tracks what needs to be done in response to an incoming IBC
+    /// message.
     struct WhatToDo {
         pub transfer: Option<TransferInfo>,
         pub iandm: Option<InstantiateAndMintInfo>,
@@ -281,7 +286,7 @@ fn do_ibc_packet_receive(
                         return Ok(messages);
                     }
                 }
-                // It's not something we've sent out before we make a
+                // It's not something we've sent out before => make a
                 // new NFT.
                 let local_prefix = get_endpoint_prefix(&packet.dest);
                 let local_class_id = format!("{}{}", local_prefix, data.class_id);
@@ -308,12 +313,15 @@ fn do_ibc_packet_receive(
         )
         .into_submessages(env.contract.address, receiver, data.class_uri)?;
 
+    // FIXME(ekez): these submessages need to be merged into a single
+    // submessage so we don't override ACKs.
     Ok(IbcReceiveResponse::default().add_submessages(messages))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_ack(
     deps: DepsMut,
+    _env: Env,
     ack: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     if let Some(error) = try_get_ack_error(&ack.acknowledgement)? {
@@ -331,9 +339,13 @@ pub fn ibc_packet_ack(
                 let source_channel =
                     INCOMING_CLASS_TOKEN_TO_CHANNEL.may_load(deps.storage, key.clone())?;
                 if source_channel.map_or(false, |source_channel| {
-                    source_channel == ack.original_packet.dest.channel_id
+                    source_channel == ack.original_packet.src.channel_id
                 }) {
-                    // This tokens journey is complete, for now.
+                    // FIXME(ekez): does doing this in the ack handler
+                    // open us up to some attack where someone replays
+                    // the send message before we get an ack?
+
+                    // This token's journey is complete, for now.
                     INCOMING_CLASS_TOKEN_TO_CHANNEL.remove(deps.storage, key);
                     messages.push(WasmMsg::Execute {
                         contract_addr: nft_contract.to_string(),
@@ -344,9 +356,6 @@ pub fn ibc_packet_ack(
                 Ok(messages)
             },
         )?;
-
-        // TODO(ekez): do we want to error here if
-        // `!burn_notices.is_empty() && burn_notices.len() != msg.token_ids.len()`?
 
         Ok(IbcBasicResponse::new()
             .add_messages(burn_notices)
@@ -372,10 +381,10 @@ fn handle_packet_fail(
     packet: IbcPacket,
     error: &str,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // Roll it back!
+    // Return to sender!
     let message: NonFungibleTokenPacketData = from_binary(&packet.data)?;
     let nft_address = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, message.class_id.clone())?;
-    let receiver = deps.api.addr_validate(&message.receiver)?;
+    let sender = deps.api.addr_validate(&message.sender)?;
 
     let messages = message
         .token_ids
@@ -387,7 +396,7 @@ fn handle_packet_fail(
             Ok(WasmMsg::Execute {
                 contract_addr: nft_address.to_string(),
                 msg: to_binary(&cw721::Cw721ExecuteMsg::TransferNft {
-                    recipient: receiver.to_string(),
+                    recipient: sender.to_string(),
                     token_id,
                 })?,
                 funds: vec![],

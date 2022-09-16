@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func InstantiateBridge(t *testing.T, ctx sdk.Context, app *app.App, creatorAddress string, cw721CodeID uint64, escrowCodeID uint64, bridgeCodeID uint64) *wasmtypes.MsgInstantiateContractResponse {
+func InstantiateBridge(t *testing.T, ctx sdk.Context, app *app.App, creatorAddress string, cw721CodeID uint64, bridgeCodeID uint64) *wasmtypes.MsgInstantiateContractResponse {
 	msgServer := wasmkeeper.NewMsgServerImpl(wasmkeeper.NewDefaultPermissionKeeper(app.WasmKeeper))
 
-	instantiateMsgRaw := []byte(fmt.Sprintf(`{ "cw721_base_code_id": %d, "escrow_code_id": %d }`, cw721CodeID, escrowCodeID))
+	instantiateMsgRaw := []byte(fmt.Sprintf(`{ "cw721_base_code_id": %d }`, cw721CodeID))
 	instantiateRes, err := msgServer.InstantiateContract(sdk.WrapSDKContext(ctx), &wasmtypes.MsgInstantiateContract{
 		Sender: creatorAddress,
 		Admin:  "",

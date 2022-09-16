@@ -182,7 +182,6 @@ dependencies = [
  "cw2",
  "cw721",
  "cw721-base",
- "ics721-escrow",
  "schemars",
  "serde",
  "thiserror",
@@ -440,24 +439,6 @@ checksum = "2a2a2320eb7ec0ebe8da8f744d7812d9fc4cb4d09344ac01898dbcb6a20ae69b"
 dependencies = [
  "crypto-mac",
  "digest",
-]
-
-[[package]]
-name = "ics721-escrow"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cosmwasm-schema",
- "cosmwasm-std",
- "cosmwasm-storage",
- "cw-multi-test",
- "cw-storage-plus",
- "cw2",
- "cw721",
- "cw721-base",
- "schemars",
- "serde",
- "thiserror",
 ]
 
 [[package]]
