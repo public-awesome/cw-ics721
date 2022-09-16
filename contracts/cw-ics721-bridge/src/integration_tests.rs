@@ -2,7 +2,7 @@ use cosmwasm_std::{Addr, Empty};
 use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 
 use crate::{
-    msg::{ChannelInfoResponse, ExecuteMsg, InstantiateMsg, QueryMsg},
+    msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
     ContractError,
 };
 
@@ -13,15 +13,6 @@ fn cw721_contract() -> Box<dyn Contract<Empty>> {
         cw721_base::entry::execute,
         cw721_base::entry::instantiate,
         cw721_base::entry::query,
-    );
-    Box::new(contract)
-}
-
-fn escrow_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        ics721_escrow::contract::execute,
-        ics721_escrow::contract::instantiate,
-        ics721_escrow::contract::query,
     );
     Box::new(contract)
 }
@@ -38,7 +29,6 @@ fn bridge_contract() -> Box<dyn Contract<Empty>> {
 
 fn instantiate_bridge(app: &mut App) -> Addr {
     let cw721_id = app.store_code(cw721_contract());
-    let escrow_id = app.store_code(escrow_contract());
     let bridge_id = app.store_code(bridge_contract());
 
     app.instantiate_contract(
@@ -46,7 +36,6 @@ fn instantiate_bridge(app: &mut App) -> Addr {
         Addr::unchecked(COMMUNITY_POOL),
         &InstantiateMsg {
             cw721_base_code_id: cw721_id,
-            escrow_code_id: escrow_id,
         },
         &[],
         "cw-ics721-bridge",
@@ -59,21 +48,7 @@ fn instantiate_bridge(app: &mut App) -> Addr {
 fn test_instantiate() {
     let mut app = App::default();
 
-    let bridge = instantiate_bridge(&mut app);
-
-    // Make sure that our channels list is empty to start.
-    let channels: Vec<ChannelInfoResponse> = app
-        .wrap()
-        .query_wasm_smart(
-            bridge,
-            &QueryMsg::ListChannels {
-                start_after: None,
-                limit: None,
-            },
-        )
-        .unwrap();
-
-    assert!(channels.is_empty())
+    instantiate_bridge(&mut app);
 }
 
 #[test]
@@ -85,13 +60,13 @@ fn test_do_instantiate_and_mint_weird_data() {
     app.execute_contract(
         bridge.clone(),
         bridge,
-        &ExecuteMsg::DoInstantiateAndMint {
+        &ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
             class_id: "bad kids".to_string(),
             class_uri: None,
             token_ids: vec!["1".to_string()],
             token_uris: vec!["".to_string()], // Empty string should be allowed.
             receiver: "ekez".to_string(),
-        },
+        }),
         &[],
     )
     .unwrap();
@@ -106,7 +81,7 @@ fn test_do_instantiate_and_mint() {
     app.execute_contract(
         bridge.clone(),
         bridge.clone(),
-        &ExecuteMsg::DoInstantiateAndMint {
+        &ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
             class_id: "bad kids".to_string(),
             class_uri: Some("https://moonphase.is".to_string()),
             token_ids: vec!["1".to_string(), "2".to_string()],
@@ -115,7 +90,7 @@ fn test_do_instantiate_and_mint() {
                 "https://moonphase.is/image.svg".to_string(),
             ],
             receiver: "ekez".to_string(),
-        },
+        }),
         &[],
     )
     .unwrap();
@@ -213,13 +188,13 @@ fn test_do_instantiate_and_mint_no_instantiate() {
     app.execute_contract(
         bridge.clone(),
         bridge.clone(),
-        &ExecuteMsg::DoInstantiateAndMint {
+        &ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
             class_id: "bad kids".to_string(),
             class_uri: Some("https://moonphase.is".to_string()),
             token_ids: vec!["1".to_string()],
             token_uris: vec!["https://moonphase.is/image.svg".to_string()],
             receiver: "ekez".to_string(),
-        },
+        }),
         &[],
     )
     .unwrap();
@@ -229,13 +204,13 @@ fn test_do_instantiate_and_mint_no_instantiate() {
     app.execute_contract(
         bridge.clone(),
         bridge.clone(),
-        &ExecuteMsg::DoInstantiateAndMint {
+        &ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
             class_id: "bad kids".to_string(),
             class_uri: Some("https://moonphase.is".to_string()),
             token_ids: vec!["2".to_string()],
             token_uris: vec!["https://moonphase.is/image.svg".to_string()],
             receiver: "ekez".to_string(),
-        },
+        }),
         &[],
     )
     .unwrap();
@@ -277,13 +252,13 @@ fn test_do_instantiate_and_mint_permissions() {
         .execute_contract(
             Addr::unchecked("ekez"),
             bridge,
-            &ExecuteMsg::DoInstantiateAndMint {
+            &ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
                 class_id: "bad kids".to_string(),
                 class_uri: Some("https://moonphase.is".to_string()),
                 token_ids: vec!["1".to_string()],
                 token_uris: vec!["https://moonphase.is/image.svg".to_string()],
                 receiver: "ekez".to_string(),
-            },
+            }),
             &[],
         )
         .unwrap_err()

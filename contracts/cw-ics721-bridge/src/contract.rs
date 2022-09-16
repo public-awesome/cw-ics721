@@ -325,7 +325,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 mod tests {
     use cosmwasm_std::{
         testing::{mock_dependencies, mock_info, MockQuerier},
-        Addr, ContractResult, CosmosMsg, IbcTimeout, QuerierResult, Timestamp, WasmQuery,
+        ContractResult, CosmosMsg, IbcTimeout, QuerierResult, Timestamp, WasmQuery,
     };
     use cw721::NftInfoResponse;
 
@@ -378,32 +378,11 @@ mod tests {
         })
         .unwrap();
 
-        CHANNELS
-            .save(
-                deps.as_mut().storage,
-                "channel-1".to_string(),
-                &Addr::unchecked("escrow"),
-            )
-            .unwrap();
-
         let res = execute_receive_nft(deps.as_mut(), info, token_id, sender, msg).unwrap();
-        assert_eq!(res.messages.len(), 2);
+        assert_eq!(res.messages.len(), 1);
 
         assert_eq!(
             res.messages[0],
-            SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "nft".to_string(),
-                funds: vec![],
-                msg: to_binary(&cw721::Cw721ExecuteMsg::TransferNft {
-                    recipient: "escrow".to_string(),
-                    token_id: "1".to_string(),
-                })
-                .unwrap()
-            }))
-        );
-
-        assert_eq!(
-            res.messages[1],
             SubMsg::new(CosmosMsg::Ibc(IbcMsg::SendPacket {
                 channel_id: "channel-1".to_string(),
                 timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
@@ -437,14 +416,6 @@ mod tests {
             timeout: IbcTimeout::with_timestamp(Timestamp::from_nanos(42)),
         })
         .unwrap();
-
-        CHANNELS
-            .save(
-                deps.as_mut().storage,
-                "channel-1".to_string(),
-                &Addr::unchecked("escrow"),
-            )
-            .unwrap();
 
         execute_receive_nft(deps.as_mut(), info, token_id, sender, msg).unwrap();
 

@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     attr,
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier},
-    to_binary, to_vec, Binary, ContractResult, DepsMut, Env, IbcAcknowledgement, IbcChannel,
+    to_binary, to_vec, Addr, Binary, ContractResult, DepsMut, Env, IbcAcknowledgement, IbcChannel,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder, IbcPacket, IbcPacketReceiveMsg,
     IbcTimeout, QuerierResult, Reply, Response, SubMsg, SubMsgResponse, SubMsgResult, Timestamp,
     WasmMsg, WasmQuery,
@@ -9,17 +9,14 @@ use cosmwasm_std::{
 
 use crate::{
     contract::instantiate,
-    helpers::{
-        BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID, BURN_ESCROW_TOKENS_REPLY_ID,
-        FAILURE_RESPONSE_FAILURE_REPLY_ID, INSTANTIATE_AND_MINT_CW721_REPLY_ID,
-        INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_ESCROW_REPLY_ID, MINT_SUB_MSG_REPLY_ID,
-    },
+    helpers::{ACK_AND_DO_NOTHING, INSTANTIATE_CW721_REPLY_ID},
     ibc::{
         ibc_channel_connect, ibc_channel_open, ibc_packet_receive, reply,
         NonFungibleTokenPacketData, IBC_VERSION,
     },
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
-    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
+    msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
+    state::{CLASS_ID_TO_NFT_CONTRACT, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL},
     ContractError,
 };
 
@@ -31,7 +28,6 @@ const DEFAULT_TIMEOUT: u64 = 42; // Seconds.
 
 const ADDR1: &str = "addr1";
 const CW721_CODE_ID: u64 = 0;
-const ESCROW_CODE_ID: u64 = 1;
 
 fn mock_channel(channel_id: &str) -> IbcChannel {
     IbcChannel::new(
@@ -72,7 +68,7 @@ fn add_channel(mut deps: DepsMut, env: Env, channel_id: &str) {
     let connect_msg = IbcChannelConnectMsg::new_ack(channel.clone(), IBC_VERSION);
     let res = ibc_channel_connect(deps.branch(), env, connect_msg).unwrap();
 
-    // Sanity check our attributes
+    // Smoke check our attributes
     assert_eq!(res.attributes.len(), 3);
     assert_eq!(
         res.attributes,
@@ -82,30 +78,12 @@ fn add_channel(mut deps: DepsMut, env: Env, channel_id: &str) {
             attr("port", channel.endpoint.port_id)
         ]
     );
-    assert_eq!(res.messages.len(), 1);
-    assert_eq!(
-        res.messages[0],
-        SubMsg::reply_always(
-            WasmMsg::Instantiate {
-                admin: None,
-                code_id: ESCROW_CODE_ID,
-                msg: to_binary(&ics721_escrow::msg::InstantiateMsg {
-                    admin_address: "cosmos2contract".to_string(),
-                    channel_id: channel_id.to_string()
-                })
-                .unwrap(),
-                funds: vec![],
-                label: format!("channel ({}) ICS721 escrow", channel_id)
-            },
-            INSTANTIATE_ESCROW_REPLY_ID
-        )
-    )
+    assert_eq!(res.messages.len(), 0);
 }
 
 fn do_instantiate(deps: DepsMut, env: Env, sender: &str) -> Result<Response, ContractError> {
     let msg = InstantiateMsg {
         cw721_base_code_id: CW721_CODE_ID,
-        escrow_code_id: ESCROW_CODE_ID,
     };
     instantiate(deps, env, mock_info(sender, &[]), msg)
 }
@@ -126,81 +104,6 @@ fn build_ics_packet(
         sender: sender.to_string(),
         receiver: receiver.to_string(),
     }
-}
-
-#[test]
-fn test_reply_escrow() {
-    let mut querier = MockQuerier::default();
-    querier.update_wasm(|query| -> QuerierResult {
-        match query {
-            WasmQuery::Smart {
-                contract_addr: _,
-                msg: _,
-            } => QuerierResult::Ok(ContractResult::Ok(
-                to_binary(&"channel-1".to_string()).unwrap(),
-            )),
-            WasmQuery::Raw { .. } => QuerierResult::Ok(ContractResult::Ok(Binary::default())),
-            WasmQuery::ContractInfo { .. } => {
-                QuerierResult::Ok(ContractResult::Ok(Binary::default()))
-            }
-            _ => QuerierResult::Ok(ContractResult::Ok(Binary::default())),
-        }
-    });
-    let mut deps = mock_dependencies();
-    deps.querier = querier;
-
-    // This is a pre encoded message with the contract address
-    // cosmos2contract
-    // TODO: Can we form this via a function instead of hardcoding
-    //       So we can have different contract addresses
-    let reply_resp = "Cg9jb3Ntb3MyY29udHJhY3QSAA==";
-    let rep = Reply {
-        id: INSTANTIATE_ESCROW_REPLY_ID,
-        result: SubMsgResult::Ok(SubMsgResponse {
-            events: vec![],
-            data: Some(Binary::from_base64(reply_resp).unwrap()),
-        }),
-    };
-    let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
-    assert_eq!(res.data, Some(ack_success()));
-    assert_eq!(
-        res.attributes,
-        vec![
-            attr("method", "instantiate_escrow_reply"),
-            attr("escrow_addr", "cosmos2contract"),
-            attr("channel_id", "channel-1")
-        ]
-    );
-}
-
-#[test]
-fn test_reply_escrow_submsg_fail() {
-    let mut querier = MockQuerier::default();
-    querier.update_wasm(|query| -> QuerierResult {
-        match query {
-            WasmQuery::Smart {
-                contract_addr: _,
-                msg: _,
-            } => QuerierResult::Ok(ContractResult::Ok(
-                to_binary(&"channel-1".to_string()).unwrap(),
-            )),
-            WasmQuery::Raw { .. } => QuerierResult::Ok(ContractResult::Ok(Binary::default())),
-            WasmQuery::ContractInfo { .. } => {
-                QuerierResult::Ok(ContractResult::Ok(Binary::default()))
-            }
-            _ => QuerierResult::Ok(ContractResult::Ok(Binary::default())),
-        }
-    });
-    let mut deps = mock_dependencies();
-    deps.querier = querier;
-
-    // The instantiate has failed for some reason
-    let rep = Reply {
-        id: INSTANTIATE_ESCROW_REPLY_ID,
-        result: SubMsgResult::Err("some failure".to_string()),
-    };
-    let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
-    assert_eq!(res.data, Some(ack_fail("some failure").unwrap()));
 }
 
 #[test]
@@ -250,42 +153,38 @@ fn test_reply_cw721() {
             attr("cw721_addr", "cosmos2contract")
         ]
     );
+
+    let class_id = NFT_CONTRACT_TO_CLASS_ID
+        .load(deps.as_ref().storage, Addr::unchecked("cosmos2contract"))
+        .unwrap();
+    let nft = CLASS_ID_TO_NFT_CONTRACT
+        .load(deps.as_ref().storage, class_id.clone())
+        .unwrap();
+
+    assert_eq!(nft, Addr::unchecked("cosmos2contract"));
+    assert_eq!(class_id, "wasm.address1/channel-10/address2".to_string());
 }
 
 #[test]
 fn test_stateless_reply() {
     let mut deps = mock_dependencies();
-    // List of all our stateless replies, we can test them all in one
-    let reply_ids = vec![
-        MINT_SUB_MSG_REPLY_ID,
-        INSTANTIATE_AND_MINT_CW721_REPLY_ID,
-        BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID,
-        BURN_ESCROW_TOKENS_REPLY_ID,
-        FAILURE_RESPONSE_FAILURE_REPLY_ID,
-    ];
 
-    // Success case
-    for id in &reply_ids {
-        let rep = Reply {
-            id: *id,
-            result: SubMsgResult::Ok(SubMsgResponse {
-                events: vec![],
-                data: None,
-            }),
-        };
-        let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
-        assert_eq!(res.data, Some(ack_success()));
-    }
+    let rep = Reply {
+        id: ACK_AND_DO_NOTHING,
+        result: SubMsgResult::Ok(SubMsgResponse {
+            events: vec![],
+            data: None,
+        }),
+    };
+    let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
+    assert_eq!(res.data, Some(ack_success()));
 
-    // Error case
-    for id in &reply_ids {
-        let rep = Reply {
-            id: *id,
-            result: SubMsgResult::Err("some failure".to_string()),
-        };
-        let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
-        assert_eq!(res.data, Some(ack_fail("some failure").unwrap()));
-    }
+    let rep = Reply {
+        id: ACK_AND_DO_NOTHING,
+        result: SubMsgResult::Err("some failure".to_string()),
+    };
+    let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
+    assert_eq!(res.data, Some(ack_fail("some failure").unwrap()));
 }
 
 #[test]
@@ -298,7 +197,8 @@ fn test_unrecognised_reply() {
             data: None,
         }),
     };
-    reply(deps.as_mut(), mock_env(), rep).unwrap_err();
+    let err = reply(deps.as_mut(), mock_env(), rep).unwrap_err();
+    assert_eq!(err, ContractError::UnrecognisedReplyId {})
 }
 
 #[test]
@@ -501,7 +401,7 @@ fn test_ibc_channel_connect_invalid_version_counterparty() {
 
 #[test]
 fn test_ibc_packet_receive_invalid_packet_data() {
-    let data = to_binary(&QueryMsg::ListChannels {
+    let data = to_binary(&QueryMsg::ListClassIds {
         start_after: None,
         limit: None,
     })
@@ -563,6 +463,17 @@ fn ibc_receive_source_chain() {
     let mut deps = mock_dependencies();
     let env = mock_env();
 
+    OUTGOING_CLASS_TOKEN_TO_CHANNEL
+        .save(
+            deps.as_mut().storage,
+            (
+                format!("nft-transfer/channel-42/{}", ADDR1),
+                "kid A".to_string(),
+            ),
+            &CHANNEL_ID.to_string(),
+        )
+        .unwrap();
+
     let res = ibc_packet_receive(deps.as_mut(), env.clone(), packet);
 
     assert!(res.is_ok());
@@ -576,17 +487,16 @@ fn ibc_receive_source_chain() {
         SubMsg::reply_always(
             WasmMsg::Execute {
                 contract_addr: env.contract.address.into_string(),
-                msg: to_binary(&ExecuteMsg::BatchTransferFromChannel {
-                    channel: CHANNEL_ID.to_string(),
+                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::BatchTransfer {
                     // Should have popped from the class ID.
                     class_id: format!("nft-transfer/channel-42/{}", ADDR1),
                     token_ids: vec!["kid A".to_string()],
                     receiver: "callum".to_string()
-                })
+                }))
                 .unwrap(),
                 funds: vec![]
             },
-            BATCH_TRANSFER_FROM_CHANNEL_REPLY_ID
+            ACK_AND_DO_NOTHING
         )
     )
 }
@@ -623,17 +533,17 @@ fn ibc_receive_sink_chain() {
         SubMsg::reply_always(
             WasmMsg::Execute {
                 contract_addr: env.contract.address.into_string(),
-                msg: to_binary(&ExecuteMsg::DoInstantiateAndMint {
+                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
                     class_id: format!("{}/{}/{}", CONTRACT_PORT, CHANNEL_ID, back_again),
                     class_uri: None,
                     token_ids: vec!["kid A".to_string()],
                     token_uris: vec!["https://moonphase.is/image.svg".to_string()],
                     receiver: "callum".to_string()
-                })
+                }))
                 .unwrap(),
                 funds: vec![]
             },
-            INSTANTIATE_AND_MINT_CW721_REPLY_ID
+            ACK_AND_DO_NOTHING
         )
     )
 }
@@ -670,17 +580,17 @@ fn ibc_receive_sink_chain_empty_class_id() {
         SubMsg::reply_always(
             WasmMsg::Execute {
                 contract_addr: env.contract.address.into_string(),
-                msg: to_binary(&ExecuteMsg::DoInstantiateAndMint {
+                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
                     class_id: format!("{}/{}/{}", CONTRACT_PORT, CHANNEL_ID, back_again),
                     class_uri: None,
                     token_ids: vec!["kid A".to_string()],
                     token_uris: vec!["https://moonphase.is/image.svg".to_string()],
                     receiver: "callum".to_string()
-                })
+                }))
                 .unwrap(),
                 funds: vec![]
             },
-            INSTANTIATE_AND_MINT_CW721_REPLY_ID
+            ACK_AND_DO_NOTHING
         )
     )
 }

@@ -369,7 +369,8 @@ func queryGetOwner(t *testing.T, chain *wasmibctesting.TestChain, nft string) st
 }
 
 // Builds three identical chains A, B, and C then sends along the path
-// A -> B -> C -> A.
+// A -> B -> C -> A -> C -> B -> A. If this works, likely most other
+// things do too. :)
 func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	coordinator := wasmibctesting.NewCoordinator(t, 3)
 

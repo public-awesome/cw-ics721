@@ -1,16 +1,15 @@
 [package]
 name = "cw-ics721-bridge"
 version = "0.1.0"
-authors = ["Zeke Medley <zekemedley@gmail.com>"]
+authors = ["ekez <ekez@withoutdoing.com>"]
 edition = "2021"
+description = "an implementation of the ICS721 specification for transfering NFTs between blockchains"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [features]
-# for more explicit tests, cargo test --features=backtraces
 backtraces = ["cosmwasm-std/backtraces"]
-# use library feature to disable all instantiate/execute/query exports
 library = []
 
 [dependencies]
@@ -20,7 +19,10 @@ cw-storage-plus = "0.13.4"
 cw-utils = "0.13.4"
 cw2 = "0.13.4"
 cw721 = "0.13.4"
-cw721-base = { version = "0.13.4", features = [] } # TODO: add library back in when: https://github.com/CosmWasm/cw-nfts/pull/76
+# Need this dependency because we depend on its mint method.
+# TODO: add library back in when:
+# <https://github.com/CosmWasm/cw-nfts/pull/76>
+cw721-base = { version = "0.13.4", features = [] }
 schemars = "0.8.10"
 serde = { version = "1.0.140", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.31" }
