@@ -272,9 +272,10 @@ fn do_ibc_packet_receive(
                     let key = (local_class_id.to_string(), token.clone());
                     let outgoing_channel =
                         OUTGOING_CLASS_TOKEN_TO_CHANNEL.may_load(deps.storage, key.clone())?;
-                    if outgoing_channel.map_or(false, |outgoing_channel| {
+                    let returning_to_source = outgoing_channel.map_or(false, |outgoing_channel| {
                         outgoing_channel == packet.dest.channel_id
-                    }) {
+                    });
+                    if returning_to_source {
                         // We previously sent this NFT out on this
                         // channel. Unlock the local version for the
                         // receiver.
@@ -338,9 +339,10 @@ pub fn ibc_packet_ack(
                 let key = (msg.class_id.clone(), token.clone());
                 let source_channel =
                     INCOMING_CLASS_TOKEN_TO_CHANNEL.may_load(deps.storage, key.clone())?;
-                if source_channel.map_or(false, |source_channel| {
+                let returning_to_source = source_channel.map_or(false, |source_channel| {
                     source_channel == ack.original_packet.src.channel_id
-                }) {
+                });
+                if returning_to_source {
                     // FIXME(ekez): does doing this in the ack handler
                     // open us up to some attack where someone replays
                     // the send message before we get an ack?
