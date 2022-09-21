@@ -205,9 +205,7 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 		Symbol: chainBClassID,
 	}, contractInfo)
 
-	//
 	// Send the NFT back!
-	//
 
 	ibcAway = fmt.Sprintf(`{ "receiver": "%s", "channel_id": "%s", "timeout": { "timestamp": "%d" } }`, suite.chainA.SenderAccount.GetAddress().String(), path.EndpointB.ChannelID, suite.coordinator.CurrentTime.UnixNano()+1000000000000)
 	ibcAwayEncoded = b64.StdEncoding.EncodeToString([]byte(ibcAway))
@@ -324,6 +322,16 @@ func mintNFT(t *testing.T, chain *wasmibctesting.TestChain, cw721 string, id str
 		Sender:   chain.SenderAccount.GetAddress().String(),
 		Contract: cw721,
 		Msg:      []byte(fmt.Sprintf(`{ "mint": { "token_id": "%s", "owner": "%s" } }`, id, receiver.String())),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(t, err)
+}
+
+func transferNft(t *testing.T, chain *wasmibctesting.TestChain, nft, token_id string, sender, receiver sdk.AccAddress) {
+	_, err := chain.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   sender.String(),
+		Contract: nft,
+		Msg:      []byte(fmt.Sprintf(`{"transfer_nft": { "recipient": "%s", "token_id": "%s" }}`, receiver, token_id)),
 		Funds:    []sdk.Coin{},
 	})
 	require.NoError(t, err)
@@ -514,4 +522,51 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 
 	// Hooray! We have completed the journey between three
 	// identical blockchains using our bridge contract.
+}
+
+func (suite *TransferTestSuite) TestIbcAwayTransferAndReturn() {
+	var (
+		sourcePortID      = suite.chainA.ContractInfo(suite.chainABridge).IBCPortID
+		counterpartPortID = suite.chainB.ContractInfo(suite.chainBBridge).IBCPortID
+	)
+	path := wasmibctesting.NewPath(suite.chainA, suite.chainB)
+	path.EndpointA.ChannelConfig = &ibctesting.ChannelConfig{
+		PortID:  sourcePortID,
+		Version: "ics721-1",
+		Order:   channeltypes.UNORDERED,
+	}
+	path.EndpointB.ChannelConfig = &ibctesting.ChannelConfig{
+		PortID:  counterpartPortID,
+		Version: "ics721-1",
+		Order:   channeltypes.UNORDERED,
+	}
+
+	suite.coordinator.SetupConnections(path)
+	suite.coordinator.CreateChannels(path)
+
+	chainANft := instantiateCw721(suite.T(), suite.chainA)
+	mintNFT(suite.T(), suite.chainA, chainANft.String(), "bad kid 1", suite.chainA.SenderAccount.GetAddress())
+
+	ics721Nft(suite.T(), suite.chainA, path, suite.coordinator, chainANft.String(), suite.chainABridge, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress())
+
+	chainBClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, chainANft)
+	chainBNft := queryGetClass(suite.T(), suite.chainB, suite.chainBBridge.String(), chainBClassID)
+
+	// Generate a new account and transfer the NFT to it.
+	newAccount := CreateAndFundAccount(suite.T(), suite.chainB, 1)
+	transferNft(suite.T(), suite.chainB, chainBNft, "bad kid 1", suite.chainB.SenderAccount.GetAddress(), newAccount.Address)
+
+	// IBC away the transfered NFT.
+	ibcAway := fmt.Sprintf(`{ "receiver": "%s", "channel_id": "%s", "timeout": { "timestamp": "%d" } }`, suite.chainA.SenderAccount.GetAddress().String(), path.EndpointB.ChannelID, suite.coordinator.CurrentTime.UnixNano()+1000000000000)
+	ibcAwayEncoded := b64.StdEncoding.EncodeToString([]byte(ibcAway))
+
+	// Send the NFT away.
+	_, err := SendMsgsFromAccount(suite.T(), suite.chainB, newAccount, &wasmtypes.MsgExecuteContract{
+		Sender:   newAccount.Address.String(),
+		Contract: chainBNft,
+		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "bad kid 1", "msg": "%s" } }`, suite.chainBBridge.String(), ibcAwayEncoded)),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+	suite.coordinator.RelayAndAckPendingPackets(path)
 }

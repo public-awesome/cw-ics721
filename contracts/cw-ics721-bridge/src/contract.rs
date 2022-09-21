@@ -230,8 +230,7 @@ fn execute_batch_transfer(
                     funds: vec![],
                 })
             })
-            .collect::<StdResult<Vec<WasmMsg>>>()?
-            .into_iter(),
+            .collect::<StdResult<Vec<WasmMsg>>>()?,
     ))
 }
 

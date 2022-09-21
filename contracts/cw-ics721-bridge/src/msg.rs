@@ -8,11 +8,10 @@ pub struct InstantiateMsg {
     /// Code ID of cw721-ics contract. A new cw721-ics will be
     /// instantiated for each new IBCd NFT classID.
     ///
-    /// NOTE: this _must_ correspond to the cw721-ics contract which
-    /// should have been distributed along with this sourcecode. Using
+    /// NOTE: this _must_ correspond to the cw721-base contract. Using
     /// a regular cw721 may cause the ICS 721 interface implemented by
     /// this contract to stop working, and IBCd away NFTs to be
-    /// unreturnable (cw721 does not have a burn method in the spec).
+    /// unreturnable (cw721 does not have a mint method in the spec).
     pub cw721_base_code_id: u64,
 }
 

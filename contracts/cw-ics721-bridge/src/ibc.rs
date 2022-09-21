@@ -343,10 +343,6 @@ pub fn ibc_packet_ack(
                     source_channel == ack.original_packet.src.channel_id
                 });
                 if returning_to_source {
-                    // FIXME(ekez): does doing this in the ack handler
-                    // open us up to some attack where someone replays
-                    // the send message before we get an ack?
-
                     // This token's journey is complete, for now.
                     INCOMING_CLASS_TOKEN_TO_CHANNEL.remove(deps.storage, key);
                     messages.push(WasmMsg::Execute {
