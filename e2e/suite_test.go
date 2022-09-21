@@ -524,7 +524,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	// identical blockchains using our bridge contract.
 }
 
-func (suite *TransferTestSuite) TestIbcAwayTransferAndReturn() {
+func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 	var (
 		sourcePortID      = suite.chainA.ContractInfo(suite.chainABridge).IBCPortID
 		counterpartPortID = suite.chainB.ContractInfo(suite.chainBBridge).IBCPortID
@@ -552,8 +552,10 @@ func (suite *TransferTestSuite) TestIbcAwayTransferAndReturn() {
 	chainBClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, chainANft)
 	chainBNft := queryGetClass(suite.T(), suite.chainB, suite.chainBBridge.String(), chainBClassID)
 
-	// Generate a new account and transfer the NFT to it.
-	newAccount := CreateAndFundAccount(suite.T(), suite.chainB, 1)
+	// Generate a new account and transfer the NFT to it.  For
+	// reasons entirely beyond me, the first account we create
+	// has an account number of ten. The second has 11.
+	newAccount := CreateAndFundAccount(suite.T(), suite.chainB, 10)
 	transferNft(suite.T(), suite.chainB, chainBNft, "bad kid 1", suite.chainB.SenderAccount.GetAddress(), newAccount.Address)
 
 	// IBC away the transfered NFT.
@@ -568,5 +570,33 @@ func (suite *TransferTestSuite) TestIbcAwayTransferAndReturn() {
 		Funds:    []sdk.Coin{},
 	})
 	require.NoError(suite.T(), err)
-	suite.coordinator.RelayAndAckPendingPackets(path)
+	suite.coordinator.RelayAndAckPendingPackets(path.Invert())
+
+	// Make sure the NFT was burned on chain B
+	err = suite.chainB.SmartQuery(chainBNft, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &OwnerOfResponse{})
+	require.ErrorContains(suite.T(), err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>> not found")
+
+	// Make another account on chain B and transfer to the new account.
+	anotherAcount := CreateAndFundAccount(suite.T(), suite.chainB, 11)
+	ics721Nft(suite.T(), suite.chainA, path, suite.coordinator, chainANft.String(), suite.chainABridge, suite.chainA.SenderAccount.GetAddress(), anotherAcount.Address)
+
+	// Transfer it back to chain A using this new account.
+	_, err = SendMsgsFromAccount(suite.T(), suite.chainB, anotherAcount, &wasmtypes.MsgExecuteContract{
+		Sender:   anotherAcount.Address.String(),
+		Contract: chainBNft,
+		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "bad kid 1", "msg": "%s" } }`, suite.chainBBridge.String(), ibcAwayEncoded)),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+	suite.coordinator.RelayAndAckPendingPackets(path.Invert())
+
+	// Make sure it was burned on B.
+	err = suite.chainB.SmartQuery(chainBNft, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &OwnerOfResponse{})
+	require.ErrorContains(suite.T(), err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>> not found")
+
+	// Make sure it is owned by the correct address on A.
+	resp := OwnerOfResponse{}
+	err = suite.chainA.SmartQuery(chainANft.String(), OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &resp)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), resp.Owner, suite.chainA.SenderAccount.GetAddress().String())
 }

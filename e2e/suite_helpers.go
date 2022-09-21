@@ -9,6 +9,7 @@ import (
 	wasmibctesting "github.com/CosmWasm/wasmd/x/wasm/ibctesting"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	clienttypes "github.com/cosmos/ibc-go/v3/modules/core/02-client/types"
@@ -81,7 +82,8 @@ func SendMsgsFromAccount(t *testing.T, chain *wasmibctesting.TestChain, account 
 
 // -------------------------------------------------------------------
 // All of this is copied from the wasmibctesting package as we need
-// these methods but they are non-public.
+// these methods to create the `SendMsgsFromAccount` method but they
+// are non-public.
 // -------------------------------------------------------------------
 
 func captureIBCEvents(chain *wasmibctesting.TestChain, r *sdk.Result) {
