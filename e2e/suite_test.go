@@ -735,6 +735,59 @@ func (suite *TransferTestSuite) TestPacketTimeoutCausesRefund() {
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), owner)
 }
 
+// Tests that the NFT transfered to the bridge is returned to sender
+// if the counterparty returns an ack fail while handling the
+// transfer.
+func (suite *TransferTestSuite) TestRefundOnAckFail() {
+	var (
+		sourcePortID      = suite.chainA.ContractInfo(suite.chainABridge).IBCPortID
+		counterpartPortID = suite.chainB.ContractInfo(suite.chainBBridge).IBCPortID
+	)
+	path := wasmibctesting.NewPath(suite.chainA, suite.chainB)
+	path.EndpointA.ChannelConfig = &ibctesting.ChannelConfig{
+		PortID:  sourcePortID,
+		Version: "ics721-1",
+		Order:   channeltypes.UNORDERED,
+	}
+	path.EndpointB.ChannelConfig = &ibctesting.ChannelConfig{
+		PortID:  counterpartPortID,
+		Version: "ics721-1",
+		Order:   channeltypes.UNORDERED,
+	}
+
+	suite.coordinator.SetupConnections(path)
+	suite.coordinator.CreateChannels(path)
+
+	chainANft := instantiateCw721(suite.T(), suite.chainA)
+	mintNFT(suite.T(), suite.chainA, chainANft.String(), "bad kid 1", suite.chainA.SenderAccount.GetAddress())
+
+	// Send the NFT, but use an invalid address in the receiver
+	// field. This will cause processing to fail. The counterparty
+	// should not commit any new state and should respond with an
+	// ack fail which should cause the sent NFT to be returned to
+	// the sender.
+	ibcAway := fmt.Sprintf(`{ "receiver": "%s", "channel_id": "%s", "timeout": { "timestamp": "%d" } }`, "ekez", path.EndpointA.ChannelID, suite.coordinator.CurrentTime.UnixNano()+1000000000000)
+	ibcAwayEncoded := b64.StdEncoding.EncodeToString([]byte(ibcAway))
+
+	// Send the NFT away.
+	_, err := suite.chainA.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainA.SenderAccount.GetAddress().String(),
+		Contract: chainANft.String(),
+		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "bad kid 1", "msg": "%s" } }`, suite.chainABridge.String(), ibcAwayEncoded)),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+	suite.coordinator.RelayAndAckPendingPackets(path)
+
+	chainBClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, chainANft)
+	chainBNft := queryGetClass(suite.T(), suite.chainB, suite.chainBBridge.String(), chainBClassID)
+	require.Equal(suite.T(), chainBNft, "")
+
+	// Check that the NFT was returned to the sender due to the failure.
+	ownerA := queryGetOwner(suite.T(), suite.chainA, chainANft.String())
+	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), ownerA)
+}
+
 // Tests that each contract query retuns the expected data both for
 // known, and unknown class IDs and NFT addresses.
 func (suite *TransferTestSuite) TestQueries() {
@@ -748,10 +801,4 @@ func TestConnectionFailsWithWrongVersion(t *testing.T) {
 // Tests that the contract rejects connections that use an incorrect
 // ordering.
 func TestConnectionFailsWithWrongOrdering(t *testing.T) {
-}
-
-// Tests that the NFT transfered to the bridge is returned to sender
-// if the counterparty returns an ack fail while handling the
-// transfer.
-func (suite *TransferTestSuite) TestRefundOnAckFail() {
 }
