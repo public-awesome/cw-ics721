@@ -89,12 +89,14 @@ pub enum CallbackMsg {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
+#[cfg_attr(test, derive(Debug, Clone))]
 pub struct TransferInfo {
     pub class_id: String,
     pub token_ids: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
+#[cfg_attr(test, derive(Debug, Clone))]
 pub struct NewTokenInfo {
     pub class_id: String,
     pub token_ids: Vec<String>,

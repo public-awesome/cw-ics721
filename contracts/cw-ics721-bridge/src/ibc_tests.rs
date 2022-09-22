@@ -3,8 +3,7 @@ use cosmwasm_std::{
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier},
     to_binary, to_vec, Addr, Binary, ContractResult, DepsMut, Env, IbcAcknowledgement, IbcChannel,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder, IbcPacket, IbcPacketReceiveMsg,
-    IbcTimeout, QuerierResult, Reply, Response, SubMsg, SubMsgResponse, SubMsgResult, Timestamp,
-    WasmMsg, WasmQuery,
+    IbcTimeout, QuerierResult, Reply, Response, SubMsgResponse, SubMsgResult, Timestamp, WasmQuery,
 };
 
 use crate::{
@@ -14,8 +13,8 @@ use crate::{
         NonFungibleTokenPacketData, ACK_AND_DO_NOTHING, IBC_VERSION, INSTANTIATE_CW721_REPLY_ID,
     },
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
-    msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::{CLASS_ID_TO_NFT_CONTRACT, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL},
+    msg::{InstantiateMsg, QueryMsg},
+    state::{CLASS_ID_TO_NFT_CONTRACT, NFT_CONTRACT_TO_CLASS_ID},
     ContractError,
 };
 
@@ -436,160 +435,6 @@ fn test_ibc_packet_receive_missmatched_lengths() {
     assert_eq!(
         error,
         Some("tokenId list has different length than tokenUri list".to_string())
-    )
-}
-
-#[test]
-fn ibc_receive_source_chain() {
-    // We should pop from this packet when receiving it as it is
-    // prefixed with the receivers info.
-    let there_and_back_again = format!(
-        "{}/{}/nft-transfer/channel-42/{}",
-        REMOTE_PORT, CHANNEL_ID, ADDR1
-    );
-
-    let data = build_ics_packet(
-        &there_and_back_again,
-        None,
-        vec!["kid A"],
-        vec!["https://moonphase.is/image.svg"],
-        "ekez",
-        "callum",
-    );
-
-    let packet = IbcPacketReceiveMsg::new(mock_packet(to_binary(&data).unwrap()));
-    let mut deps = mock_dependencies();
-    let env = mock_env();
-
-    OUTGOING_CLASS_TOKEN_TO_CHANNEL
-        .save(
-            deps.as_mut().storage,
-            (
-                format!("nft-transfer/channel-42/{}", ADDR1),
-                "kid A".to_string(),
-            ),
-            &CHANNEL_ID.to_string(),
-        )
-        .unwrap();
-
-    let res = ibc_packet_receive(deps.as_mut(), env.clone(), packet);
-
-    assert!(res.is_ok());
-
-    let res = res.unwrap();
-    assert_eq!(res.messages.len(), 1);
-    let response = res.messages.into_iter().next().unwrap();
-
-    assert_eq!(
-        response,
-        SubMsg::reply_always(
-            WasmMsg::Execute {
-                contract_addr: env.contract.address.into_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::BatchTransfer {
-                    // Should have popped from the class ID.
-                    class_id: format!("nft-transfer/channel-42/{}", ADDR1),
-                    token_ids: vec!["kid A".to_string()],
-                    receiver: "callum".to_string()
-                }))
-                .unwrap(),
-                funds: vec![]
-            },
-            ACK_AND_DO_NOTHING
-        )
-    )
-}
-
-#[test]
-fn ibc_receive_sink_chain() {
-    // We should push from this packet when receiving it as it is
-    // not prefixed with the receivers info.
-    let back_again = "bleb/belb/nft-transfer/channel-42/{}".to_string();
-
-    let data = build_ics_packet(
-        &back_again,
-        None,
-        vec!["kid A"],
-        vec!["https://moonphase.is/image.svg"],
-        "ekez",
-        "callum",
-    );
-
-    let packet = IbcPacketReceiveMsg::new(mock_packet(to_binary(&data).unwrap()));
-    let mut deps = mock_dependencies();
-    let env = mock_env();
-
-    let res = ibc_packet_receive(deps.as_mut(), env.clone(), packet);
-
-    assert!(res.is_ok());
-
-    let res = res.unwrap();
-    assert_eq!(res.messages.len(), 1);
-    let response = res.messages.into_iter().next().unwrap();
-
-    assert_eq!(
-        response,
-        SubMsg::reply_always(
-            WasmMsg::Execute {
-                contract_addr: env.contract.address.into_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
-                    class_id: format!("{}/{}/{}", CONTRACT_PORT, CHANNEL_ID, back_again),
-                    class_uri: None,
-                    token_ids: vec!["kid A".to_string()],
-                    token_uris: vec!["https://moonphase.is/image.svg".to_string()],
-                    receiver: "callum".to_string()
-                }))
-                .unwrap(),
-                funds: vec![]
-            },
-            ACK_AND_DO_NOTHING
-        )
-    )
-}
-
-#[test]
-fn ibc_receive_sink_chain_empty_class_id() {
-    // We should push from this packet when receiving it as it is
-    // not prefixed with the receivers info.
-    let back_again = "".to_string();
-
-    let data = build_ics_packet(
-        &back_again,
-        None,
-        vec!["kid A"],
-        vec!["https://moonphase.is/image.svg"],
-        "ekez",
-        "callum",
-    );
-
-    let packet = IbcPacketReceiveMsg::new(mock_packet(to_binary(&data).unwrap()));
-    let mut deps = mock_dependencies();
-    let env = mock_env();
-
-    let res = ibc_packet_receive(deps.as_mut(), env.clone(), packet);
-
-    assert!(res.is_ok());
-
-    let res = res.unwrap();
-    assert_eq!(res.messages.len(), 1);
-    let response = res.messages.into_iter().next().unwrap();
-
-    assert_eq!(
-        response,
-        SubMsg::reply_always(
-            WasmMsg::Execute {
-                contract_addr: env.contract.address.into_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
-                    class_id: format!("{}/{}/{}", CONTRACT_PORT, CHANNEL_ID, back_again),
-                    class_uri: None,
-                    token_ids: vec!["kid A".to_string()],
-                    token_uris: vec!["https://moonphase.is/image.svg".to_string()],
-                    receiver: "callum".to_string()
-                }))
-                .unwrap(),
-                funds: vec![]
-            },
-            ACK_AND_DO_NOTHING
-        )
     )
 }
 
