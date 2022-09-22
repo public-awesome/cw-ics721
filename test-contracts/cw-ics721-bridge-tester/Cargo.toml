@@ -1,0 +1,23 @@
+[package]
+name = "cw-ics721-bridge-tester"
+version = "0.1.0"
+authors = ["ekez <ekez@withoutdoing.com>"]
+edition = "2021"
+description = "a contract for testing strange counterparty responses with ics721"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+backtraces = ["cosmwasm-std/backtraces"]
+library = []
+
+[dependencies]
+cosmwasm-std = { version = "1.0.0", features = ["stargate"] }
+cosmwasm-storage = "1.0.0"
+cw-storage-plus = "0.13.2"
+cw2 = "0.13.2"
+schemars = "0.8.8"
+serde = { version = "1.0.137", default-features = false, features = ["derive"] }
+thiserror = { version = "1.0.31" }
+cw-ics721-bridge = { version = "*", path = "../../contracts/cw-ics721-bridge" }
