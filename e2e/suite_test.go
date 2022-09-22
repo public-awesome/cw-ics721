@@ -688,7 +688,11 @@ func TestCloseRejected(t *testing.T) {
 
 	// CloseConfirm should also not be allowed.
 
-	// Force the other side of the channel to close so that proofs work.
+	// Force the other side of the channel to close so that proofs
+	// work. The meer fact that we need to submit a proof that the
+	// counterparty channel is in the CLOSED state in order to
+	// call this strongly suggests that we are powerless to stop
+	// channel's closing in CloseConfirm.
 	err = path.EndpointB.SetChannelClosed()
 	require.NoError(t, err)
 	coordinator.IncrementTime()
@@ -713,6 +717,53 @@ func TestCloseRejected(t *testing.T) {
 	require.ErrorContains(t, err, "ICS 721 channels may not be closed")
 
 	// Channel is now closed. Notably! this is despite our
-	// rejection of the close in `ibc_channel_close`.
+	// rejection of the close in `ibc_channel_close`. This seems
+	// to follow with the wording of the IBC spec which seems to
+	// indicate that if we get a `ChannelCloseConfirm` message,
+	// the other side is already closed.
+	//
+	// <https://github.com/cosmos/ibc/blob/main/spec/core/ics-004-channel-and-packet-semantics/README.md#closing-handshake>
 	require.Equal(t, path.EndpointB.GetChannel().State, channeltypes.CLOSED)
+}
+
+func (suite *TransferTestSuite) TestPacketTimeoutCausesRefund() {
+	var (
+		sourcePortID      = suite.chainA.ContractInfo(suite.chainABridge).IBCPortID
+		counterpartPortID = suite.chainB.ContractInfo(suite.chainBBridge).IBCPortID
+	)
+
+	path := wasmibctesting.NewPath(suite.chainA, suite.chainB)
+	path.EndpointA.ChannelConfig = &ibctesting.ChannelConfig{
+		PortID:  sourcePortID,
+		Version: "ics721-1",
+		Order:   channeltypes.UNORDERED,
+	}
+	path.EndpointB.ChannelConfig = &ibctesting.ChannelConfig{
+		PortID:  counterpartPortID,
+		Version: "ics721-1",
+		Order:   channeltypes.UNORDERED,
+	}
+
+	suite.coordinator.SetupConnections(path)
+	suite.coordinator.CreateChannels(path)
+
+	cw721 := instantiateCw721(suite.T(), suite.chainA)
+	mintNFT(suite.T(), suite.chainA, cw721.String(), "bad kid 1", suite.chainA.SenderAccount.GetAddress())
+
+	// IBC away message that will expire in one second.
+	ibcAway := fmt.Sprintf(`{ "receiver": "%s", "channel_id": "%s", "timeout": { "timestamp": "%d" } }`, suite.chainB.SenderAccount.GetAddress().String(), path.EndpointA.ChannelID, suite.coordinator.CurrentTime.UnixNano()+1000000)
+	ibcAwayEncoded := b64.StdEncoding.EncodeToString([]byte(ibcAway))
+	_, err := suite.chainA.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainA.SenderAccount.GetAddress().String(),
+		Contract: cw721.String(),
+		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "bad kid 1", "msg": "%s" } }`, suite.chainABridge, ibcAwayEncoded)),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+
+	suite.coordinator.TimeoutPendingPackets(path)
+
+	// NFTs should be returned to sender on packet timeout.
+	owner := queryGetOwner(suite.T(), suite.chainA, cw721.String())
+	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), owner)
 }
