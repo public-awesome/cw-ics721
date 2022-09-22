@@ -9,7 +9,9 @@ use cw2::set_contract_version;
 use crate::{
     error::ContractError,
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID},
-    msg::{CallbackMsg, ExecuteMsg, IbcAwayMsg, InstantiateMsg, QueryMsg},
+    msg::{
+        CallbackMsg, ExecuteMsg, IbcAwayMsg, InstantiateMsg, NewTokenInfo, QueryMsg, TransferInfo,
+    },
     state::{
         UniversalNftInfoResponse, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT,
         CW721_ICS_CODE_ID, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
@@ -77,7 +79,115 @@ pub fn execute(
             receiver,
             token_ids,
         }) => execute_batch_transfer(deps.as_ref(), env, info, class_id, receiver, token_ids),
+        ExecuteMsg::Callback(CallbackMsg::HandlePacketReceive {
+            receiver,
+            class_uri,
+            transfers,
+            new_tokens,
+        }) => execute_handle_packet_receive(
+            deps.as_ref(),
+            env,
+            info,
+            receiver,
+            class_uri,
+            transfers,
+            new_tokens,
+        ),
     }
+}
+
+fn execute_receive_nft(
+    deps: DepsMut,
+    info: MessageInfo,
+    token_id: String,
+    sender: String,
+    msg: Binary,
+) -> Result<Response, ContractError> {
+    let sender = deps.api.addr_validate(&sender)?;
+    let msg: IbcAwayMsg = from_binary(&msg)?;
+
+    let class_id = if NFT_CONTRACT_TO_CLASS_ID.has(deps.storage, info.sender.clone()) {
+        NFT_CONTRACT_TO_CLASS_ID.load(deps.storage, info.sender.clone())?
+    } else {
+        let class_id = info.sender.to_string();
+        // If we do not yet have a class ID for this contract, it is a
+        // local NFT and its class ID is its conract address.
+        NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, info.sender.clone(), &class_id)?;
+        CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, info.sender.to_string(), &info.sender)?;
+        // We set class level metadata to None for local NFTs.
+        //
+        // Merging and usage of this PR may change that:
+        // <https://github.com/CosmWasm/cw-nfts/pull/75>
+        CLASS_ID_TO_CLASS_URI.save(deps.storage, info.sender.to_string(), &None)?;
+        class_id
+    };
+
+    let class_uri = CLASS_ID_TO_CLASS_URI
+        .may_load(deps.storage, class_id.clone())?
+        .flatten();
+
+    let UniversalNftInfoResponse { token_uri, .. } = deps.querier.query_wasm_smart(
+        info.sender,
+        &cw721::Cw721QueryMsg::NftInfo {
+            token_id: token_id.clone(),
+        },
+    )?;
+
+    let ibc_message = NonFungibleTokenPacketData {
+        class_id: class_id.clone(),
+        class_uri,
+        token_ids: vec![token_id.clone()],
+        token_uris: vec![token_uri.unwrap_or_default()], /* Currently token_uri is optional in
+                                                          * cw721 - we set to empty string as
+                                                          * default. */
+        sender: sender.into_string(),
+        receiver: msg.receiver,
+    };
+    let ibc_message = IbcMsg::SendPacket {
+        channel_id: msg.channel_id.clone(),
+        data: to_binary(&ibc_message)?,
+        timeout: msg.timeout,
+    };
+
+    OUTGOING_CLASS_TOKEN_TO_CHANNEL.save(
+        deps.storage,
+        (class_id.clone(), token_id.clone()),
+        &msg.channel_id,
+    )?;
+
+    Ok(Response::default()
+        .add_attribute("method", "execute_receive_nft")
+        .add_attribute("token_id", token_id)
+        .add_attribute("class_id", class_id)
+        .add_attribute("channel_id", msg.channel_id)
+        .add_message(ibc_message))
+}
+
+fn execute_handle_packet_receive(
+    deps: Deps,
+    env: Env,
+    info: MessageInfo,
+    receiver: String,
+    class_uri: Option<String>,
+    transfers: Option<TransferInfo>,
+    new_tokens: Option<NewTokenInfo>,
+) -> Result<Response, ContractError> {
+    if info.sender != env.contract.address {
+        return Err(ContractError::Unauthorized {});
+    }
+    let receiver = deps.api.addr_validate(&receiver)?;
+
+    let mut messages = Vec::with_capacity(2);
+    if let Some(transfer_info) = transfers {
+        messages.push(transfer_info.into_wasm_msg(&env, &receiver)?)
+    }
+    if let Some(token_info) = new_tokens {
+        messages.push(token_info.into_wasm_msg(&env, &receiver, class_uri)?)
+    }
+
+    Ok(Response::default()
+        .add_attribute("method", "handle_packet_receive")
+        .add_messages(messages))
 }
 
 fn execute_mint(
@@ -228,73 +338,6 @@ fn execute_batch_transfer(
             })
             .collect::<StdResult<Vec<WasmMsg>>>()?,
     ))
-}
-
-fn execute_receive_nft(
-    deps: DepsMut,
-    info: MessageInfo,
-    token_id: String,
-    sender: String,
-    msg: Binary,
-) -> Result<Response, ContractError> {
-    let sender = deps.api.addr_validate(&sender)?;
-    let msg: IbcAwayMsg = from_binary(&msg)?;
-
-    let class_id = if NFT_CONTRACT_TO_CLASS_ID.has(deps.storage, info.sender.clone()) {
-        NFT_CONTRACT_TO_CLASS_ID.load(deps.storage, info.sender.clone())?
-    } else {
-        let class_id = info.sender.to_string();
-        // If we do not yet have a class ID for this contract, it is a
-        // local NFT and its class ID is its conract address.
-        NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, info.sender.clone(), &class_id)?;
-        CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, info.sender.to_string(), &info.sender)?;
-        // We set class level metadata to None for local NFTs.
-        //
-        // Merging and usage of this PR may change that:
-        // <https://github.com/CosmWasm/cw-nfts/pull/75>
-        CLASS_ID_TO_CLASS_URI.save(deps.storage, info.sender.to_string(), &None)?;
-        class_id
-    };
-
-    let class_uri = CLASS_ID_TO_CLASS_URI
-        .may_load(deps.storage, class_id.clone())?
-        .flatten();
-
-    let UniversalNftInfoResponse { token_uri, .. } = deps.querier.query_wasm_smart(
-        info.sender,
-        &cw721::Cw721QueryMsg::NftInfo {
-            token_id: token_id.clone(),
-        },
-    )?;
-
-    let ibc_message = NonFungibleTokenPacketData {
-        class_id: class_id.clone(),
-        class_uri,
-        token_ids: vec![token_id.clone()],
-        token_uris: vec![token_uri.unwrap_or_default()], /* Currently token_uri is optional in
-                                                          * cw721 - we set to empty string as
-                                                          * default. */
-        sender: sender.into_string(),
-        receiver: msg.receiver,
-    };
-    let ibc_message = IbcMsg::SendPacket {
-        channel_id: msg.channel_id.clone(),
-        data: to_binary(&ibc_message)?,
-        timeout: msg.timeout,
-    };
-
-    OUTGOING_CLASS_TOKEN_TO_CHANNEL.save(
-        deps.storage,
-        (class_id.clone(), token_id.clone()),
-        &msg.channel_id,
-    )?;
-
-    Ok(Response::default()
-        .add_attribute("method", "execute_receive_nft")
-        .add_attribute("token_id", token_id)
-        .add_attribute("class_id", class_id)
-        .add_attribute("channel_id", msg.channel_id)
-        .add_message(ibc_message))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

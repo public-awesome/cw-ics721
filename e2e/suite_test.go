@@ -146,6 +146,7 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	err = suite.coordinator.RelayAndAckPendingPackets(path)
 	require.NoError(suite.T(), err)
 
+	suite.T().Logf("chain a sender: %s", suite.chainA.SenderAccount.GetAddress().String())
 	// Check that the NFT has been transfered away from the sender
 	// on chain A.
 	resp := OwnerOfResponse{}
@@ -156,7 +157,7 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	}
 	err = suite.chainA.SmartQuery(cw721.String(), ownerOfQuery, &resp)
 	require.NoError(suite.T(), err)
-	require.NotEqual(suite.T(), suite.chainA.SenderAccount, resp.Owner)
+	require.Equal(suite.T(), suite.chainABridge.String(), resp.Owner)
 
 	chainBClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, cw721.String())
 

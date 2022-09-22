@@ -1,4 +1,4 @@
-use cosmwasm_std::IbcTimeout;
+use cosmwasm_std::{to_binary, Addr, Env, IbcTimeout, StdResult, WasmMsg};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -76,6 +76,29 @@ pub enum CallbackMsg {
         /// The tokens (of CLASS_ID) that should be sent.
         token_ids: Vec<String>,
     },
+    /// Handles the falliable part of receiving an IBC
+    /// packet. Transforms TRANSFERS into a `BatchTransfer` message
+    /// and NEW_TOKENS into a `DoInstantiateAndMint`, then dispatches
+    /// those methods.
+    HandlePacketReceive {
+        receiver: String,
+        class_uri: Option<String>,
+        transfers: Option<TransferInfo>,
+        new_tokens: Option<NewTokenInfo>,
+    },
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+pub struct TransferInfo {
+    pub class_id: String,
+    pub token_ids: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+pub struct NewTokenInfo {
+    pub class_id: String,
+    pub token_ids: Vec<String>,
+    pub token_uris: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
@@ -115,4 +138,39 @@ pub enum QueryMsg {
     /// TOKEN_ID. Errors if no such NFT exists. Returns
     /// `cw721::OwnerOfResonse`.
     Owner { class_id: String, token_id: String },
+}
+
+impl TransferInfo {
+    pub(crate) fn into_wasm_msg(self, env: &Env, receiver: &Addr) -> StdResult<WasmMsg> {
+        Ok(WasmMsg::Execute {
+            contract_addr: env.contract.address.to_string(),
+            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::BatchTransfer {
+                class_id: self.class_id,
+                receiver: receiver.to_string(),
+                token_ids: self.token_ids,
+            }))?,
+            funds: vec![],
+        })
+    }
+}
+
+impl NewTokenInfo {
+    pub(crate) fn into_wasm_msg(
+        self,
+        env: &Env,
+        receiver: &Addr,
+        class_uri: Option<String>,
+    ) -> StdResult<WasmMsg> {
+        Ok(WasmMsg::Execute {
+            contract_addr: env.contract.address.to_string(),
+            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
+                class_id: self.class_id,
+                class_uri,
+                receiver: receiver.to_string(),
+                token_ids: self.token_ids,
+                token_uris: self.token_uris,
+            }))?,
+            funds: vec![],
+        })
+    }
 }
