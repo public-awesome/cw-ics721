@@ -91,58 +91,28 @@ pub struct IbcAwayMsg {
     pub timeout: IbcTimeout,
 }
 
+// TODO(ekez): add queries for pagination of contract state.
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[cfg_attr(test, derive(Debug, Clone))]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
-    /// Returns the current owner of the NFT identified by class_id
-    /// and token_id. Returns `cw721::OwnerOfResponse`.
-    GetOwner { token_id: String, class_id: String },
-    /// Returns the NFT identified by class_id and token_id. Returns
-    /// `cw721::NftInfoResponse`.
-    GetNft { class_id: String, token_id: String },
-    /// Returns true if the NFT class identified by class_id already
-    /// exists (it has been received). Returns bool.
-    HasClass { class_id: String },
-    /// Returns the NFT contract identified by class_id. Returns
-    /// `Addr`.
-    GetClass { class_id: String },
-    /// Gets the class level metadata URI for the provided
-    /// class_id. Returns GetUriResponse.
-    GetUri { class_id: String },
-
     /// Gets the classID this contract has stored for a given NFT
-    /// contract. Returns `GetClassIdForNftContractResponse`.
-    GetClassIdForNftContract { contract: String },
+    /// contract. If there is no class ID for the provided contract,
+    /// returns None. Returns Option<String>.
+    ClassIdForNftContract { contract: String },
 
-    /// Paginated query over all the class IDs this contract has seen
-    /// and their associated cw721 contracts. Returns
-    /// `Vec<ClassIdInfoResponse>`.
-    ListClassIds {
-        start_after: Option<String>,
-        limit: Option<u32>,
-    },
-}
+    /// Gets the NFT contract associated wtih the provided class
+    /// ID. If no such contract exists, returns None. Returns
+    /// Option<Addr>.
+    NftContractForClassId { class_id: String },
 
-#[derive(Serialize, Deserialize, JsonSchema)]
-pub struct ChannelInfoResponse {
-    pub channel_id: String,
-    pub escrow_addr: String,
-}
+    /// Gets the class level metadata URI for the provided
+    /// class_id. If there is no metadata, returns None. Returns
+    /// `Option<String>`.
+    Metadata { class_id: String },
 
-#[derive(Serialize, Deserialize, JsonSchema)]
-pub struct ClassIdInfoResponse {
-    pub class_id: String,
-    pub cw721_addr: String,
-}
-
-#[derive(Serialize, Deserialize, JsonSchema)]
-pub struct GetUriResponse {
-    pub uri: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, JsonSchema)]
-pub struct GetClassIdForNftContractResponse {
-    // The classId for the NFT contract, if any.
-    pub class_id: Option<String>,
+    /// Gets the owner of the NFT identified by CLASS_ID and
+    /// TOKEN_ID. Errors if no such NFT exists. Returns
+    /// `cw721::OwnerOfResonse`.
+    Owner { class_id: String, token_id: String },
 }

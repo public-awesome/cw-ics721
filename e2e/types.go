@@ -16,14 +16,32 @@ type OwnerOfResponse struct {
 	// about it so we just don't unmarshal.
 }
 
-type GetOwnerQueryData struct {
+// Owner query for bridge contract.
+type OwnerQueryData struct {
 	TokenID string `json:"token_id"`
 	ClassID string `json:"class_id"`
 }
-type GetOwnerQuery struct {
-	GetOwner GetOwnerQueryData `json:"get_owner"`
+type OwnerQuery struct {
+	Owner OwnerQueryData `json:"owner"`
 }
 
+// Bridge query for obtaining a NFT contract address given a class ID.
+type NftContractForClassIdQueryData struct {
+	ClassID string `json:"class_id"`
+}
+type NftContractForClassIdQuery struct {
+	NftContractForClassId NftContractForClassIdQueryData `json:"nft_contract_for_class_id"`
+}
+
+// Query for getting class ID given NFT contract.
+type ClassIdForNFTContractQueryData struct {
+	Contract string `json:"contract"`
+}
+type ClassIdForNFTContractQuery struct {
+	ClassIdForNFTContract ClassIdForNFTContractQueryData `json:"class_id_for_nft_contract"`
+}
+
+// Owner query for cw721 contract.
 type OwnerOfQueryData struct {
 	TokenID string `json:"token_id"`
 }
@@ -31,13 +49,7 @@ type OwnerOfQuery struct {
 	OwnerOf OwnerOfQueryData `json:"owner_of"`
 }
 
-type GetClassQueryData struct {
-	ClassID string `json:"class_id"`
-}
-type GetClassQuery struct {
-	GetClass GetClassQueryData `json:"get_class"`
-}
-
+// cw721 contract info query.
 type ContractInfoQueryData struct{}
 type ContractInfoQuery struct {
 	ContractInfo ContractInfoQueryData `json:"contract_info"`
@@ -45,14 +57,4 @@ type ContractInfoQuery struct {
 type ContractInfoResponse struct {
 	Name   string `json:"name"`
 	Symbol string `json:"symbol"`
-}
-
-type GetClassIDForNFTContractResponse struct {
-	ClassID string `json:"class_id,omitempty""`
-}
-type GetClassIDForNFTContractQueryData struct {
-	Contract string `json:"contract"`
-}
-type GetClassIDForNFTContractQuery struct {
-	GetClassIDForNFTContract GetClassIDForNFTContractQueryData `json:"get_class_id_for_nft_contract"`
 }

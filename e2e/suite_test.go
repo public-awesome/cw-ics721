@@ -161,8 +161,8 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	chainBClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, cw721.String())
 
 	// Check that the receiver on the receiving chain now owns the NFT.
-	getOwnerQuery := GetOwnerQuery{
-		GetOwner: GetOwnerQueryData{
+	getOwnerQuery := OwnerQuery{
+		Owner: OwnerQueryData{
 			TokenID: "1",
 			ClassID: chainBClassID,
 		},
@@ -172,8 +172,8 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	require.Equal(suite.T(), suite.chainB.SenderAccount.GetAddress().String(), resp.Owner)
 
 	// Get the address of the instantiated cw721.
-	getClassQuery := GetClassQuery{
-		GetClass: GetClassQueryData{
+	getClassQuery := NftContractForClassIdQuery{
+		NftContractForClassId: NftContractForClassIdQueryData{
 			ClassID: chainBClassID,
 		},
 	}
@@ -184,15 +184,15 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	suite.T().Logf("Chain B cw721: %s", chainBCw721)
 
 	// Check that the classID for the contract has been set properly.
-	getClassIDQuery := GetClassIDForNFTContractQuery{
-		GetClassIDForNFTContract: GetClassIDForNFTContractQueryData{
+	getClassIDQuery := ClassIdForNFTContractQuery{
+		ClassIdForNFTContract: ClassIdForNFTContractQueryData{
 			Contract: chainBCw721,
 		},
 	}
-	getClassIDResponse := GetClassIDForNFTContractResponse{}
-	err = suite.chainB.SmartQuery(suite.chainBBridge.String(), getClassIDQuery, &getClassIDResponse)
+	var getClassIdResponse string
+	err = suite.chainB.SmartQuery(suite.chainBBridge.String(), getClassIDQuery, &getClassIdResponse)
 	require.NoError(suite.T(), err)
-	require.Equal(suite.T(), fmt.Sprintf("%s/%s/%s", counterpartPortID, "channel-0", cw721), getClassIDResponse.ClassID)
+	require.Equal(suite.T(), fmt.Sprintf("%s/%s/%s", counterpartPortID, "channel-0", cw721), getClassIdResponse)
 
 	// Check that the contract info for the instantiated cw721 was
 	// set correctly.
@@ -232,8 +232,8 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 
 	// Check that the GetClass query returns what we expect for
 	// local NFTs.
-	getClassQuery = GetClassQuery{
-		GetClass: GetClassQueryData{
+	getClassQuery = NftContractForClassIdQuery{
+		NftContractForClassId: NftContractForClassIdQueryData{
 			ClassID: cw721.String(),
 		},
 	}
@@ -251,40 +251,6 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	// storage will cause it to error.
 	require.ErrorContains(suite.T(), err, "wasm, code: 9: query wasm contract failed")
 }
-
-// FIXME: I am not sure we can actually catch the failure here as the
-// underlying testing code will hit a require.NoError line. How can we
-// write this test in such a way that failure to establish the channel
-// will pass the test?
-
-// func (suite *TransferTestSuite) TestEstablishConnectionFailsWhenOrdered() {
-
-// 	var (
-// 		sourcePortID      = suite.chainA.ContractInfo(suite.chainABridge).IBCPortID
-// 		counterpartPortID = suite.chainB.ContractInfo(suite.chainBBridge).IBCPortID
-// 	)
-// 	suite.coordinator.CommitBlock(suite.chainA, suite.chainB)
-// 	suite.coordinator.UpdateTime()
-
-// 	require.Equal(suite.T(), suite.chainA.CurrentHeader.Time, suite.chainB.CurrentHeader.Time)
-// 	path := wasmibctesting.NewPath(suite.chainA, suite.chainB)
-// 	path.EndpointA.ChannelConfig = &ibctesting.ChannelConfig{
-// 		PortID:  sourcePortID,
-// 		Version: "ics721-1",
-// 		Order:   channeltypes.ORDERED,
-// 	}
-// 	path.EndpointB.ChannelConfig = &ibctesting.ChannelConfig{
-// 		PortID:  counterpartPortID,
-// 		Version: "ics721-1",
-// 		Order:   channeltypes.ORDERED,
-// 	}
-
-// 	suite.coordinator.SetupConnections(path)
-
-// 	// Should fail as ordering is wrong.
-// 	err := path.EndpointA.ChanOpenInit()
-// 	require.True(suite.T(), err != nil)
-// }
 
 func TestIBC(t *testing.T) {
 	suite.Run(t, new(TransferTestSuite))
@@ -355,8 +321,8 @@ func ics721Nft(t *testing.T, chain *wasmibctesting.TestChain, path *wasmibctesti
 }
 
 func queryGetClass(t *testing.T, chain *wasmibctesting.TestChain, bridge, classID string) string {
-	getClassQuery := GetClassQuery{
-		GetClass: GetClassQueryData{
+	getClassQuery := NftContractForClassIdQuery{
+		NftContractForClassId: NftContractForClassIdQueryData{
 			ClassID: classID,
 		},
 	}
@@ -766,4 +732,25 @@ func (suite *TransferTestSuite) TestPacketTimeoutCausesRefund() {
 	// NFTs should be returned to sender on packet timeout.
 	owner := queryGetOwner(suite.T(), suite.chainA, cw721.String())
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), owner)
+}
+
+// Tests that each contract query retuns the expected data both for
+// known, and unknown class IDs and NFT addresses.
+func (suite *TransferTestSuite) TestQueries() {
+}
+
+// Tests that the contract rejects connections that use an incorrect
+// IBC version.
+func TestConnectionFailsWithWrongVersion(t *testing.T) {
+}
+
+// Tests that the contract rejects connections that use an incorrect
+// ordering.
+func TestConnectionFailsWithWrongOrdering(t *testing.T) {
+}
+
+// Tests that the NFT transfered to the bridge is returned to sender
+// if the counterparty returns an ack fail while handling the
+// transfer.
+func (suite *TransferTestSuite) TestRefundOnAckFail() {
 }

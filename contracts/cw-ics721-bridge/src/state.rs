@@ -12,7 +12,7 @@ pub const CLASS_ID_TO_NFT_CONTRACT: Map<String, Addr> = Map::new("class_id_to_co
 pub const NFT_CONTRACT_TO_CLASS_ID: Map<Addr, String> = Map::new("contract_to_class_id");
 
 /// Maps between classIDs and classUris. We need to keep this state
-/// ourselves as cw721 contracts do not.
+/// ourselves as cw721 contracts do not have class-level metadata.
 pub const CLASS_ID_TO_CLASS_URI: Map<String, Option<String>> = Map::new("class_id_to_class_uri");
 
 /// Maps (class ID, token ID) -> local channel ID. Used to determine

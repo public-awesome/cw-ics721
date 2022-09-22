@@ -1,18 +1,14 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Binary, Deps, DepsMut, Empty, Env, IbcMsg, MessageInfo, Response,
+    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcMsg, MessageInfo, Response,
     StdResult, SubMsg, WasmMsg,
 };
 use cw2::set_contract_version;
 
 use crate::{
     error::ContractError,
-    helpers::{
-        get_class, get_class_id_for_nft_contract, get_nft, get_owner, get_uri, has_class,
-        list_class_ids, INSTANTIATE_CW721_REPLY_ID,
-    },
-    ibc::NonFungibleTokenPacketData,
+    ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID},
     msg::{CallbackMsg, ExecuteMsg, IbcAwayMsg, InstantiateMsg, QueryMsg},
     state::{
         UniversalNftInfoResponse, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT,
@@ -304,20 +300,48 @@ fn execute_receive_nft(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetOwner { token_id, class_id } => {
-            to_binary(&get_owner(deps, class_id, token_id)?)
+        QueryMsg::ClassIdForNftContract { contract } => {
+            to_binary(&query_class_id_for_nft_contract(deps, contract)?)
         }
-        QueryMsg::GetNft { class_id, token_id } => to_binary(&get_nft(deps, class_id, token_id)?),
-        QueryMsg::HasClass { class_id } => to_binary(&has_class(deps, class_id)?),
-        QueryMsg::GetClass { class_id } => to_binary(&get_class(deps, class_id)?),
-        QueryMsg::GetUri { class_id } => to_binary(&get_uri(deps, class_id)?),
-        QueryMsg::ListClassIds { start_after, limit } => {
-            to_binary(&list_class_ids(deps, start_after, limit)?)
+        QueryMsg::NftContractForClassId { class_id } => {
+            to_binary(&query_nft_contract_for_class_id(deps, class_id)?)
         }
-        QueryMsg::GetClassIdForNftContract { contract } => {
-            to_binary(&get_class_id_for_nft_contract(deps, contract)?)
+        QueryMsg::Metadata { class_id } => to_binary(&query_metadata(deps, class_id)?),
+        QueryMsg::Owner { class_id, token_id } => {
+            to_binary(&query_owner(deps, class_id, token_id)?)
         }
     }
+}
+
+pub fn query_class_id_for_nft_contract(deps: Deps, contract: String) -> StdResult<Option<String>> {
+    let contract = deps.api.addr_validate(&contract)?;
+    NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, contract)
+}
+
+pub fn query_nft_contract_for_class_id(deps: Deps, class_id: String) -> StdResult<Option<Addr>> {
+    CLASS_ID_TO_NFT_CONTRACT.may_load(deps.storage, class_id)
+}
+
+pub fn query_metadata(deps: Deps, class_id: String) -> StdResult<Option<String>> {
+    Ok(CLASS_ID_TO_CLASS_URI
+        .may_load(deps.storage, class_id)?
+        .flatten())
+}
+
+pub fn query_owner(
+    deps: Deps,
+    class_id: String,
+    token_id: String,
+) -> StdResult<cw721::OwnerOfResponse> {
+    let class_uri = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class_id)?;
+    let resp: cw721::OwnerOfResponse = deps.querier.query_wasm_smart(
+        class_uri,
+        &cw721::Cw721QueryMsg::OwnerOf {
+            token_id,
+            include_expired: None,
+        },
+    )?;
+    Ok(resp)
 }
 
 #[cfg(test)]

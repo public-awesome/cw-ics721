@@ -100,7 +100,7 @@ fn test_do_instantiate_and_mint() {
         .wrap()
         .query_wasm_smart(
             bridge.clone(),
-            &QueryMsg::GetClass {
+            &QueryMsg::NftContractForClassId {
                 class_id: "bad kids".to_string(),
             },
         )
@@ -152,7 +152,7 @@ fn test_do_instantiate_and_mint() {
         .wrap()
         .query_wasm_smart(
             bridge,
-            &QueryMsg::GetOwner {
+            &QueryMsg::Owner {
                 token_id: "1".to_string(),
                 class_id: "bad kids".to_string(),
             },
@@ -220,7 +220,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         .wrap()
         .query_wasm_smart(
             bridge,
-            &QueryMsg::GetClass {
+            &QueryMsg::NftContractForClassId {
                 class_id: "bad kids".to_string(),
             },
         )

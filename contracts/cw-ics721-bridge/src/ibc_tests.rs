@@ -9,10 +9,9 @@ use cosmwasm_std::{
 
 use crate::{
     contract::instantiate,
-    helpers::{ACK_AND_DO_NOTHING, INSTANTIATE_CW721_REPLY_ID},
     ibc::{
         ibc_channel_connect, ibc_channel_open, ibc_packet_receive, reply,
-        NonFungibleTokenPacketData, IBC_VERSION,
+        NonFungibleTokenPacketData, ACK_AND_DO_NOTHING, IBC_VERSION, INSTANTIATE_CW721_REPLY_ID,
     },
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
@@ -401,9 +400,8 @@ fn test_ibc_channel_connect_invalid_version_counterparty() {
 
 #[test]
 fn test_ibc_packet_receive_invalid_packet_data() {
-    let data = to_binary(&QueryMsg::ListClassIds {
-        start_after: None,
-        limit: None,
+    let data = to_binary(&QueryMsg::Metadata {
+        class_id: "foobar".to_string(),
     })
     .unwrap();
 

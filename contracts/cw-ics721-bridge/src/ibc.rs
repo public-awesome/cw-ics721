@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::Never,
-    helpers::{ACK_AND_DO_NOTHING, INSTANTIATE_CW721_REPLY_ID},
     ibc_helpers::{
         ack_fail, ack_success, get_endpoint_prefix, try_get_ack_error, try_pop_source_prefix,
         validate_order_and_version,
@@ -22,6 +21,19 @@ use crate::{
     },
     ContractError,
 };
+
+/// Submessage reply ID used for instantiating cw721 contracts.
+pub(crate) const INSTANTIATE_CW721_REPLY_ID: u64 = 0;
+/// Submessages dispatched with this reply ID will set the ack on the
+/// response depending on if the submessage execution succeded or
+/// failed.
+pub(crate) const ACK_AND_DO_NOTHING: u64 = 1;
+/// The IBC version this contract expects to communicate with.
+pub(crate) const IBC_VERSION: &str = "ics721-1";
+/// ACK error text fallback to use if the ACK error message has the
+/// same encoding as the ACK success message.
+const ACK_ERROR_FALLBACK: &str =
+    "an unexpected error occurred - error text is hidden because it would serialize as ACK success";
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -45,10 +57,6 @@ pub struct NonFungibleTokenPacketData {
     /// chain.
     pub receiver: String,
 }
-
-pub const IBC_VERSION: &str = "ics721-1";
-const ACK_ERROR_FALLBACK: &str =
-    "an unexpected error occurred - error text is hidden because it would serialize as ACK success";
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_channel_open(
