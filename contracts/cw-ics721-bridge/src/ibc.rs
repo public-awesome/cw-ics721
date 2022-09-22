@@ -82,12 +82,9 @@ pub fn ibc_channel_close(
     match msg {
         IbcChannelCloseMsg::CloseInit { channel: _ } => Err(ContractError::CantCloseChannel {}),
         IbcChannelCloseMsg::CloseConfirm { channel: _ } => {
-            // TODO: Is this actually the correct logic? If we do hit
-            // this, IBC is telling us "the channel has been closed
-            // despite your objection". Will IBC ever tell us this?
-            // Should we release NFTs / remove the channel from
-            // CHANNELS if this happens?
-            unreachable!("channel can not be closed")
+            // We receive this if the other side of the channel
+            // starts a ChanCloseInit event.
+            Err(ContractError::CantCloseChannel {})
         }
         _ => unreachable!("channel can not be closed"),
     }

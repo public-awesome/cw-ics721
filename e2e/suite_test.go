@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"testing"
 
+	b64 "encoding/base64"
 	"fmt"
 
-	b64 "encoding/base64"
+	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
 
+	wasmd "github.com/CosmWasm/wasmd/app"
 	wasmibctesting "github.com/CosmWasm/wasmd/x/wasm/ibctesting"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -599,4 +601,118 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 	err = suite.chainA.SmartQuery(chainANft.String(), OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &resp)
 	require.NoError(suite.T(), err)
 	require.Equal(suite.T(), resp.Owner, suite.chainA.SenderAccount.GetAddress().String())
+}
+
+func TestCloseRejected(t *testing.T) {
+	coordinator := wasmibctesting.NewCoordinator(t, 2)
+	chainA := coordinator.GetChain(wasmibctesting.GetChainID(0))
+	chainB := coordinator.GetChain(wasmibctesting.GetChainID(1))
+	// coordinator.CommitBlock(chainA, chainB)
+
+	// Store the bridge contract.
+	chainAStoreResp := chainA.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
+	require.Equal(t, uint64(1), chainAStoreResp.CodeID)
+	chainBStoreResp := chainB.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
+	require.Equal(t, uint64(1), chainBStoreResp.CodeID)
+
+	// Store the cw721 contract.
+	chainAStoreResp = chainA.StoreCodeFile("../artifacts/cw721_base.wasm")
+	require.Equal(t, uint64(2), chainAStoreResp.CodeID)
+	chainBStoreResp = chainB.StoreCodeFile("../artifacts/cw721_base.wasm")
+	require.Equal(t, uint64(2), chainBStoreResp.CodeID)
+
+	// Store the cw721_base contract.
+	instantiateICS721 := InstantiateICS721Bridge{
+		2,
+	}
+	instantiateICS721Raw, err := json.Marshal(instantiateICS721)
+	require.NoError(t, err)
+	chainABridge := chainA.InstantiateContract(1, instantiateICS721Raw)
+	chainBBridge := chainB.InstantiateContract(1, instantiateICS721Raw)
+
+	var (
+		sourcePortID      = chainA.ContractInfo(chainABridge).IBCPortID
+		counterpartPortID = chainB.ContractInfo(chainBBridge).IBCPortID
+	)
+
+	path := wasmibctesting.NewPath(chainA, chainB)
+
+	path.EndpointA.ChannelConfig = &ibctesting.ChannelConfig{
+		PortID:  sourcePortID,
+		Version: "ics721-1",
+		Order:   channeltypes.UNORDERED,
+	}
+	path.EndpointB.ChannelConfig = &ibctesting.ChannelConfig{
+		PortID:  counterpartPortID,
+		Version: "ics721-1",
+		Order:   channeltypes.UNORDERED,
+	}
+
+	coordinator.SetupConnections(path)
+	coordinator.CreateChannels(path)
+
+	// CloseInit should not be allowed.
+
+	// CloseInit happens if someone on our side of the channel
+	// attempts to close it. We should reject this and keep the
+	// channel open.
+
+	// For this version we are account number 9. Why not 10? Why
+	// not 1? These are some of the world's great mysteries.
+	newAccount := CreateAndFundAccount(t, chainA, 9)
+
+	// Make sure ChanCloseInit is rejected.
+	msg := channeltypes.NewMsgChannelCloseInit(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID, newAccount.Address.String())
+	chainA.Coordinator.UpdateTimeForChain(chainA)
+	_, _, err = wasmd.SignAndDeliver(
+		t,
+		chainA.TxConfig,
+		chainA.App.GetBaseApp(),
+		chainA.GetContext().BlockHeader(),
+		[]sdk.Msg{msg},
+		chainA.ChainID,
+		[]uint64{newAccount.Acc.GetAccountNumber()},
+		[]uint64{newAccount.Acc.GetSequence()},
+		false, false, newAccount.PrivKey)
+
+	require.ErrorContains(t, err, "ICS 721 channels may not be closed")
+
+	chainA.NextBlock()
+	err = newAccount.Acc.SetSequence(newAccount.Acc.GetSequence() + 1)
+	require.NoError(t, err)
+	chainA.Coordinator.IncrementTime()
+
+	// Check that we successfully stopped the channel from
+	// closing.
+	require.Equal(t, path.EndpointA.GetChannel().State, channeltypes.OPEN)
+
+	// CloseConfirm should also not be allowed.
+
+	// Force the other side of the channel to close so that proofs work.
+	err = path.EndpointB.SetChannelClosed()
+	require.NoError(t, err)
+	coordinator.IncrementTime()
+	path.EndpointA.UpdateClient()
+
+	channelKey := host.ChannelKey(path.EndpointA.Counterparty.ChannelConfig.PortID, path.EndpointA.Counterparty.ChannelID)
+	proof, proofHeight := path.EndpointA.Counterparty.QueryProof(channelKey)
+
+	closeConfirmMessage := channeltypes.NewMsgChannelCloseConfirm(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID, proof, proofHeight, newAccount.Acc.GetAddress().String())
+	chainA.Coordinator.UpdateTimeForChain(chainA)
+	_, _, err = wasmd.SignAndDeliver(
+		t,
+		chainA.TxConfig,
+		chainA.App.GetBaseApp(),
+		chainA.GetContext().BlockHeader(),
+		[]sdk.Msg{closeConfirmMessage},
+		chainA.ChainID,
+		[]uint64{newAccount.Acc.GetAccountNumber()},
+		[]uint64{newAccount.Acc.GetSequence()},
+		false, false, newAccount.PrivKey)
+
+	require.ErrorContains(t, err, "ICS 721 channels may not be closed")
+
+	// Channel is now closed. Notably! this is despite our
+	// rejection of the close in `ibc_channel_close`.
+	require.Equal(t, path.EndpointB.GetChannel().State, channeltypes.CLOSED)
 }
