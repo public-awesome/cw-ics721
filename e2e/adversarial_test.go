@@ -297,3 +297,27 @@ func (suite *AdversarialTestSuite) TestSimpleAckFail() {
 	require.NoError(suite.T(), err)
 	require.Equal(suite.T(), "error", lastAck)
 }
+
+// Are ACK successes returned by this contract parseable?
+//
+// Sends a valid message and then checks that the testing contract can
+// process the ack. The testing contract uses the same ACK processing
+// logic as the bridge contract so this tests that by proxy.
+func (suite *AdversarialTestSuite) TestSimpleAckSuccess() {
+	// Send a valid NFT message.
+	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
+		Contract: suite.bridgeC.String(),
+		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"%s","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s"],"tokenUris":["https://metadata-url.com/my-metadata1"],"sender":"%s","receiver":"%s"} }}`, suite.pathAC.Invert().EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), "classID", suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+	suite.coordinator.UpdateTime()
+	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
+
+	// Make sure we responded with an ACK success.
+	var lastAck string
+	err = suite.chainC.SmartQuery(suite.bridgeC.String(), LastAckQuery{LastAck: LastAckQueryData{}}, &lastAck)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), "success", lastAck)
+}
