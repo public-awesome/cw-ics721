@@ -260,11 +260,6 @@ fn execute_do_instantiate_and_mint(
         // NFTs.
         vec![]
     } else {
-        // Store mapping from classID to classUri. cw721 does not do
-        // this, so we need to do it to stop the infomation from
-        // getting lost.
-        CLASS_ID_TO_CLASS_URI.save(deps.storage, class_id.clone(), &class_uri)?;
-
         let message = SubMsg::<Empty>::reply_on_success(
             WasmMsg::Instantiate {
                 admin: None, // TODO: Any reason to set ourselves as admin?
@@ -286,6 +281,13 @@ fn execute_do_instantiate_and_mint(
         );
         vec![message]
     };
+
+    // Store mapping from classID to classURI. Notably, we don't check
+    // if this has already been set. If a new NFT belonging to a class
+    // ID we have already seen comes in with new metadata, we assume
+    // that the metadata has been updated on the source chain and
+    // update it for the class ID locally as well.
+    CLASS_ID_TO_CLASS_URI.save(deps.storage, class_id.clone(), &class_uri)?;
 
     // Mint the requested tokens. Submessages and their replies are
     // always executed before regular messages [1], so we can sleep

@@ -187,6 +187,9 @@ func (suite *AdversarialTestSuite) TestUnexpectedClose() {
 //   - Not move the NFT on the different chain.
 //   - Mint a new NFT corresponding to the sending chain.
 //   - Allow returning the minted NFT to its source chain.
+//
+// This test also tests the setting, queryability, and behavior of
+// metadata when a new packet comes in with conflicting information.
 func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
 	// Send a NFT to chain B from A.
 	ics721Nft(suite.T(), suite.chainA, suite.pathAB, suite.coordinator, suite.cw721A.String(), suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress())
@@ -236,6 +239,27 @@ func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
 
 	err = suite.chainA.SmartQuery(chainACw721, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: suite.tokenIdA}}, &OwnerOfResponse{})
 	require.ErrorContains(suite.T(), err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>> not found")
+
+	// Send the NFT back, this time setting new metadata for the
+	// class ID.
+	_, err = suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
+		Contract: suite.bridgeC.String(),
+		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"%s","classUri":"https://moonphase.is","tokenIds":["%s"],"tokenUris":["https://metadata-url.com/my-metadata1"],"sender":"%s","receiver":"%s"} }}`, suite.pathAC.Invert().EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), chainBClassId, suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+	suite.coordinator.UpdateTime()
+	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
+
+	// Metadata should be set to the most up to date value.
+	err = suite.chainA.SmartQuery(suite.bridgeA.String(), MetadataQuery{
+		Metadata: MetadataQueryData{
+			ClassId: chainAClassId,
+		},
+	}, &metadata)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), "https://moonphase.is", metadata)
 }
 
 // How does the ics721-bridge contract respond if the other side sends
@@ -248,7 +272,8 @@ func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
 //
 // However, for reasons entirely beyond me, the SDK does it's own
 // validation on our data field and errors if the class ID is empty,
-// so handling that error correctly as an error.
+// so this tests handling that error correctly as an error as we can
+// not behave correctly.
 func (suite *AdversarialTestSuite) TestEmptyClassId() {
 	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
@@ -320,4 +345,28 @@ func (suite *AdversarialTestSuite) TestSimpleAckSuccess() {
 	err = suite.chainC.SmartQuery(suite.bridgeC.String(), LastAckQuery{LastAck: LastAckQueryData{}}, &lastAck)
 	require.NoError(suite.T(), err)
 	require.Equal(suite.T(), "success", lastAck)
+}
+
+// How does the ics721-bridge contract respond if the other side sends
+// IBC messages where the token URIs and IDs have different lengths?
+//
+// It should:
+//   - Do nothing and respond with ack_fail.
+func (suite *AdversarialTestSuite) TestDifferentUriAndIdLengths() {
+	// Send a valid NFT message.
+	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
+		Contract: suite.bridgeC.String(),
+		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"%s","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s"],"tokenUris":[],"sender":"%s","receiver":"%s"} }}`, suite.pathAC.Invert().EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), "classID", suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+	suite.coordinator.UpdateTime()
+	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
+
+	// Make sure we responded with an ACK fail.
+	var lastAck string
+	err = suite.chainC.SmartQuery(suite.bridgeC.String(), LastAckQuery{LastAck: LastAckQueryData{}}, &lastAck)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), "error", lastAck)
 }
