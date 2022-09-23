@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcMsg, MessageInfo, Response,
-    StdResult, SubMsg, WasmMsg,
+    StdResult, SubMsg, WasmMsg, IbcTimeout, Timestamp,
 };
 use cw2::set_contract_version;
 
@@ -133,6 +133,8 @@ fn execute_receive_nft(
         },
     )?;
 
+    let timeout = msg.timeout.unwrap_or(IbcTimeout::with_timestamp(Timestamp::from_seconds(300)));
+
     let ibc_message = NonFungibleTokenPacketData {
         class_id: class_id.clone(),
         class_uri,
@@ -146,7 +148,7 @@ fn execute_receive_nft(
     let ibc_message = IbcMsg::SendPacket {
         channel_id: msg.channel_id.clone(),
         data: to_binary(&ibc_message)?,
-        timeout: msg.timeout,
+        timeout,
     };
 
     OUTGOING_CLASS_TOKEN_TO_CHANNEL.save(
@@ -440,7 +442,7 @@ mod tests {
         let msg = to_binary(&IbcAwayMsg {
             receiver: "callum".to_string(),
             channel_id: "channel-1".to_string(),
-            timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
+            timeout: Some(IbcTimeout::with_timestamp(Timestamp::from_seconds(42))),
         })
         .unwrap();
 
@@ -479,7 +481,7 @@ mod tests {
         let msg = to_binary(&IbcAwayMsg {
             receiver: "ekez".to_string(),
             channel_id: "channel-1".to_string(),
-            timeout: IbcTimeout::with_timestamp(Timestamp::from_nanos(42)),
+            timeout: Some(IbcTimeout::with_timestamp(Timestamp::from_nanos(42))),
         })
         .unwrap();
 

@@ -113,7 +113,7 @@ pub struct IbcAwayMsg {
     pub channel_id: String,
     /// Timeout for the IBC message. TODO: make this optional and set
     /// default?
-    pub timeout: IbcTimeout,
+    pub timeout: Option<IbcTimeout>,
 }
 
 // TODO(ekez): add queries for pagination of contract state.
