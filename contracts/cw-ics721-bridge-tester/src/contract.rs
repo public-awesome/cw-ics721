@@ -6,9 +6,11 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use cw_ics721_bridge::ibc::NonFungibleTokenPacketData;
 
-use crate::error::ContractError;
-use crate::msg::{AckMode, ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::ACK_MODE;
+use crate::{
+    error::ContractError,
+    msg::{AckMode, ExecuteMsg, InstantiateMsg, QueryMsg},
+    state::ACK_MODE,
+};
 
 const CONTRACT_NAME: &str = "crates.io:cw-icw721-bridge-tester";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");

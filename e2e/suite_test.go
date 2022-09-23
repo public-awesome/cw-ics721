@@ -322,7 +322,7 @@ func ics721Nft(t *testing.T, chain *wasmibctesting.TestChain, path *wasmibctesti
 	coordinator.RelayAndAckPendingPackets(path)
 }
 
-func queryGetClass(t *testing.T, chain *wasmibctesting.TestChain, bridge, classID string) string {
+func queryGetNftForClass(t *testing.T, chain *wasmibctesting.TestChain, bridge, classID string) string {
 	getClassQuery := NftContractForClassIdQuery{
 		NftContractForClassId: NftContractForClassIdQueryData{
 			ClassID: classID,
@@ -409,7 +409,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 
 	// Check that chain B received the NFT.
 	chainBClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, chainANft)
-	chainBNft := queryGetClass(t, chainB, bridge.String(), chainBClassID)
+	chainBNft := queryGetNftForClass(t, chainB, bridge.String(), chainBClassID)
 	t.Logf("chain B cw721: %s", chainBNft)
 
 	ownerB := queryGetOwnerOf(t, chainB, chainBNft)
@@ -424,7 +424,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	ics721Nft(t, chainB, path, coordinator, chainBNft, bridge, chainB.SenderAccount.GetAddress(), chainC.SenderAccount.GetAddress())
 
 	chainCClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, chainBClassID)
-	chainCNft := queryGetClass(t, chainC, bridge.String(), chainCClassID)
+	chainCNft := queryGetNftForClass(t, chainC, bridge.String(), chainCClassID)
 	t.Logf("chain C cw721: %s", chainCNft)
 
 	ownerC := queryGetOwnerOf(t, chainC, chainCNft)
@@ -439,7 +439,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	ics721Nft(t, chainC, path, coordinator, chainCNft, bridge, chainC.SenderAccount.GetAddress(), chainA.SenderAccount.GetAddress())
 	chainAClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, chainCClassID)
 	// This is a derivative and not actually the original chain A nft.
-	chainANftDerivative := queryGetClass(t, chainA, bridge.String(), chainAClassID)
+	chainANftDerivative := queryGetNftForClass(t, chainA, bridge.String(), chainAClassID)
 	require.NotEqual(t, chainANft, chainANftDerivative)
 	t.Logf("chain A cw721 derivative: %s", chainANftDerivative)
 
@@ -520,7 +520,7 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 	ics721Nft(suite.T(), suite.chainA, path, suite.coordinator, chainANft.String(), suite.chainABridge, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress())
 
 	chainBClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, chainANft)
-	chainBNft := queryGetClass(suite.T(), suite.chainB, suite.chainBBridge.String(), chainBClassID)
+	chainBNft := queryGetNftForClass(suite.T(), suite.chainB, suite.chainBBridge.String(), chainBClassID)
 
 	// Generate a new account and transfer the NFT to it.  For
 	// reasons entirely beyond me, the first account we create
@@ -761,7 +761,7 @@ func (suite *TransferTestSuite) TestRefundOnAckFail() {
 	suite.coordinator.RelayAndAckPendingPackets(path)
 
 	chainBClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, chainANft)
-	chainBNft := queryGetClass(suite.T(), suite.chainB, suite.chainBBridge.String(), chainBClassID)
+	chainBNft := queryGetNftForClass(suite.T(), suite.chainB, suite.chainBBridge.String(), chainBClassID)
 	require.Equal(suite.T(), chainBNft, "")
 
 	// Check that the NFT was returned to the sender due to the failure.

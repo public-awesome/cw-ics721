@@ -177,3 +177,54 @@ func (suite *AdversarialTestSuite) TestUnexpectedClose() {
 	})
 	require.Error(suite.T(), err)
 }
+
+// How does the ics721-bridge contract respond if the other side sends
+// a class ID corresponding to a class ID that is valid on a different
+// channel but not on its channel?
+//
+// It should:
+//   - Respond with ACK success.
+//   - Not move the NFT on the different chain.
+//   - Mint a new NFT corresponding to the sending chain.
+//   - Allow returning the minted NFT to its source chain.
+func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
+	// Send a NFT to chain B from A.
+	ics721Nft(suite.T(), suite.chainA, suite.pathAB, suite.coordinator, suite.cw721A.String(), suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress())
+
+	chainBClassId := fmt.Sprintf("%s/%s/%s", suite.pathAB.EndpointB.ChannelConfig.PortID, suite.pathAB.EndpointB.ChannelID, suite.cw721A.String())
+
+	// Check that the NFT has been received on chain B.
+	chainBCw721 := queryGetNftForClass(suite.T(), suite.chainB, suite.bridgeB.String(), chainBClassId)
+	chainBOwner := queryGetOwnerOf(suite.T(), suite.chainB, chainBCw721)
+	require.Equal(suite.T(), suite.chainB.SenderAccount.GetAddress().String(), chainBOwner)
+
+	// From chain C send a message using the chain B class ID to
+	// unlock the NFT and send it to chain A's sender account.
+	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
+		Contract: suite.bridgeC.String(),
+		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"%s","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s"],"tokenUris":["https://metadata-url.com/my-metadata1"],"sender":"%s","receiver":"%s"} }}`, suite.pathAC.Invert().EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), chainBClassId, suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+	suite.coordinator.UpdateTime()
+	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
+
+	// NFT should still be owned by the bridge on chain A.
+	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String())
+	require.Equal(suite.T(), suite.bridgeA.String(), chainAOwner)
+
+	// A new NFT should have been minted on chain A.
+	chainAClassId := fmt.Sprintf("%s/%s/%s", suite.pathAC.EndpointA.ChannelConfig.PortID, suite.pathAC.EndpointA.ChannelID, chainBClassId)
+	chainACw721 := queryGetNftForClass(suite.T(), suite.chainA, suite.bridgeA.String(), chainAClassId)
+	chainAOwner = queryGetOwnerOf(suite.T(), suite.chainA, chainACw721)
+	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
+
+	// The newly minted NFT should be returnable to the source
+	// chain and cause a burn when returned.
+	ics721Nft(suite.T(), suite.chainA, suite.pathAC, suite.coordinator, chainACw721, suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainC.SenderAccount.GetAddress())
+
+	err = suite.chainA.SmartQuery(chainACw721, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: suite.tokenIdA}}, &OwnerOfResponse{})
+	require.ErrorContains(suite.T(), err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>> not found")
+
+}
