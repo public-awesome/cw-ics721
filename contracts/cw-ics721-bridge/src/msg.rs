@@ -1,6 +1,9 @@
-use cosmwasm_std::{to_binary, Addr, Env, IbcTimeout, StdResult, WasmMsg};
+use cosmwasm_std::{to_binary, Addr, Env, StdResult, WasmMsg};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+pub const TIMEOUT_MIN: u64 = 10;
+pub const TIMEOUT_MAX: u64 = 86400;
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[cfg_attr(test, derive(Debug, Clone))]
@@ -113,7 +116,7 @@ pub struct IbcAwayMsg {
     pub channel_id: String,
     /// Timeout for the IBC message. TODO: make this optional and set
     /// default?
-    pub timeout: IbcTimeout,
+    pub timeout: u64,
 }
 
 // TODO(ekez): add queries for pagination of contract state.

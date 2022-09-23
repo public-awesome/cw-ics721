@@ -43,6 +43,12 @@ pub enum ContractError {
 
     #[error("tokenId list has different length than tokenUri list")]
     TokenInfoLenMissmatch {},
+
+    #[error("timeout is out of range, must be between: {min:?} - {max:?}")]
+    TimeoutOutOfRange {
+        min: u64,
+        max: u64,
+    },
 }
 
 /// Enum that can never be constructed. Used as an error type where we

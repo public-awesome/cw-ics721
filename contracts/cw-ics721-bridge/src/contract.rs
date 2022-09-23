@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcMsg, MessageInfo, Response,
-    StdResult, SubMsg, WasmMsg,
+    StdResult, SubMsg, WasmMsg, IbcTimeout, Timestamp,
 };
 use cw2::set_contract_version;
 
@@ -10,7 +10,7 @@ use crate::{
     error::ContractError,
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID},
     msg::{
-        CallbackMsg, ExecuteMsg, IbcAwayMsg, InstantiateMsg, NewTokenInfo, QueryMsg, TransferInfo,
+        CallbackMsg, ExecuteMsg, IbcAwayMsg, InstantiateMsg, NewTokenInfo, QueryMsg, TransferInfo, TIMEOUT_MAX, TIMEOUT_MIN,
     },
     state::{
         UniversalNftInfoResponse, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT,
@@ -133,6 +133,13 @@ fn execute_receive_nft(
         },
     )?;
 
+    // Check timeout is within range
+    let timeout = if msg.timeout < TIMEOUT_MIN || msg.timeout > TIMEOUT_MAX {
+        return Err(ContractError::TimeoutOutOfRange { min: TIMEOUT_MIN, max: TIMEOUT_MAX})
+    } else {
+        IbcTimeout::with_timestamp(Timestamp::from_seconds(msg.timeout))
+    };
+
     let ibc_message = NonFungibleTokenPacketData {
         class_id: class_id.clone(),
         class_uri,
@@ -146,7 +153,7 @@ fn execute_receive_nft(
     let ibc_message = IbcMsg::SendPacket {
         channel_id: msg.channel_id.clone(),
         data: to_binary(&ibc_message)?,
-        timeout: msg.timeout,
+        timeout,
     };
 
     OUTGOING_CLASS_TOKEN_TO_CHANNEL.save(
@@ -440,7 +447,7 @@ mod tests {
         let msg = to_binary(&IbcAwayMsg {
             receiver: "callum".to_string(),
             channel_id: "channel-1".to_string(),
-            timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
+            timeout: 42,
         })
         .unwrap();
 
@@ -479,7 +486,7 @@ mod tests {
         let msg = to_binary(&IbcAwayMsg {
             receiver: "ekez".to_string(),
             channel_id: "channel-1".to_string(),
-            timeout: IbcTimeout::with_timestamp(Timestamp::from_nanos(42)),
+            timeout: 42,
         })
         .unwrap();
 
