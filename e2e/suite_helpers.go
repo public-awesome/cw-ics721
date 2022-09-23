@@ -46,7 +46,7 @@ func CreateAndFundAccount(t *testing.T, chain *wasmibctesting.TestChain, account
 
 // Same as SendMsgs on the chain type, but sends from a different
 // account than the sender account.
-func SendMsgsFromAccount(t *testing.T, chain *wasmibctesting.TestChain, account Account, msgs ...sdk.Msg) (*sdk.Result, error) {
+func SendMsgsFromAccount(t *testing.T, chain *wasmibctesting.TestChain, account Account, shouldPass bool, msgs ...sdk.Msg) (*sdk.Result, error) {
 	chain.Coordinator.UpdateTimeForChain(chain)
 
 	_, r, err := wasmd.SignAndDeliver(
@@ -58,7 +58,7 @@ func SendMsgsFromAccount(t *testing.T, chain *wasmibctesting.TestChain, account 
 		chain.ChainID,
 		[]uint64{account.Acc.GetAccountNumber()},
 		[]uint64{account.Acc.GetSequence()},
-		true, true, account.PrivKey,
+		shouldPass, shouldPass, account.PrivKey,
 	)
 	if err != nil {
 		return nil, err

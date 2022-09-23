@@ -7,8 +7,6 @@ import (
 	b64 "encoding/base64"
 	"fmt"
 
-	host "github.com/cosmos/ibc-go/v3/modules/core/24-host"
-
 	wasmd "github.com/CosmWasm/wasmd/app"
 	wasmibctesting "github.com/CosmWasm/wasmd/x/wasm/ibctesting"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
@@ -306,15 +304,18 @@ func transferNft(t *testing.T, chain *wasmibctesting.TestChain, nft, token_id st
 	require.NoError(t, err)
 }
 
-func ics721Nft(t *testing.T, chain *wasmibctesting.TestChain, path *wasmibctesting.Path, coordinator *wasmibctesting.Coordinator, nft string, bridge, sender, receiver sdk.AccAddress) {
-	ibcAway := fmt.Sprintf(`{ "receiver": "%s", "channel_id": "%s", "timeout": { "timestamp": "%d" } }`, receiver.String(), path.EndpointA.ChannelID, coordinator.CurrentTime.UnixNano()+1000000000000)
+func getCw721SendIbcAwayMessage(path *wasmibctesting.Path, coordinator *wasmibctesting.Coordinator, tokenId string, bridge, receiver sdk.AccAddress, timeout int64) string {
+	ibcAway := fmt.Sprintf(`{ "receiver": "%s", "channel_id": "%s", "timeout": { "timestamp": "%d" } }`, receiver.String(), path.EndpointA.ChannelID, timeout)
 	ibcAwayEncoded := b64.StdEncoding.EncodeToString([]byte(ibcAway))
+	return fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "%s", "msg": "%s" } }`, bridge, tokenId, ibcAwayEncoded)
+}
 
+func ics721Nft(t *testing.T, chain *wasmibctesting.TestChain, path *wasmibctesting.Path, coordinator *wasmibctesting.Coordinator, nft string, bridge, sender, receiver sdk.AccAddress) {
 	// Send the NFT away.
 	_, err := chain.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   sender.String(),
 		Contract: nft,
-		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "bad kid 1", "msg": "%s" } }`, bridge, ibcAwayEncoded)),
+		Msg:      []byte(getCw721SendIbcAwayMessage(path, coordinator, "bad kid 1", bridge, receiver, coordinator.CurrentTime.UnixNano()+1000000000000)),
 		Funds:    []sdk.Coin{},
 	})
 	require.NoError(t, err)
@@ -333,7 +334,7 @@ func queryGetClass(t *testing.T, chain *wasmibctesting.TestChain, bridge, classI
 	return cw721
 }
 
-func queryGetOwner(t *testing.T, chain *wasmibctesting.TestChain, nft string) string {
+func queryGetOwnerOf(t *testing.T, chain *wasmibctesting.TestChain, nft string) string {
 	resp := OwnerOfResponse{}
 	ownerOfQuery := OwnerOfQuery{
 		OwnerOf: OwnerOfQueryData{
@@ -411,11 +412,11 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	chainBNft := queryGetClass(t, chainB, bridge.String(), chainBClassID)
 	t.Logf("chain B cw721: %s", chainBNft)
 
-	ownerB := queryGetOwner(t, chainB, chainBNft)
+	ownerB := queryGetOwnerOf(t, chainB, chainBNft)
 	require.Equal(t, chainB.SenderAccount.GetAddress().String(), ownerB)
 
 	// Make sure chain A has the NFT in its bridge contract.
-	ownerA := queryGetOwner(t, chainA, chainANft)
+	ownerA := queryGetOwnerOf(t, chainA, chainANft)
 	require.Equal(t, ownerA, bridge.String())
 
 	// B -> C
@@ -426,11 +427,11 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	chainCNft := queryGetClass(t, chainC, bridge.String(), chainCClassID)
 	t.Logf("chain C cw721: %s", chainCNft)
 
-	ownerC := queryGetOwner(t, chainC, chainCNft)
+	ownerC := queryGetOwnerOf(t, chainC, chainCNft)
 	require.Equal(t, chainC.SenderAccount.GetAddress().String(), ownerC)
 
 	// Make sure the NFT is locked in the bridge contract on chain B.
-	ownerB = queryGetOwner(t, chainB, chainBNft)
+	ownerB = queryGetOwnerOf(t, chainB, chainBNft)
 	require.Equal(t, bridge.String(), ownerB)
 
 	// C -> A
@@ -442,11 +443,11 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	require.NotEqual(t, chainANft, chainANftDerivative)
 	t.Logf("chain A cw721 derivative: %s", chainANftDerivative)
 
-	ownerA = queryGetOwner(t, chainA, chainANftDerivative)
+	ownerA = queryGetOwnerOf(t, chainA, chainANftDerivative)
 	require.Equal(t, chainA.SenderAccount.GetAddress().String(), ownerA)
 
 	// Make sure that the NFT is held in the bridge contract now.
-	ownerC = queryGetOwner(t, chainC, chainCNft)
+	ownerC = queryGetOwnerOf(t, chainC, chainCNft)
 	require.Equal(t, bridge.String(), ownerC)
 
 	// Now, lets unwind the stack.
@@ -462,7 +463,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	require.ErrorContains(t, err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>> not found")
 
 	// NFT should belong to chainC sender on chain C.
-	ownerC = queryGetOwner(t, chainC, chainCNft)
+	ownerC = queryGetOwnerOf(t, chainC, chainCNft)
 	require.Equal(t, chainC.SenderAccount.GetAddress().String(), ownerC)
 
 	// C -> B
@@ -470,7 +471,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	ics721Nft(t, chainC, path, coordinator, chainCNft, bridge, chainC.SenderAccount.GetAddress(), chainB.SenderAccount.GetAddress())
 
 	// Received on B.
-	ownerB = queryGetOwner(t, chainB, chainBNft)
+	ownerB = queryGetOwnerOf(t, chainB, chainBNft)
 	require.Equal(t, chainB.SenderAccount.GetAddress().String(), ownerB)
 
 	// Burned on C.
@@ -482,7 +483,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	ics721Nft(t, chainB, path, coordinator, chainBNft, bridge, chainB.SenderAccount.GetAddress(), chainA.SenderAccount.GetAddress())
 
 	// Received on chain A.
-	ownerA = queryGetOwner(t, chainA, chainANft)
+	ownerA = queryGetOwnerOf(t, chainA, chainANft)
 	require.Equal(t, chainA.SenderAccount.GetAddress().String(), ownerA)
 
 	// Burned on chain B.
@@ -532,7 +533,7 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 	ibcAwayEncoded := b64.StdEncoding.EncodeToString([]byte(ibcAway))
 
 	// Send the NFT away.
-	_, err := SendMsgsFromAccount(suite.T(), suite.chainB, newAccount, &wasmtypes.MsgExecuteContract{
+	_, err := SendMsgsFromAccount(suite.T(), suite.chainB, newAccount, true, &wasmtypes.MsgExecuteContract{
 		Sender:   newAccount.Address.String(),
 		Contract: chainBNft,
 		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "bad kid 1", "msg": "%s" } }`, suite.chainBBridge.String(), ibcAwayEncoded)),
@@ -550,7 +551,7 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 	ics721Nft(suite.T(), suite.chainA, path, suite.coordinator, chainANft.String(), suite.chainABridge, suite.chainA.SenderAccount.GetAddress(), anotherAcount.Address)
 
 	// Transfer it back to chain A using this new account.
-	_, err = SendMsgsFromAccount(suite.T(), suite.chainB, anotherAcount, &wasmtypes.MsgExecuteContract{
+	_, err = SendMsgsFromAccount(suite.T(), suite.chainB, anotherAcount, true, &wasmtypes.MsgExecuteContract{
 		Sender:   anotherAcount.Address.String(),
 		Contract: chainBNft,
 		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "bad kid 1", "msg": "%s" } }`, suite.chainBBridge.String(), ibcAwayEncoded)),
@@ -574,7 +575,6 @@ func TestCloseRejected(t *testing.T) {
 	coordinator := wasmibctesting.NewCoordinator(t, 2)
 	chainA := coordinator.GetChain(wasmibctesting.GetChainID(0))
 	chainB := coordinator.GetChain(wasmibctesting.GetChainID(1))
-	// coordinator.CommitBlock(chainA, chainB)
 
 	// Store the bridge contract.
 	chainAStoreResp := chainA.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
@@ -653,8 +653,6 @@ func TestCloseRejected(t *testing.T) {
 	// closing.
 	require.Equal(t, path.EndpointA.GetChannel().State, channeltypes.OPEN)
 
-	// CloseConfirm should also not be allowed.
-
 	// Force the other side of the channel to close so that proofs
 	// work. The meer fact that we need to submit a proof that the
 	// counterparty channel is in the CLOSED state in order to
@@ -662,35 +660,18 @@ func TestCloseRejected(t *testing.T) {
 	// channel's closing in CloseConfirm.
 	err = path.EndpointB.SetChannelClosed()
 	require.NoError(t, err)
-	coordinator.IncrementTime()
-	path.EndpointA.UpdateClient()
-
-	channelKey := host.ChannelKey(path.EndpointA.Counterparty.ChannelConfig.PortID, path.EndpointA.Counterparty.ChannelID)
-	proof, proofHeight := path.EndpointA.Counterparty.QueryProof(channelKey)
-
-	closeConfirmMessage := channeltypes.NewMsgChannelCloseConfirm(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID, proof, proofHeight, newAccount.Acc.GetAddress().String())
-	chainA.Coordinator.UpdateTimeForChain(chainA)
-	_, _, err = wasmd.SignAndDeliver(
-		t,
-		chainA.TxConfig,
-		chainA.App.GetBaseApp(),
-		chainA.GetContext().BlockHeader(),
-		[]sdk.Msg{closeConfirmMessage},
-		chainA.ChainID,
-		[]uint64{newAccount.Acc.GetAccountNumber()},
-		[]uint64{newAccount.Acc.GetSequence()},
-		false, false, newAccount.PrivKey)
-
-	require.ErrorContains(t, err, "ICS 721 channels may not be closed")
-
-	// Channel is now closed. Notably! this is despite our
-	// rejection of the close in `ibc_channel_close`. This seems
-	// to follow with the wording of the IBC spec which seems to
-	// indicate that if we get a `ChannelCloseConfirm` message,
-	// the other side is already closed.
+	// Send the CloseConfirmMethod on our side. At this point the
+	// contract should realize it is doomed and not error so as to
+	// keep the state of the two chains consistent.
+	//
+	// If we get a `ChannelCloseConfirm` message, the other side
+	// is already closed.
 	//
 	// <https://github.com/cosmos/ibc/blob/main/spec/core/ics-004-channel-and-packet-semantics/README.md#closing-handshake>
+	path.EndpointA.ChanCloseConfirm()
+
 	require.Equal(t, path.EndpointB.GetChannel().State, channeltypes.CLOSED)
+	require.Equal(t, path.EndpointA.GetChannel().State, channeltypes.CLOSED)
 }
 
 func (suite *TransferTestSuite) TestPacketTimeoutCausesRefund() {
@@ -731,7 +712,7 @@ func (suite *TransferTestSuite) TestPacketTimeoutCausesRefund() {
 	suite.coordinator.TimeoutPendingPackets(path)
 
 	// NFTs should be returned to sender on packet timeout.
-	owner := queryGetOwner(suite.T(), suite.chainA, cw721.String())
+	owner := queryGetOwnerOf(suite.T(), suite.chainA, cw721.String())
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), owner)
 }
 
@@ -784,7 +765,7 @@ func (suite *TransferTestSuite) TestRefundOnAckFail() {
 	require.Equal(suite.T(), chainBNft, "")
 
 	// Check that the NFT was returned to the sender due to the failure.
-	ownerA := queryGetOwner(suite.T(), suite.chainA, chainANft.String())
+	ownerA := queryGetOwnerOf(suite.T(), suite.chainA, chainANft.String())
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), ownerA)
 }
 

@@ -1,5 +1,7 @@
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    entry_point, from_binary, to_binary, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg,
+    from_binary, to_binary, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacket, IbcPacketAckMsg, IbcPacketReceiveMsg,
     IbcPacketTimeoutMsg, IbcReceiveResponse, Reply, Response, StdResult, SubMsgResult, WasmMsg,
 };
@@ -84,12 +86,14 @@ pub fn ibc_channel_close(
     msg: IbcChannelCloseMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     match msg {
+        // Error any TX that would cause the channel to close that is
+        // coming from the local chain.
         IbcChannelCloseMsg::CloseInit { channel: _ } => Err(ContractError::CantCloseChannel {}),
-        IbcChannelCloseMsg::CloseConfirm { channel: _ } => {
-            // We receive this if the other side of the channel
-            // starts a ChanCloseInit event.
-            Err(ContractError::CantCloseChannel {})
-        }
+        // If the close is coming from the other chain, we must allow
+        // the TX to pass. Otherwise, our chain will believe the
+        // channel to be open, while our counterparty will believe the
+        // channel to be closed.
+        IbcChannelCloseMsg::CloseConfirm { channel: _ } => Ok(IbcBasicResponse::default()),
         _ => unreachable!("channel can not be closed"),
     }
 }

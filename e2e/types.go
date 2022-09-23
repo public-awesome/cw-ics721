@@ -10,6 +10,10 @@ type InstantiateCw721 struct {
 	Minter string `json:"minter"`
 }
 
+type InstantiateBridgeTester struct {
+	AckMode string `json:"ack_mode"`
+}
+
 type OwnerOfResponse struct {
 	Owner string `json:"owner"`
 	// There is also an approvals field here but we don't care
