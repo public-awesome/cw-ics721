@@ -220,11 +220,80 @@ func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
 	chainAOwner = queryGetOwnerOf(suite.T(), suite.chainA, chainACw721)
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
 
+	// Metadata should be set.
+	var metadata string
+	err = suite.chainA.SmartQuery(suite.bridgeA.String(), MetadataQuery{
+		Metadata: MetadataQueryData{
+			ClassId: chainAClassId,
+		},
+	}, &metadata)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), "https://metadata-url.com/my-metadata", metadata)
+
 	// The newly minted NFT should be returnable to the source
 	// chain and cause a burn when returned.
 	ics721Nft(suite.T(), suite.chainA, suite.pathAC, suite.coordinator, chainACw721, suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainC.SenderAccount.GetAddress())
 
 	err = suite.chainA.SmartQuery(chainACw721, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: suite.tokenIdA}}, &OwnerOfResponse{})
 	require.ErrorContains(suite.T(), err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>> not found")
+}
 
+// How does the ics721-bridge contract respond if the other side sends
+// IBC messages where the class ID is empty?
+//
+// It should:
+//   - Accept the message mint a new NFT on the receiving chain.
+//   - Metadata and NFT contract queries should still work.
+//   - The NFT should be returnable.
+//
+// However, for reasons entirely beyond me, the SDK does it's own
+// validation on our data field and errors if the class ID is empty,
+// so handling that error correctly as an error.
+func (suite *AdversarialTestSuite) TestEmptyClassId() {
+	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
+		Contract: suite.bridgeC.String(),
+		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s"],"tokenUris":["https://metadata-url.com/my-metadata1"],"sender":"%s","receiver":"%s"} }}`, suite.pathAC.Invert().EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+	suite.coordinator.UpdateTime()
+	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
+
+	// Make sure we got the weird SDK error.
+	var lastAck string
+	err = suite.chainC.SmartQuery(suite.bridgeC.String(), LastAckQuery{LastAck: LastAckQueryData{}}, &lastAck)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), "error", lastAck)
+
+	// Make sure a NFT was not minted in spite of the weird SDK
+	// error.
+	chainAClassId := fmt.Sprintf("%s/%s/%s", suite.pathAC.EndpointA.ChannelConfig.PortID, suite.pathAC.EndpointA.ChannelID, "")
+	chainACw721 := queryGetNftForClass(suite.T(), suite.chainA, suite.bridgeA.String(), chainAClassId)
+	require.Equal(suite.T(), "", chainACw721)
+}
+
+// Are ACK fails returned by this contract parseable?
+//
+// Sends a message with an invalid receiver and then checks that the
+// testing contract can process the ack. The testing contract uses the
+// same ACK processing logic as the bridge contract so this tests that
+// by proxy.
+func (suite *AdversarialTestSuite) TestSimpleAckFail() {
+	// Send a NFT with an invalid receiver address.
+	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
+		Contract: suite.bridgeC.String(),
+		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"class","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s"],"tokenUris":["https://metadata-url.com/my-metadata1"],"sender":"%s","receiver":"%s"} }}`, suite.pathAC.Invert().EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), "i am invalid")),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+	suite.coordinator.UpdateTime()
+	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
+
+	// Make sure we responded with an ACK success.
+	var lastAck string
+	err = suite.chainC.SmartQuery(suite.bridgeC.String(), LastAckQuery{LastAck: LastAckQueryData{}}, &lastAck)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), "error", lastAck)
 }

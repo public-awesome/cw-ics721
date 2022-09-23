@@ -37,4 +37,7 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     /// Gets the current ack mode. Returns `AckMode`.
     AckMode {},
+    /// Gets the mode of the last ack this contract received. Errors
+    /// if no ACK has ever been received. Returns `AckMode`.
+    LastAck {},
 }

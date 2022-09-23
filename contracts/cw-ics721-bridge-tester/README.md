@@ -7,7 +7,7 @@ How does the ics721-bridge contract respond if..
 - the other side closes the connection?
 - the other side sends a class ID corresponding to a class ID that is
   valid on a different channel but not on its channel.
-- the other side sends invalid IBC messages where the..
+- the other side sends IBC messages where the..
   - class ID is empty?
   - token URIs and IDs have different lengths?
   - class metadata sent over does not match existing metadata?

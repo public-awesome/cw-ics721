@@ -14,4 +14,7 @@ pub enum ContractError {
 
     #[error("invalid IBC channel version. Got ({actual}), expected ({expected})")]
     InvalidVersion { actual: String, expected: String },
+
+    #[error("{what}")]
+    Debug { what: String },
 }

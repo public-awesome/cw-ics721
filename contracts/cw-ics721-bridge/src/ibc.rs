@@ -122,7 +122,7 @@ pub fn ibc_packet_ack(
     _env: Env,
     ack: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    if let Some(error) = try_get_ack_error(&ack.acknowledgement)? {
+    if let Some(error) = try_get_ack_error(&ack.acknowledgement) {
         handle_packet_fail(deps, ack.original_packet, &error)
     } else {
         let msg: NonFungibleTokenPacketData = from_binary(&ack.original_packet.data)?;

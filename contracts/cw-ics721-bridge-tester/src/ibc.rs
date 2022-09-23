@@ -6,7 +6,12 @@ use cosmwasm_std::{
     IbcReceiveResponse,
 };
 
-use crate::{error::Never, msg::AckMode, state::ACK_MODE, ContractError};
+use crate::{
+    error::Never,
+    msg::AckMode,
+    state::{ACK_MODE, LAST_ACK},
+    ContractError,
+};
 
 pub const IBC_VERSION: &str = "ics721-1";
 
@@ -57,10 +62,15 @@ pub fn ibc_packet_receive(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_ack(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
-    _ack: IbcPacketAckMsg,
+    ack: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
+    let err = cw_ics721_bridge::ibc_helpers::try_get_ack_error(&ack.acknowledgement);
+    LAST_ACK.save(
+        deps.storage,
+        &err.map(|_| AckMode::Error).unwrap_or(AckMode::Success),
+    )?;
     Ok(IbcBasicResponse::new().add_attribute("method", "ibc_packet_ack"))
 }
 

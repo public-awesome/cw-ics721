@@ -45,6 +45,14 @@ type ClassIdForNFTContractQuery struct {
 	ClassIdForNFTContract ClassIdForNFTContractQueryData `json:"class_id_for_nft_contract"`
 }
 
+// Query for getting metadata for a class ID from the bridge.
+type MetadataQueryData struct {
+	ClassId string `json:"class_id"`
+}
+type MetadataQuery struct {
+	Metadata MetadataQueryData `json:"metadata"`
+}
+
 // Owner query for cw721 contract.
 type OwnerOfQueryData struct {
 	TokenID string `json:"token_id"`
@@ -61,4 +69,10 @@ type ContractInfoQuery struct {
 type ContractInfoResponse struct {
 	Name   string `json:"name"`
 	Symbol string `json:"symbol"`
+}
+
+// Query for getting last ACK from tester contract.
+type LastAckQueryData struct{}
+type LastAckQuery struct {
+	LastAck LastAckQueryData `json:"last_ack"`
 }

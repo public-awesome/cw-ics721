@@ -58,9 +58,34 @@ pub fn ack_fail(message: &str) -> StdResult<Binary> {
     }
 }
 
-pub(crate) fn try_get_ack_error(ack: &IbcAcknowledgement) -> StdResult<Option<String>> {
-    let msg: String = from_binary(&ack.data)?;
-    Ok(if msg != "AQ==" { Some(msg) } else { None })
+/// Tries to get the error from an ACK. If an error exists, returns
+/// Some(error_message). Otherwise, returns `None`.
+///
+/// NOTE(ekez): there is a special case here where the contents of the
+/// ACK we receive are set by the SDK, and not by our counterparty
+/// contract. I do not know all cases this will occur, but I do know
+/// it happens if a field on the packet data is set to an empty
+/// string. That being the case, the SDK will return an error in the
+/// form:
+///
+/// ```json
+/// {"error":"Empty attribute value. Key: class_id: invalid event"}
+/// ```
+///
+/// Should this method encounter such an error, it will return a
+/// base64 encoded version of the error (as this is what it
+/// receives). For example, the above error is returned as:
+///
+/// ```json
+/// "eyJlcnJvciI6IkVtcHR5IGF0dHJpYnV0ZSB2YWx1ZS4gS2V5OiBjbGFzc19pZDogaW52YWxpZCBldmVudCJ9"
+/// ```
+pub fn try_get_ack_error(ack: &IbcAcknowledgement) -> Option<String> {
+    let msg: String = from_binary(&ack.data).unwrap_or_else(|_| ack.data.to_base64());
+    if msg != "AQ==" {
+        Some(msg)
+    } else {
+        None
+    }
 }
 
 /// Validates order and version information for ics721. We expect

@@ -9,7 +9,7 @@ use cw_ics721_bridge::ibc::NonFungibleTokenPacketData;
 use crate::{
     error::ContractError,
     msg::{AckMode, ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::ACK_MODE,
+    state::{ACK_MODE, LAST_ACK},
 };
 
 const CONTRACT_NAME: &str = "crates.io:cw-icw721-bridge-tester";
@@ -72,5 +72,6 @@ fn execute_set_ack_mode(deps: DepsMut, ack_mode: AckMode) -> Result<Response, Co
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::AckMode {} => to_binary(&ACK_MODE.load(deps.storage)?),
+        QueryMsg::LastAck {} => to_binary(&LAST_ACK.load(deps.storage)?),
     }
 }

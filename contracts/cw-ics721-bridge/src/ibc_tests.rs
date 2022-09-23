@@ -411,7 +411,7 @@ fn test_ibc_packet_receive_invalid_packet_data() {
     let res = ibc_packet_receive(deps.as_mut(), env, packet);
 
     assert!(res.is_ok());
-    let error = try_get_ack_error(&IbcAcknowledgement::new(res.unwrap().acknowledgement)).unwrap();
+    let error = try_get_ack_error(&IbcAcknowledgement::new(res.unwrap().acknowledgement));
 
     assert_eq!(
         error,
@@ -430,7 +430,7 @@ fn test_ibc_packet_receive_missmatched_lengths() {
     let res = ibc_packet_receive(deps.as_mut(), env, packet);
 
     assert!(res.is_ok());
-    let error = try_get_ack_error(&IbcAcknowledgement::new(res.unwrap().acknowledgement)).unwrap();
+    let error = try_get_ack_error(&IbcAcknowledgement::new(res.unwrap().acknowledgement));
 
     assert_eq!(
         error,

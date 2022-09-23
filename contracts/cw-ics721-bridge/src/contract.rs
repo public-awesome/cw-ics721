@@ -280,7 +280,7 @@ fn execute_do_instantiate_and_mint(
                 // Attempting to fit the class ID in the label field
                 // can make this field too long which causes weird
                 // data errors in the SDK.
-                label: "ICS771 backing cw721".to_string(),
+                label: "ICS771 backing CW721".to_string(),
             },
             INSTANTIATE_CW721_REPLY_ID,
         );
