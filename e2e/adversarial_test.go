@@ -266,14 +266,14 @@ func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
 // IBC messages where the class ID is empty?
 //
 // It should:
-//   - Accept the message mint a new NFT on the receiving chain.
+//   - Accept the message and mint a new NFT on the receiving chain.
 //   - Metadata and NFT contract queries should still work.
 //   - The NFT should be returnable.
 //
 // However, for reasons entirely beyond me, the SDK does it's own
 // validation on our data field and errors if the class ID is empty,
-// so this tests handling that error correctly as an error as we can
-// not behave correctly.
+// so this test capitulates and just tests that we handle the SDK
+// error correctly.
 func (suite *AdversarialTestSuite) TestEmptyClassId() {
 	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
@@ -369,4 +369,81 @@ func (suite *AdversarialTestSuite) TestDifferentUriAndIdLengths() {
 	err = suite.chainC.SmartQuery(suite.bridgeC.String(), LastAckQuery{LastAck: LastAckQueryData{}}, &lastAck)
 	require.NoError(suite.T(), err)
 	require.Equal(suite.T(), "error", lastAck)
+}
+
+// How does the ics721-bridge contract respond if two identical
+// transfer messages are sent to the source chain?
+//
+// It should:
+//   - Mint a new NFT from the first message.
+//   - ACK fail the second message.
+func (suite *AdversarialTestSuite) TestSendReplayAttack() {
+	msg := fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"%s","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s"],"tokenUris":["https://metadata-url.com/my-metadata1"],"sender":"%s","receiver":"%s"} }}`, suite.pathAC.Invert().EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), "classID", suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())
+	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
+		Contract: suite.bridgeC.String(),
+		Msg:      []byte(msg),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+
+	suite.coordinator.UpdateTime()
+	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
+
+	// First one should work.
+	var lastAck string
+	err = suite.chainC.SmartQuery(suite.bridgeC.String(), LastAckQuery{LastAck: LastAckQueryData{}}, &lastAck)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), "success", lastAck)
+
+	_, err = suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
+		Contract: suite.bridgeC.String(),
+		Msg:      []byte(msg),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+
+	suite.coordinator.UpdateTime()
+	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
+
+	// Second one should fail as the NFT has already been sent.
+	err = suite.chainC.SmartQuery(suite.bridgeC.String(), LastAckQuery{LastAck: LastAckQueryData{}}, &lastAck)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), "error", lastAck)
+
+	// Make sure the receiver is the owner of the token.
+	chainAClassId := fmt.Sprintf("%s/%s/%s", suite.pathAC.EndpointA.ChannelConfig.PortID, suite.pathAC.EndpointA.ChannelID, "classID")
+	chainACw721 := queryGetNftForClass(suite.T(), suite.chainA, suite.bridgeA.String(), chainAClassId)
+	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, chainACw721)
+	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
+}
+
+// How does the ics721-bridge contract respond if the same token is
+// sent twice in one transfer message?
+//
+// It should:
+//   - Ack fail the entire transaction and not mint any new NFTs.
+func (suite *AdversarialTestSuite) TestDoubleSendInSingleMessage() {
+	// Two of the same token IDs in one message.
+	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
+		Contract: suite.bridgeC.String(),
+		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"%s","classUri":"https://metadata-url.com/my-metadata","tokenIds":["ekez", "ekez"],"tokenUris":["https://metadata-url.com/my-metadata1", "https://moonphase.is/image.svg"],"sender":"%s","receiver":"%s"} }}`, suite.pathAC.Invert().EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), "classID", suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+	suite.coordinator.UpdateTime()
+	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
+
+	// Should fail.
+	var lastAck string
+	err = suite.chainC.SmartQuery(suite.bridgeC.String(), LastAckQuery{LastAck: LastAckQueryData{}}, &lastAck)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), "error", lastAck)
+
+	// No NFT should have been created.
+	chainAClassId := fmt.Sprintf("%s/%s/%s", suite.pathAC.EndpointA.ChannelConfig.PortID, suite.pathAC.EndpointA.ChannelID, "classID")
+	chainACw721 := queryGetNftForClass(suite.T(), suite.chainA, suite.bridgeA.String(), chainAClassId)
+	require.Equal(suite.T(), "", chainACw721)
 }

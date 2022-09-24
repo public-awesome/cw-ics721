@@ -11,8 +11,5 @@ How does the ics721-bridge contract respond if..
   - class ID is empty?
   - token URIs and IDs have different lengths?
   - class metadata sent over does not match existing metadata?
-- two identical messages are sent to the source chain in short
-  succesion (before relaying of ACKS)?
 - two of the same token IDs are sent in one transfer message?
 - the same token is sent twice? First should work, second should fail.
-
