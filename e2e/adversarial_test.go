@@ -447,3 +447,28 @@ func (suite *AdversarialTestSuite) TestDoubleSendInSingleMessage() {
 	chainACw721 := queryGetNftForClass(suite.T(), suite.chainA, suite.bridgeA.String(), chainAClassId)
 	require.Equal(suite.T(), "", chainACw721)
 }
+
+func (suite *AdversarialTestSuite) TestReceiveMultipleNtsDifferentActions() {
+	ics721Nft(suite.T(), suite.chainA, suite.pathAC, suite.coordinator, suite.cw721A.String(), suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress())
+
+	pathCA := suite.pathAC.Invert()
+	chainCClassId := fmt.Sprintf("%s/%s/%s", pathCA.EndpointA.ChannelConfig.PortID, pathCA.EndpointA.ChannelID, suite.cw721A)
+
+	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
+		Contract: suite.bridgeC.String(),
+		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"%s","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s", "%s"],"tokenUris":["https://metadata-url.com/my-metadata1", "https://moonphase.is/image.svg"],"sender":"%s","receiver":"%s"} }}`, pathCA.EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), chainCClassId, suite.tokenIdA, suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+	suite.coordinator.UpdateTime()
+	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
+
+	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String())
+	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
+
+	chainAClassId := fmt.Sprintf("%s/%s/%s/%s/%s", suite.pathAC.EndpointA.ChannelConfig.PortID, suite.pathAC.EndpointA.ChannelID, pathCA.EndpointA.ChannelConfig.PortID, pathCA.EndpointA.ChannelID, suite.cw721A)
+	chainANft := queryGetNftForClass(suite.T(), suite.chainA, suite.bridgeA.String(), chainAClassId)
+	chainAOwner = queryGetOwnerOf(suite.T(), suite.chainA, chainANft)
+	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
+}
