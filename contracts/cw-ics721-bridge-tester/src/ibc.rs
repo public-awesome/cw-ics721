@@ -53,7 +53,7 @@ pub fn ibc_packet_receive(
 ) -> Result<IbcReceiveResponse, Never> {
     match ACK_MODE.load(deps.storage).unwrap() {
         AckMode::Error => Ok(IbcReceiveResponse::default()
-            .set_ack(cw_ics721_bridge::ibc_helpers::ack_fail("error").unwrap())),
+            .set_ack(cw_ics721_bridge::ibc_helpers::ack_fail("error".to_string()))),
         AckMode::Success => {
             Ok(IbcReceiveResponse::default().set_ack(cw_ics721_bridge::ibc_helpers::ack_success()))
         }

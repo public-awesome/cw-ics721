@@ -28,8 +28,8 @@ pub(crate) fn get_endpoint_prefix(source: &IbcEndpoint) -> String {
     format!("{}/{}/", source.port_id, source.channel_id)
 }
 
-// FIXME(ekez): explain this.
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Ics20Ack {
     Result(Binary),
     Error(String),
