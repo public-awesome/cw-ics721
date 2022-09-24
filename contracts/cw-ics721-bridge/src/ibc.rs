@@ -28,10 +28,6 @@ pub(crate) const INSTANTIATE_CW721_REPLY_ID: u64 = 0;
 pub(crate) const ACK_AND_DO_NOTHING: u64 = 1;
 /// The IBC version this contract expects to communicate with.
 pub(crate) const IBC_VERSION: &str = "ics721-1";
-/// ACK error text fallback to use if the ACK error message has the
-/// same encoding as the ACK success message.
-const ACK_ERROR_FALLBACK: &str =
-    "an unexpected error occurred - error text is hidden because it would serialize as ACK success";
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -112,7 +108,7 @@ pub fn ibc_packet_receive(
         Err(error) => Ok(IbcReceiveResponse::new()
             .add_attribute("method", "ibc_packet_receive")
             .add_attribute("error", error.to_string())
-            .set_ack(ack_fail(&error.to_string()).unwrap())),
+            .set_ack(ack_fail(error.to_string()))),
     }
 }
 
@@ -249,9 +245,7 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
                 // from our caller, the IBC packet recv, and acknowledge our
                 // failure.  As per:
                 // https://github.com/CosmWasm/cosmwasm/blob/main/SEMANTICS.md#handling-the-reply
-                SubMsgResult::Err(err) => Ok(Response::new().set_data(
-                    ack_fail(&err).unwrap_or_else(|_e| ack_fail(ACK_ERROR_FALLBACK).unwrap()),
-                )),
+                SubMsgResult::Err(err) => Ok(Response::new().set_data(ack_fail(err))),
             }
         }
         _ => Err(ContractError::UnrecognisedReplyId {}),

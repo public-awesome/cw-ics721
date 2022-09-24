@@ -1,7 +1,8 @@
 use cosmwasm_std::{
     from_binary, to_binary, Binary, IbcAcknowledgement, IbcChannel, IbcEndpoint, IbcOrder,
-    StdError, StdResult,
 };
+
+use serde::{Deserialize, Serialize};
 
 use crate::{
     ibc::{NonFungibleTokenPacketData, IBC_VERSION},
@@ -27,35 +28,21 @@ pub(crate) fn get_endpoint_prefix(source: &IbcEndpoint) -> String {
     format!("{}/{}/", source.port_id, source.channel_id)
 }
 
-/// Success ACK. 0x01 base64 encoded. By 0x01 base64 encoded, this
-/// literally means it is the base64 encoding of the number 1. You can
-/// test this by pasting this into a base64 decoder and, if it's for
-/// text, it'll output ascii character "START OF HEADING".
-pub fn ack_success() -> Binary {
-    // From the spec:
-    //
-    // > "Note that ... NonFungibleTokenPacketAcknowledgement must be
-    // > JSON-encoded (not Protobuf encoded) when serialized into packet
-    // > data."
-    //
-    // As such we encode '"AQ=="' as in JSON strings are surrounded by
-    // quotation marks as 'AQ==' is the base64 encoding of the number
-    // 1. The binary (ASCII code point list) version of this is below
-    // as we are dealing with a constant value.
-    Binary::from([34, 65, 81, 61, 61, 34])
+// FIXME(ekez): explain this.
+#[derive(Serialize, Deserialize)]
+pub enum Ics20Ack {
+    Result(Binary),
+    Error(String),
 }
 
-/// Fail ACK. Contains some arbitrary message. This message can not be
-/// 'AQ==' otherwise it will be parsed as a success message.
-pub fn ack_fail(message: &str) -> StdResult<Binary> {
-    if message == "AQ==" {
-        Err(StdError::serialize_err(
-            message,
-            "ACK fail would have the same encoding as ACK success.",
-        ))
-    } else {
-        to_binary(message)
-    }
+pub fn ack_success() -> Binary {
+    let res = Ics20Ack::Result(b"1".into());
+    to_binary(&res).unwrap()
+}
+
+pub fn ack_fail(err: String) -> Binary {
+    let res = Ics20Ack::Error(err);
+    to_binary(&res).unwrap()
 }
 
 /// Tries to get the error from an ACK. If an error exists, returns
@@ -80,11 +67,12 @@ pub fn ack_fail(message: &str) -> StdResult<Binary> {
 /// "eyJlcnJvciI6IkVtcHR5IGF0dHJpYnV0ZSB2YWx1ZS4gS2V5OiBjbGFzc19pZDogaW52YWxpZCBldmVudCJ9"
 /// ```
 pub fn try_get_ack_error(ack: &IbcAcknowledgement) -> Option<String> {
-    let msg: String = from_binary(&ack.data).unwrap_or_else(|_| ack.data.to_base64());
-    if msg != "AQ==" {
-        Some(msg)
-    } else {
-        None
+    let ack: Ics20Ack =
+	// What we can not parse is an ACK fail.
+        from_binary(&ack.data).unwrap_or_else(|_| Ics20Ack::Error(ack.data.to_base64()));
+    match ack {
+        Ics20Ack::Error(e) => Some(e),
+        _ => None,
     }
 }
 
