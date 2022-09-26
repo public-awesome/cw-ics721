@@ -1,7 +1,6 @@
 use cosmwasm_std::{
     from_binary, to_binary, Binary, IbcAcknowledgement, IbcChannel, IbcEndpoint, IbcOrder,
 };
-
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -28,20 +27,28 @@ pub(crate) fn get_endpoint_prefix(source: &IbcEndpoint) -> String {
     format!("{}/{}/", source.port_id, source.channel_id)
 }
 
+/// The ICS721 spec is very vague about how ACKs are suposed to be
+/// encoded. To be honest, I don't think this method is correct at all
+/// if we were to follow the wording of the spec.
+///
+/// The intent of the spec though is to have the same ACK format as
+/// ICS20 which endodes its ACKs like this. This is compatible with
+/// the SDK ACK protobuf defined here:
+/// <https://github.com/cosmos/cosmos-sdk/blob/v0.42.0/proto/ibc/core/channel/v1/channel.proto#L141-L147>
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Ics20Ack {
+pub enum Ics721Ack {
     Result(Binary),
     Error(String),
 }
 
 pub fn ack_success() -> Binary {
-    let res = Ics20Ack::Result(b"1".into());
+    let res = Ics721Ack::Result(b"1".into());
     to_binary(&res).unwrap()
 }
 
 pub fn ack_fail(err: String) -> Binary {
-    let res = Ics20Ack::Error(err);
+    let res = Ics721Ack::Error(err);
     to_binary(&res).unwrap()
 }
 
@@ -67,11 +74,11 @@ pub fn ack_fail(err: String) -> Binary {
 /// "eyJlcnJvciI6IkVtcHR5IGF0dHJpYnV0ZSB2YWx1ZS4gS2V5OiBjbGFzc19pZDogaW52YWxpZCBldmVudCJ9"
 /// ```
 pub fn try_get_ack_error(ack: &IbcAcknowledgement) -> Option<String> {
-    let ack: Ics20Ack =
+    let ack: Ics721Ack =
 	// What we can not parse is an ACK fail.
-        from_binary(&ack.data).unwrap_or_else(|_| Ics20Ack::Error(ack.data.to_base64()));
+        from_binary(&ack.data).unwrap_or_else(|_| Ics721Ack::Error(ack.data.to_base64()));
     match ack {
-        Ics20Ack::Error(e) => Some(e),
+        Ics721Ack::Error(e) => Some(e),
         _ => None,
     }
 }
@@ -134,14 +141,6 @@ impl NonFungibleTokenPacketData {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_ack_success_encoding() {
-        // Our implementation doesn't use to_binary and instead just
-        // builds the byte array manually as it is constant. Make sure
-        // that we're always in sync wih the non-manual version.
-        assert_eq!(ack_success(), to_binary("AQ==").unwrap())
-    }
 
     #[test]
     fn test_pop_source_simple() {

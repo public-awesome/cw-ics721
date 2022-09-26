@@ -182,7 +182,7 @@ fn test_stateless_reply() {
         result: SubMsgResult::Err("some failure".to_string()),
     };
     let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
-    assert_eq!(res.data, Some(ack_fail("some failure").unwrap()));
+    assert_eq!(res.data, Some(ack_fail("some failure".to_string())));
 }
 
 #[test]
