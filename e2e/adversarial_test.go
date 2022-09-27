@@ -449,11 +449,16 @@ func (suite *AdversarialTestSuite) TestDoubleSendInSingleMessage() {
 }
 
 func (suite *AdversarialTestSuite) TestReceiveMultipleNtsDifferentActions() {
+	// Send a NFT from chain A to the evil chain.
 	ics721Nft(suite.T(), suite.chainA, suite.pathAC, suite.coordinator, suite.cw721A.String(), suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress())
 
 	pathCA := suite.pathAC.Invert()
 	chainCClassId := fmt.Sprintf("%s/%s/%s", pathCA.EndpointA.ChannelConfig.PortID, pathCA.EndpointA.ChannelID, suite.cw721A)
 
+	// Evil chain responds with:
+	//
+	// class ID: class ID of sent NFT
+	// token IDs: [chainAToken, chainAToken]
 	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
 		Contract: suite.bridgeC.String(),
@@ -464,6 +469,25 @@ func (suite *AdversarialTestSuite) TestReceiveMultipleNtsDifferentActions() {
 	suite.coordinator.UpdateTime()
 	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
 
+	// All assumptions have now been violated.
+	//
+	// 1. Remote chain says it has minted a new version of our
+	//    local NFT on its chain.
+	// 2. Remote chian says that there are two NFTs belonging to
+	//    the same collection with the same token ID.
+	//
+	// Bridge contract is a based and does not care what other
+	// chain's NFT rules are. Only rule is that NFTs on bridge
+	// contract's chain follow bridge contract's chain's NFT
+	// rules. Bridge contract says:
+	//
+	// > I know one of those tokens is valid and corresponds to the
+	// > NFT I previously sent away so I will return that one to
+	// > the recipient. For all I know chain C social norms allow
+	// > for more than one collection with the same ID, so for
+	// > that one I will create a new collection (so that it
+	// > follows my chain's social norms) and give a token for
+	// > that collection for the receiver.
 	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String())
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
 
