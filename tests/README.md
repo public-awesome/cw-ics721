@@ -63,7 +63,9 @@ Terminal 3:
 npm run full-test
 ```
 
-**NOTE**: If you modify your contract, you will need to recompile the contracts again, you can use `full-test` for that.
+**NOTE**
+If you modify your contract, you will need to recompile the contracts again, you can use `full-test` for that.
+ics721.spec.test uses a cw721-base binary build, stored at `tests/internal/cw721_base_v0.15.0.wasm`.
 
 ### Run tests
 

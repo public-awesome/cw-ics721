@@ -1,55 +1,45 @@
 import { CosmWasmSigner } from "@confio/relayer";
-import { ExecuteResult } from "@cosmjs/cosmwasm-stargate";
+import { ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate";
+import { assert } from "@cosmjs/utils";
 
-export interface ibcPingResponse {
-  result: string;
-}
-
-export interface Connections {
-  connections: string[];
-}
-
-export interface Counter {
-  count: number;
-}
-
-export async function showConnections(
-  cosmwasm: CosmWasmSigner,
-  contractAddr: string
-): Promise<Connections> {
-  const query = { get_connections: {} };
-  const res = await cosmwasm.sign.queryContractSmart(contractAddr, query);
-  return res;
-}
-
-export async function showCounter(
-  cosmwasm: CosmWasmSigner,
-  contractAddr: string,
-  channel: string
-): Promise<Counter> {
-  const query = { get_counter: { channel } };
-  const res = await cosmwasm.sign.queryContractSmart(contractAddr, query);
-  return res;
-}
-
-export async function sendPing(
-  cosmwasm: CosmWasmSigner,
-  contractAddr: string,
-  channelId: string
-): Promise<ExecuteResult> {
-  const msg = {
-    ping: {
-      channel: channelId,
-    },
-  };
-
-  const res = await cosmwasm.sign.execute(
-    cosmwasm.senderAddress,
-    contractAddr,
+export async function instantiateContract(
+  client: CosmWasmSigner,
+  codeId: number,
+  msg: Record<string, unknown>,
+  label: string
+): Promise<InstantiateResult> {
+  const result = await client.sign.instantiate(
+    client.senderAddress,
+    codeId,
     msg,
-    "auto",
-    undefined,
-    undefined
+    label,
+    "auto"
   );
-  return res;
+  assert(result.contractAddress);
+  return result;
+}
+
+export async function getIbcPortId(
+  client: CosmWasmSigner,
+  contractAddress: string
+) {
+  const { ibcPortId } = await client.sign.getContract(contractAddress);
+  console.debug(`IBC port id: ${ibcPortId}`);
+  assert(ibcPortId);
+  return ibcPortId;
+}
+
+export function executeContract(
+  client: CosmWasmSigner,
+  contractAddress: string,
+  msg: Record<string, unknown>
+): Promise<ExecuteResult> {
+  return client.sign.execute(
+    client.senderAddress,
+    contractAddress,
+    msg,
+    "auto", // fee
+    undefined, // no memo
+    undefined // no funds
+  );
 }
