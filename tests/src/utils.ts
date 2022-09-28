@@ -83,7 +83,7 @@ export async function uploadAndInstantiate(
   const contractInfos: Record<string, ContractInfo> = {};
   for (const name in contracts) {
     const contractMsg = contracts[name];
-    console.info(`storing ${name} contract from ${contractMsg.path}`);
+    console.debug(`storing ${name} contract from ${contractMsg.path}`);
     const wasm = await readFileSync(contractMsg.path);
     const receipt = await client.sign.upload(
       client.senderAddress,
@@ -154,7 +154,7 @@ export async function createIbcConnectionAndChannel(
 
     verbose(message: string, meta?: Record<string, unknown>): Logger {
       const logMsg = meta ? message + ": " + JSON.stringify(meta) : message;
-      console.info("[relayer|verbose]: " + logMsg);
+      console.debug("[relayer|verbose]: " + logMsg);
       return this;
     },
   };

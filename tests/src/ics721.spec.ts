@@ -2,6 +2,7 @@ import { CosmWasmSigner } from "@confio/relayer";
 import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
+import { instantiateContract } from "./controller";
 import { mint, ownerOf, transfer } from "./cw721-utils";
 import {
   assertAckSuccess,
@@ -51,15 +52,11 @@ test.before(async (t) => {
   const wasmContracts: Record<string, ContractMsg> = {
     cw721: {
       path: WASM_FILE_CW721,
-      instantiateMsg: {
-        name: "ark",
-        symbol: "ark",
-        minter: wasmClientAddress,
-      },
+      instantiateMsg: { name: "ark", symbol: "ark", minter: wasmClientAddress },
     },
     ics721: {
       path: WASM_FILE_CW_ICS721_BRIDGE,
-      instantiateMsg: { cw721_base_code_id: 0 },
+      instantiateMsg: undefined,
     },
   };
   const osmoContracts: Record<string, ContractMsg> = {
@@ -69,7 +66,7 @@ test.before(async (t) => {
     },
     ics721: {
       path: WASM_FILE_CW_ICS721_BRIDGE,
-      instantiateMsg: { cw721_base_code_id: 0 },
+      instantiateMsg: undefined,
     },
   };
   const chainInfo = await uploadAndInstantiateAll(
@@ -78,11 +75,35 @@ test.before(async (t) => {
     wasmContracts,
     osmoContracts
   );
+
+  // wasm addresses
   wasmContractInfos = chainInfo.wasmContractInfos;
   wasmContractAddressCw721 = wasmContractInfos.cw721.address as string;
-  wasmContractAddressIcs721 = wasmContractInfos.ics721.address as string;
+  // - instantiate ICS contract and pass cw721 code id
+  const { contractAddress: wasmIcsContractAddress } = await instantiateContract(
+    wasmClient,
+    wasmContractInfos.ics721.codeId,
+    { cw721_base_code_id: wasmContractInfos.cw721.codeId },
+    "label ICS721"
+  );
+  console.debug(`Wasm ICS contract address: ${wasmIcsContractAddress}`);
+  // - store address
+  wasmContractInfos.ics721.address = wasmIcsContractAddress;
+  wasmContractAddressIcs721 = wasmIcsContractAddress;
+
+  // osmo addresses
   osmoContractInfos = chainInfo.osmoContractInfos;
-  osmoContractAddressIcs721 = osmoContractInfos.ics721.address as string;
+  // - instantiate ICS contract and pass cw721 code id
+  const { contractAddress: osmoIcsContractAddress } = await instantiateContract(
+    osmoClient,
+    osmoContractInfos.ics721.codeId,
+    { cw721_base_code_id: osmoContractInfos.cw721.codeId },
+    "label ICS721"
+  );
+  console.debug(`Osmo ICS contract address: ${osmoIcsContractAddress}`);
+  // - store address
+  osmoContractInfos.ics721.address = osmoIcsContractAddress;
+  osmoContractAddressIcs721 = osmoIcsContractAddress;
 
   channelInfo = await createIbcConnectionAndChannel(
     chainInfo.wasmClient,
