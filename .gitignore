@@ -24,3 +24,6 @@
 
 # code coverage
 **/tarpaulin-report.*
+
+# logs
+debug*.log
