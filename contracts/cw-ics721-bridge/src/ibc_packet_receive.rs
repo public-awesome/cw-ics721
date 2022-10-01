@@ -107,24 +107,6 @@ pub(crate) fn do_ibc_packet_receive(
     let receiver = deps.api.addr_validate(&data.receiver)?;
     let token_count = data.token_ids.len();
 
-    // Say we're connected to three identical chains A, B, and C. For
-    // each of these chains call the local channel ID `C` and the
-    // local port `P`. After taking the path (A -> B -> C) the class
-    // ID on C is `P/C/P/C/P/C/contract_address`.
-    //
-    // Now, lets say the next hop we take is from (C -> A). A receives
-    // a packet with prefix `P/C`. According to the logic on the spec,
-    // it would recognize this as its prefix and attempt to release
-    // its local version of the NFT (from the prefix alone, it seems
-    // like this has previously been transfered away!). This attempt
-    // to release fails though as there has never been a transfer from
-    // (A -> C)!
-    //
-    // What do we need to do instead? Before attempting the transfer,
-    // we need to verify that the incoming NFT has previously been
-    // transfered out. If it has not, we should not attempt the
-    // transfer and instead (correctly) treat it as a new NFT that we
-    // have not seen before and create a new local cw721 contract.
     let submessage = data
         .token_ids
         .into_iter()

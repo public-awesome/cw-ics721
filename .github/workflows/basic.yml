@@ -1,8 +1,6 @@
-# Based on https://github.com/actions-rs/example/blob/master/.github/workflows/quickstart.yml
+name: run tests
 
 on: [push, pull_request]
-
-name: Basic
 
 jobs:
   test:
@@ -20,23 +18,31 @@ jobs:
           target: wasm32-unknown-unknown
           override: true
 
-      - name: Run tests
-        uses: actions-rs/cargo@v1
+      - name: Rust Dependencies Cache
+        uses: actions/cache@v3
         with:
-          toolchain: nightly
-          command: test
-          args: --locked
-        env:
-          RUST_BACKTRACE: 1
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            artifacts/
+          key: ${{ runner.os }}-cargo-with-artifacts-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Compile WASM contract
-        uses: actions-rs/cargo@v1
+      - name: Set latest just version
+        run: echo "JUST_VERSION=$(cargo search just -q | sed -n -e '/^just[[:space:]]/p' | cut -d '"' -f 2)" >> $GITHUB_ENV
+
+      - name: Get cached just
+        uses: actions/cache@v3
         with:
-          toolchain: nightly
-          command: wasm
-          args: --locked
-        env:
-          RUSTFLAGS: "-C link-arg=-s"
+          path: ~/.cargo/bin/just
+          key: ${{ runner.os }}-just-${{ env.JUST_VERSION }}
+
+      - name: Install just
+        run: cargo install just || true
+
+      - name: run tests
+        run: just test
 
   lints:
     name: Lints

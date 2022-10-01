@@ -13,7 +13,7 @@
     "fix": "run-s fix:*",
     "fix:prettier": "prettier \"**/*.{ts,md}\" --write",
     "fix:lint": "eslint src --ext .ts --fix",
-    "full-test": "./../devtools/build_integration_wasm.sh; run-s fix:*; run-s build test:*",
+    "full-test": "./build.sh; run-s fix:*; run-s build test:*",
     "test": "npm run fix; run-s build test:*",
     "test:lint": "eslint src --ext .ts",
     "test:prettier": "prettier \"**/*.{ts,md}\" --list-different",
