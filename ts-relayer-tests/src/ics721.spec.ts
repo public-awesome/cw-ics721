@@ -115,8 +115,16 @@ test.beforeEach(async (t) => {
 });
 
 test.serial("transfer NFT", async (t) => {
-  const { wasmClient, wasmAddr, wasmCw721, wasmBridge, osmoAddr, channel } =
-    t.context;
+  const {
+    wasmClient,
+    wasmAddr,
+    wasmCw721,
+    wasmBridge,
+    osmoClient,
+    osmoAddr,
+    osmoBridge,
+    channel,
+  } = t.context;
 
   const tokenId = "1";
   await mint(wasmClient, wasmCw721, tokenId, wasmAddr, undefined);
@@ -156,4 +164,14 @@ test.serial("transfer NFT", async (t) => {
   // assert NFT on chain A is locked/owned by ICS contract
   tokenOwner = await ownerOf(wasmClient, wasmCw721, tokenId);
   t.is(wasmBridge, tokenOwner.owner);
+
+  t.context.channel.channel.dest.channelId;
+
+  const osmoClassId = `${t.context.channel.channel.dest.portId}/${t.context.channel.channel.dest.channelId}/${t.context.wasmCw721}`;
+  const osmoCw721 = await osmoClient.sign.queryContractSmart(osmoBridge, {
+    nft_contract_for_class_id: { class_id: osmoClassId },
+  });
+
+  tokenOwner = await ownerOf(osmoClient, osmoCw721, tokenId);
+  t.is(osmoAddr, tokenOwner.owner);
 });
