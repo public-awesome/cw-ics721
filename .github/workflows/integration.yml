@@ -17,13 +17,20 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      - name: Get cached just
+      - name: get cached just
         uses: actions/cache@v3
         with:
           path: ~/.cargo/bin/just
           key: ${{ runner.os }}-just-${{ env.JUST_VERSION }}
 
-      - name: Install just
+      - name: install just
         run: cargo install just || true
 
-      - run: just integration-test
+      - name: start local chains
+        run: just start-local-chains > /dev/null
+
+      - name: integration test
+        run: just integration-test
+
+      - name: stop local chains
+        run: just stop-local-chains

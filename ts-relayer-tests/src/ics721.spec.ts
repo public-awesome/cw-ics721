@@ -1,13 +1,12 @@
 import { CosmWasmSigner } from "@confio/relayer";
-import test from "ava";
+import anyTest, { TestFn } from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
 import { instantiateContract } from "./controller";
-import { mint, ownerOf, transfer } from "./cw721-utils";
+import { mint, ownerOf, sendNft } from "./cw721-utils";
 import {
   assertAckSuccess,
   ChannelInfo,
-  ContractInfo,
   ContractMsg,
   createIbcConnectionAndChannel,
   MNEMONIC,
@@ -16,43 +15,43 @@ import {
   uploadAndInstantiateAll,
 } from "./utils";
 
-let wasmClient: CosmWasmSigner;
-let wasmClientAddress: string;
-let osmoClient: CosmWasmSigner;
-let osmoClientAddress: string;
+interface TestContext {
+  wasmClient: CosmWasmSigner;
+  wasmAddr: string;
 
-let wasmContractInfos: Record<string, ContractInfo> = {};
-let osmoContractInfos: Record<string, ContractInfo> = {};
-let wasmContractAddressCw721: string;
-let wasmContractAddressIcs721: string;
-let osmoContractAddressIcs721: string;
+  osmoClient: CosmWasmSigner;
+  osmoAddr: string;
 
-let channelInfo: ChannelInfo;
+  wasmCw721: string;
+  wasmBridge: string;
+
+  osmoBridge: string;
+
+  channel: ChannelInfo;
+}
+
+const test = anyTest as TestFn<TestContext>;
 
 const WASM_FILE_CW721 = "./internal/cw721_base_v0.15.0.wasm";
 const WASM_FILE_CW_ICS721_BRIDGE = "./internal/cw_ics721_bridge.wasm";
 
-//Upload contracts to chains.
-test.before(async (t) => {
-  wasmClient = await setupWasmClient(MNEMONIC);
-  wasmClientAddress = wasmClient.senderAddress;
-  console.debug(
-    `Wasm client ${wasmClientAddress}, balance: ${JSON.stringify(
-      await wasmClient.sign.getBalance(wasmClientAddress, "ucosm")
-    )}`
-  );
-  osmoClient = await setupOsmosisClient(MNEMONIC);
-  osmoClientAddress = osmoClient.senderAddress;
-  console.debug(
-    `Osmo client ${osmoClientAddress}, balance: ${JSON.stringify(
-      await osmoClient.sign.getBalance(osmoClientAddress, "uosmo")
-    )}`
-  );
+test.beforeEach(async (t) => {
+  t.context.wasmClient = await setupWasmClient(MNEMONIC);
+  t.context.osmoClient = await setupOsmosisClient(MNEMONIC);
+
+  t.context.wasmAddr = t.context.wasmClient.senderAddress;
+  t.context.osmoAddr = t.context.osmoClient.senderAddress;
+
+  const { wasmClient, osmoClient } = t.context;
 
   const wasmContracts: Record<string, ContractMsg> = {
     cw721: {
       path: WASM_FILE_CW721,
-      instantiateMsg: { name: "ark", symbol: "ark", minter: wasmClientAddress },
+      instantiateMsg: {
+        name: "ark",
+        symbol: "ark",
+        minter: wasmClient.senderAddress,
+      },
     },
     ics721: {
       path: WASM_FILE_CW_ICS721_BRIDGE,
@@ -69,100 +68,92 @@ test.before(async (t) => {
       instantiateMsg: undefined,
     },
   };
-  const chainInfo = await uploadAndInstantiateAll(
+
+  const info = await uploadAndInstantiateAll(
     wasmClient,
     osmoClient,
     wasmContracts,
     osmoContracts
   );
 
-  // wasm addresses
-  wasmContractInfos = chainInfo.wasmContractInfos;
-  wasmContractAddressCw721 = wasmContractInfos.cw721.address as string;
-  // - instantiate ICS contract and pass cw721 code id
-  const { contractAddress: wasmIcsContractAddress } = await instantiateContract(
+  const wasmCw721Id = info.wasmContractInfos.cw721.codeId;
+  const osmoCw721Id = info.osmoContractInfos.cw721.codeId;
+
+  const wasmBridgeId = info.wasmContractInfos.ics721.codeId;
+  const osmoBridgeId = info.wasmContractInfos.ics721.codeId;
+
+  t.context.wasmCw721 = info.wasmContractInfos.cw721.address as string;
+
+  const { contractAddress: wasmBridge } = await instantiateContract(
     wasmClient,
-    wasmContractInfos.ics721.codeId,
-    { cw721_base_code_id: wasmContractInfos.cw721.codeId },
-    "label ICS721"
+    wasmBridgeId,
+    { cw721_base_code_id: wasmCw721Id },
+    "label ics721"
   );
-  console.debug(`Wasm ICS contract address: ${wasmIcsContractAddress}`);
-  // - store address
-  wasmContractInfos.ics721.address = wasmIcsContractAddress;
-  wasmContractAddressIcs721 = wasmIcsContractAddress;
+  t.context.wasmBridge = wasmBridge;
 
-  // osmo addresses
-  osmoContractInfos = chainInfo.osmoContractInfos;
-  // - instantiate ICS contract and pass cw721 code id
-  const { contractAddress: osmoIcsContractAddress } = await instantiateContract(
+  const { contractAddress: osmoBridge } = await instantiateContract(
     osmoClient,
-    osmoContractInfos.ics721.codeId,
-    { cw721_base_code_id: osmoContractInfos.cw721.codeId },
-    "label ICS721"
+    osmoBridgeId,
+    { cw721_base_code_id: osmoCw721Id },
+    "label ics721"
   );
-  console.debug(`Osmo ICS contract address: ${osmoIcsContractAddress}`);
-  // - store address
-  osmoContractInfos.ics721.address = osmoIcsContractAddress;
-  osmoContractAddressIcs721 = osmoIcsContractAddress;
+  t.context.osmoBridge = osmoBridge;
 
-  channelInfo = await createIbcConnectionAndChannel(
-    chainInfo.wasmClient,
-    chainInfo.osmoClient,
-    wasmContractAddressIcs721,
-    osmoContractAddressIcs721,
+  const channelInfo = await createIbcConnectionAndChannel(
+    wasmClient,
+    osmoClient,
+    wasmBridge,
+    osmoBridge,
     Order.ORDER_UNORDERED,
     "ics721-1"
   );
-  // console.log(`Channel created: ${JSON.stringify(channelInfo)}`);
+
+  t.context.channel = channelInfo;
 
   t.pass();
 });
 
 test.serial("transfer NFT", async (t) => {
-  const token_id = "1";
-  await mint(
-    wasmClient,
-    wasmContractAddressCw721,
-    token_id,
-    wasmClientAddress,
-    undefined
-  );
+  const { wasmClient, wasmAddr, wasmCw721, wasmBridge, osmoAddr, channel } =
+    t.context;
+
+  const tokenId = "1";
+  await mint(wasmClient, wasmCw721, tokenId, wasmAddr, undefined);
   // assert token is minted
-  let tokenOwner = await ownerOf(
-    wasmClient,
-    wasmContractAddressCw721,
-    token_id
-  );
-  t.is(wasmClientAddress, tokenOwner.owner);
+  let tokenOwner = await ownerOf(wasmClient, wasmCw721, tokenId);
+  t.is(wasmAddr, tokenOwner.owner);
 
   const ibcMsg = {
-    receiver: osmoClientAddress, // wallet address of new owner on other side (osmo)
-    channel_id: channelInfo.channel.src.channelId,
+    receiver: osmoAddr,
+    channel_id: channel.channel.src.channelId,
     timeout: {
       block: {
         revision: 1,
-        height: 90000, // set as high as possible for avoiding timeout
+        height: 90000,
       },
     },
   };
-  console.log("Transferring to Osmo chain");
-  const transferResponse = await transfer(
+
+  t.log("transfering to osmo chain");
+
+  const transferResponse = await sendNft(
     wasmClient,
-    wasmContractAddressCw721,
-    wasmContractAddressIcs721,
+    wasmCw721,
+    wasmBridge,
     ibcMsg,
-    token_id
+    tokenId
   );
   t.truthy(transferResponse);
 
-  console.log("Start relaying");
-  // relay
-  const info = await channelInfo.link.relayAll();
+  t.log("relaying packets");
+
+  const info = await channel.link.relayAll();
 
   // Verify we got a success
   assertAckSuccess(info.acksFromB);
 
   // assert NFT on chain A is locked/owned by ICS contract
-  tokenOwner = await ownerOf(wasmClient, wasmContractAddressCw721, token_id);
-  t.is(wasmContractAddressIcs721, tokenOwner.owner);
+  tokenOwner = await ownerOf(wasmClient, wasmCw721, tokenId);
+  t.is(wasmBridge, tokenOwner.owner);
 });

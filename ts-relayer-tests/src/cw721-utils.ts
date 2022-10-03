@@ -22,7 +22,7 @@ export function mint(
   );
 }
 
-export function transfer(
+export function sendNft(
   client: CosmWasmSigner,
   cw721Contract: string,
   targetContract: string,

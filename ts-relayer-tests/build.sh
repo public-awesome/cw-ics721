@@ -13,8 +13,9 @@ docker run --rm -v "$(pwd)":/code --platform linux/amd64 \
 	--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 	cosmwasm/workspace-optimizer:0.12.8
 
-mkdir -p ./tests/internal
-cp ./artifacts/*.wasm ./tests/internal
+mkdir -p ./ts-relayer-tests/internal
+cp ./artifacts/*.wasm ./ts-relayer-tests/internal
+cp ./external-wasms/*.wasm ./ts-relayer-tests/internal
 
 echo "done. avaliable wasm blobs:"
-ls ./tests/internal
+ls ./ts-relayer-tests/internal
