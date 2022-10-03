@@ -1,0 +1,29 @@
+name: integration test
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Get cached just
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/bin/just
+          key: ${{ runner.os }}-just-${{ env.JUST_VERSION }}
+
+      - name: Install just
+        run: cargo install just || true
+
+      - run: just integration-test

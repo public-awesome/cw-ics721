@@ -1,10 +1,10 @@
-name: run tests
+name: unit test and lint
 
 on: [push, pull_request]
 
 jobs:
   test:
-    name: Test Suite
+    name: unit test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -42,10 +42,10 @@ jobs:
         run: cargo install just || true
 
       - name: run tests
-        run: just test
+        run: just unit-test
 
   lints:
-    name: Lints
+    name: lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources

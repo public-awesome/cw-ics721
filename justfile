@@ -8,9 +8,9 @@ unit-test:
     cargo test
 
 simulation-test: optimize
-	go test ./...
+	go test -v ./...
 
-ts-relayer-test:
-	cd ts-relayer-tests && npm i && npm run full-test
+integration-test: optimize
+    npm i --prefix ts-relayer-tests && npm run full-test --prefix ts-relayer-tests
 
-test: unit-test simulation-test ts-relayer-test
+test: unit-test simulation-test integration-test
