@@ -23,7 +23,7 @@ jobs:
       - name: Install just
         run: cargo install just || true
 
-      - name: build go
+      - name: go build
         run: go build -v ./...
 
       - name: simulation test
