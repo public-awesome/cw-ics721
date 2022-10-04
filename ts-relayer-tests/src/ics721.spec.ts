@@ -5,6 +5,7 @@ import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 import { instantiateContract } from "./controller";
 import { mint, ownerOf, sendNft } from "./cw721-utils";
 import {
+  assertAckErrors,
   assertAckSuccess,
   ChannelInfo,
   ContractMsg,
@@ -12,6 +13,7 @@ import {
   MNEMONIC,
   setupOsmosisClient,
   setupWasmClient,
+  uploadAndInstantiate,
   uploadAndInstantiateAll,
 } from "./utils";
 
@@ -34,6 +36,7 @@ const test = anyTest as TestFn<TestContext>;
 
 const WASM_FILE_CW721 = "./internal/cw721_base_v0.15.0.wasm";
 const WASM_FILE_CW_ICS721_BRIDGE = "./internal/cw_ics721_bridge.wasm";
+const MALICIOUS_CW721 = "./internal/cw721_gas_tester.wasm";
 
 test.beforeEach(async (t) => {
   t.context.wasmClient = await setupWasmClient(MNEMONIC);
@@ -80,9 +83,11 @@ test.beforeEach(async (t) => {
   const osmoCw721Id = info.osmoContractInfos.cw721.codeId;
 
   const wasmBridgeId = info.wasmContractInfos.ics721.codeId;
-  const osmoBridgeId = info.wasmContractInfos.ics721.codeId;
+  const osmoBridgeId = info.osmoContractInfos.ics721.codeId;
 
   t.context.wasmCw721 = info.wasmContractInfos.cw721.address as string;
+
+  t.log(`instantiating wasm bridge contract (${wasmBridgeId})`);
 
   const { contractAddress: wasmBridge } = await instantiateContract(
     wasmClient,
@@ -91,6 +96,8 @@ test.beforeEach(async (t) => {
     "label ics721"
   );
   t.context.wasmBridge = wasmBridge;
+
+  t.log(`instantiating osmo bridge contract (${osmoBridgeId})`);
 
   const { contractAddress: osmoBridge } = await instantiateContract(
     osmoClient,
@@ -174,4 +181,95 @@ test.serial("transfer NFT", async (t) => {
 
   tokenOwner = await ownerOf(osmoClient, osmoCw721, tokenId);
   t.is(osmoAddr, tokenOwner.owner);
+});
+
+test.serial("malicious NFT", async (t) => {
+  const {
+    wasmClient,
+    osmoClient,
+    channel,
+    osmoAddr,
+    wasmAddr,
+    wasmBridge,
+    osmoBridge,
+  } = t.context;
+  const tokenId = "1";
+
+  const res = await uploadAndInstantiate(wasmClient, {
+    cw721_gas_tester: {
+      path: MALICIOUS_CW721,
+      instantiateMsg: {
+        name: "evil",
+        symbol: "evil",
+        minter: wasmClient.senderAddress,
+        target: wasmBridge, // run out of gas every time the bridge tries to return a NFT.
+      },
+    },
+  });
+
+  const cw721 = res.cw721_gas_tester.address as string;
+
+  await mint(wasmClient, cw721, tokenId, wasmAddr, undefined);
+
+  let ibcMsg = {
+    receiver: osmoAddr,
+    channel_id: channel.channel.src.channelId,
+    timeout: {
+      block: {
+        revision: 1,
+        height: 90000,
+      },
+    },
+  };
+
+  t.log("transfering to osmo chain");
+
+  let transferResponse = await sendNft(
+    wasmClient,
+    cw721,
+    wasmBridge,
+    ibcMsg,
+    tokenId
+  );
+  t.truthy(transferResponse);
+
+  t.log("relaying packets");
+
+  let info = await channel.link.relayAll();
+
+  assertAckSuccess(info.acksFromB);
+
+  const osmoClassId = `${t.context.channel.channel.dest.portId}/${t.context.channel.channel.dest.channelId}/${cw721}`;
+  const osmoCw721 = await osmoClient.sign.queryContractSmart(osmoBridge, {
+    nft_contract_for_class_id: { class_id: osmoClassId },
+  });
+
+  ibcMsg = {
+    receiver: wasmAddr,
+    channel_id: channel.channel.dest.channelId,
+    timeout: {
+      block: {
+        revision: 1,
+        height: 90000,
+      },
+    },
+  };
+
+  transferResponse = await sendNft(
+    osmoClient,
+    osmoCw721,
+    osmoBridge,
+    ibcMsg,
+    tokenId
+  );
+  t.truthy(transferResponse);
+
+  t.log("relaying packets");
+
+  const pending = await channel.link.getPendingPackets("B");
+  t.is(pending.length, 1);
+
+  // Despite the transfer panicing, a fail ack should be returned.
+  info = await channel.link.relayAll();
+  assertAckErrors(info.acksFromA);
 });
