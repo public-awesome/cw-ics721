@@ -1,8 +1,8 @@
-use cosmwasm_std::{Addr, Empty};
+use cosmwasm_std::{to_binary, Addr, Empty, IbcTimeout, IbcTimeoutBlock};
 use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 
 use crate::{
-    msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
+    msg::{CallbackMsg, ExecuteMsg, IbcAwayMsg, InstantiateMsg, QueryMsg},
     ContractError,
 };
 
@@ -36,6 +36,25 @@ fn instantiate_bridge(app: &mut App) -> Addr {
         Addr::unchecked(COMMUNITY_POOL),
         &InstantiateMsg {
             cw721_base_code_id: cw721_id,
+            proxy: None,
+        },
+        &[],
+        "cw-ics721-bridge",
+        None,
+    )
+    .unwrap()
+}
+
+fn instantiate_bridge_with_proxy(app: &mut App, proxy: Option<String>) -> Addr {
+    let cw721_id = app.store_code(cw721_contract());
+    let bridge_id = app.store_code(bridge_contract());
+
+    app.instantiate_contract(
+        bridge_id,
+        Addr::unchecked(COMMUNITY_POOL),
+        &InstantiateMsg {
+            cw721_base_code_id: cw721_id,
+            proxy,
         },
         &[],
         "cw-ics721-bridge",
@@ -266,4 +285,128 @@ fn test_do_instantiate_and_mint_permissions() {
         .unwrap();
 
     assert_eq!(err, ContractError::Unauthorized {});
+}
+
+/// Tests that we can not proxy NFTs if no proxy is configured.
+#[test]
+fn test_no_proxy_unauthorized() {
+    let mut app = App::default();
+
+    let bridge_no_proxy = instantiate_bridge(&mut app);
+
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked("proxy"),
+            bridge_no_proxy,
+            &ExecuteMsg::ReceiveProxyNft {
+                eyeball: "nft".to_string(),
+                msg: cw721::Cw721ReceiveMsg {
+                    sender: "ekez".to_string(),
+                    token_id: "1".to_string(),
+                    msg: to_binary("").unwrap(),
+                },
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::Unauthorized {});
+}
+
+// Tests that the proxy can send NFTs via this contract. multi test
+// doesn't support IBC messages and panics with "unsupported type"
+// when you try to send one. If we're sending an IBC message this test
+// has passed though.
+#[test]
+#[should_panic(expected = "Unsupported type")]
+fn test_proxy_authorized() {
+    let mut app = App::default();
+
+    let bridge = instantiate_bridge_with_proxy(&mut app, Some("proxy".to_string()));
+
+    let cw721_id = app.store_code(cw721_contract());
+    let cw721 = app
+        .instantiate_contract(
+            cw721_id,
+            Addr::unchecked("ekez"),
+            &cw721_base::InstantiateMsg {
+                name: "token".to_string(),
+                symbol: "nonfungible".to_string(),
+                minter: "ekez".to_string(),
+            },
+            &[],
+            "label cw721",
+            None,
+        )
+        .unwrap();
+    app.execute_contract(
+        Addr::unchecked("ekez"),
+        cw721.clone(),
+        &cw721_base::ExecuteMsg::<Empty, Empty>::Mint(cw721_base::MintMsg {
+            token_id: "1".to_string(),
+            owner: "ekez".to_string(),
+            token_uri: None,
+            extension: Empty::default(),
+        }),
+        &[],
+    )
+    .unwrap();
+
+    app.execute_contract(
+        Addr::unchecked("proxy"),
+        bridge,
+        &ExecuteMsg::ReceiveProxyNft {
+            eyeball: cw721.into_string(),
+            msg: cw721::Cw721ReceiveMsg {
+                sender: "ekez".to_string(),
+                token_id: "1".to_string(),
+                msg: to_binary(&IbcAwayMsg {
+                    receiver: "ekez".to_string(),
+                    channel_id: "channel-0".to_string(),
+                    timeout: IbcTimeout::with_block(IbcTimeoutBlock {
+                        revision: 0,
+                        height: 10,
+                    }),
+                })
+                .unwrap(),
+            },
+        },
+        &[],
+    )
+    .unwrap();
+}
+
+/// Tests that receiving a NFT via a regular receive fails when a
+/// proxy is installed.
+#[test]
+fn test_no_receive_with_proxy() {
+    let mut app = App::default();
+    let bridge = instantiate_bridge_with_proxy(&mut app, Some("proxy".to_string()));
+
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked("cw721"),
+            bridge,
+            &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+                sender: "ekez".to_string(),
+                token_id: "1".to_string(),
+                msg: to_binary(&IbcAwayMsg {
+                    receiver: "ekez".to_string(),
+                    channel_id: "channel-0".to_string(),
+                    timeout: IbcTimeout::with_block(IbcTimeoutBlock {
+                        revision: 0,
+                        height: 10,
+                    }),
+                })
+                .unwrap(),
+            }),
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::Unauthorized {})
 }

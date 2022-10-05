@@ -4,6 +4,8 @@ use serde::Deserialize;
 
 /// The code ID we will use for instantiating new cw721s.
 pub const CW721_ICS_CODE_ID: Item<u64> = Item::new("cw721_code_id");
+/// The proxy that this contract is receiving NFTs from, if any.
+pub const PROXY: Item<Option<Addr>> = Item::new("proxy");
 
 /// Maps classID (from NonFungibleTokenPacketData) to the cw721
 /// contract we have instantiated for that classID.

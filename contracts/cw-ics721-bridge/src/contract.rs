@@ -14,7 +14,7 @@ use crate::{
     },
     state::{
         UniversalNftInfoResponse, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT,
-        CW721_ICS_CODE_ID, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+        CW721_ICS_CODE_ID, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PROXY,
     },
 };
 
@@ -31,6 +31,13 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     CW721_ICS_CODE_ID.save(deps.storage, &msg.cw721_base_code_id)?;
+    PROXY.save(
+        deps.storage,
+        &msg.proxy
+            .as_ref()
+            .map(|h| deps.api.addr_validate(h))
+            .transpose()?,
+    )?;
 
     Ok(Response::default()
         .add_attribute("method", "instantiate")
@@ -50,6 +57,10 @@ pub fn execute(
             token_id,
             msg,
         }) => execute_receive_nft(deps, info, token_id, sender, msg),
+
+        ExecuteMsg::ReceiveProxyNft { eyeball, msg } => {
+            execute_receive_proxy_nft(deps, info, eyeball, msg)
+        }
 
         ExecuteMsg::Callback(CallbackMsg::Mint {
             class_id,
@@ -96,7 +107,43 @@ pub fn execute(
     }
 }
 
+fn execute_receive_proxy_nft(
+    deps: DepsMut,
+    info: MessageInfo,
+    eyeball: String,
+    msg: cw721::Cw721ReceiveMsg,
+) -> Result<Response, ContractError> {
+    if PROXY
+        .load(deps.storage)?
+        .map_or(true, |proxy| info.sender != proxy)
+    {
+        return Err(ContractError::Unauthorized {});
+    }
+    let mut info = info;
+    info.sender = deps.api.addr_validate(&eyeball)?;
+    let cw721::Cw721ReceiveMsg {
+        token_id,
+        sender,
+        msg,
+    } = msg;
+    do_receive_nft(deps, info, token_id, sender, msg)
+}
+
 fn execute_receive_nft(
+    deps: DepsMut,
+    info: MessageInfo,
+    token_id: String,
+    sender: String,
+    msg: Binary,
+) -> Result<Response, ContractError> {
+    if PROXY.load(deps.storage)?.is_some() {
+        return Err(ContractError::Unauthorized {});
+    } else {
+        do_receive_nft(deps, info, token_id, sender, msg)
+    }
+}
+
+fn do_receive_nft(
     deps: DepsMut,
     info: MessageInfo,
     token_id: String,
@@ -358,22 +405,22 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-pub fn query_class_id_for_nft_contract(deps: Deps, contract: String) -> StdResult<Option<String>> {
+fn query_class_id_for_nft_contract(deps: Deps, contract: String) -> StdResult<Option<String>> {
     let contract = deps.api.addr_validate(&contract)?;
     NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, contract)
 }
 
-pub fn query_nft_contract_for_class_id(deps: Deps, class_id: String) -> StdResult<Option<Addr>> {
+fn query_nft_contract_for_class_id(deps: Deps, class_id: String) -> StdResult<Option<Addr>> {
     CLASS_ID_TO_NFT_CONTRACT.may_load(deps.storage, class_id)
 }
 
-pub fn query_metadata(deps: Deps, class_id: String) -> StdResult<Option<String>> {
+fn query_metadata(deps: Deps, class_id: String) -> StdResult<Option<String>> {
     Ok(CLASS_ID_TO_CLASS_URI
         .may_load(deps.storage, class_id)?
         .flatten())
 }
 
-pub fn query_owner(
+fn query_owner(
     deps: Deps,
     class_id: String,
     token_id: String,
@@ -446,7 +493,7 @@ mod tests {
         })
         .unwrap();
 
-        let res = execute_receive_nft(deps.as_mut(), info, token_id, sender, msg).unwrap();
+        let res = do_receive_nft(deps.as_mut(), info, token_id, sender, msg).unwrap();
         assert_eq!(res.messages.len(), 1);
 
         assert_eq!(
@@ -485,7 +532,7 @@ mod tests {
         })
         .unwrap();
 
-        execute_receive_nft(deps.as_mut(), info, token_id, sender, msg).unwrap();
+        do_receive_nft(deps.as_mut(), info, token_id, sender, msg).unwrap();
 
         let class_uri = CLASS_ID_TO_CLASS_URI
             .load(deps.as_ref().storage, "nft".to_string())

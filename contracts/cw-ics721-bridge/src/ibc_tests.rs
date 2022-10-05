@@ -82,6 +82,7 @@ fn add_channel(mut deps: DepsMut, env: Env, channel_id: &str) {
 fn do_instantiate(deps: DepsMut, env: Env, sender: &str) -> Result<Response, ContractError> {
     let msg = InstantiateMsg {
         cw721_base_code_id: CW721_CODE_ID,
+        proxy: None,
     };
     instantiate(deps, env, mock_info(sender, &[]), msg)
 }

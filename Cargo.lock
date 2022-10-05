@@ -207,6 +207,7 @@ dependencies = [
  "cw2",
  "cw721",
  "cw721-base",
+ "cw721-proxy-derive",
  "serde",
  "thiserror",
 ]
@@ -344,6 +345,17 @@ dependencies = [
  "schemars",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "cw721-proxy-derive"
+version = "0.0.1"
+source = "git+https://github.com/ezekiiel/cw721-proxy.git#f7c5a1d23ceeaa6d16dd9170adf0bbfc5eb186ac"
+dependencies = [
+ "cw721",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

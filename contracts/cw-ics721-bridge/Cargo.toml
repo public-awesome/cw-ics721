@@ -23,6 +23,7 @@ cw721 = "0.15"
 cw721-base = { version = "0.15", features = ["library"] }
 thiserror = "1"
 cw-paginate = { git = "https://github.com/DA0-DA0/dao-contracts.git" }
+cw721-proxy-derive = { git = "https://github.com/ezekiiel/cw721-proxy.git" }
 serde = "1.0"
 
 [dev-dependencies]

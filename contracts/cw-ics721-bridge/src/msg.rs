@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{to_binary, Addr, Env, IbcTimeout, StdResult, WasmMsg};
+use cw721_proxy_derive::cw721_proxy;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -11,8 +12,14 @@ pub struct InstantiateMsg {
     /// this contract to stop working, and IBCd away NFTs to be
     /// unreturnable (cw721 does not have a mint method in the spec).
     pub cw721_base_code_id: u64,
+    /// An optional proxy contract. If a proxy is set the contract
+    /// will only accept NFTs from that proxy. The proxy is expected
+    /// to implement the cw721 proxy interface defined in the
+    /// cw721-proxy crate.
+    pub proxy: Option<String>,
 }
 
+#[cw721_proxy]
 #[cw_serde]
 pub enum ExecuteMsg {
     /// Receives a NFT to be IBC transfered away. The `msg` field must
