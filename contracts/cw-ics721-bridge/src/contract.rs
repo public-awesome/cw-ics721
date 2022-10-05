@@ -215,7 +215,7 @@ fn execute_mint(
         // that lengths are the same above.
         .zip(token_uris.into_iter())
         .map(|(token_id, token_uri)| -> StdResult<WasmMsg> {
-            let msg = cw721_base::msg::ExecuteMsg::Mint(cw721_base::MintMsg::<Empty> {
+            let msg = cw721_base::msg::ExecuteMsg::<Empty, Empty>::Mint(cw721_base::MintMsg {
                 token_id,
                 token_uri: Some(token_uri),
                 owner: receiver.to_string(),

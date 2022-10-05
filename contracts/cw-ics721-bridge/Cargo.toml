@@ -1,6 +1,6 @@
 [package]
 name = "cw-ics721-bridge"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["ekez <ekez@withoutdoing.com>"]
 edition = "2021"
 description = "an implementation of the ICS721 specification for transfering NFTs between blockchains"
@@ -13,20 +13,17 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-cosmwasm-std = { version = "1.0.0", features = ["stargate"] }
-cosmwasm-storage = "1.0.0"
-cw-storage-plus = "0.13.4"
-cw-utils = "0.13.4"
-cw2 = "0.13.4"
-cw721 = "0.13.4"
-# Need this dependency because we depend on its mint method.
-# TODO: add library back in when:
-# <https://github.com/CosmWasm/cw-nfts/pull/76>
-cw721-base = { version = "0.13.4", features = [] }
-schemars = "0.8.10"
-serde = { version = "1.0.140", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0.31" }
+cosmwasm-std = { version = "1.1", features = ["stargate"] }
+cosmwasm-storage = "1.1"
+cosmwasm-schema = "1.1"
+cw-storage-plus = "0.15"
+cw-utils = "0.15"
+cw2 = "0.15"
+cw721 = "0.15"
+cw721-base = { version = "0.15", features = ["library"] }
+thiserror = "1"
 cw-paginate = { git = "https://github.com/DA0-DA0/dao-contracts.git" }
+serde = "1.0"
 
 [dev-dependencies]
 cosmwasm-schema = "1.0.0"

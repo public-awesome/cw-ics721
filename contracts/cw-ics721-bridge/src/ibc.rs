@@ -1,3 +1,4 @@
+use cosmwasm_schema::cw_serde;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -6,8 +7,6 @@ use cosmwasm_std::{
     IbcPacketTimeoutMsg, IbcReceiveResponse, Reply, Response, StdResult, SubMsgResult, WasmMsg,
 };
 use cw_utils::parse_reply_instantiate_data;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
 use crate::{
     error::Never,
@@ -29,7 +28,7 @@ pub(crate) const ACK_AND_DO_NOTHING: u64 = 1;
 /// The IBC version this contract expects to communicate with.
 pub(crate) const IBC_VERSION: &str = "ics721-1";
 
-#[derive(Serialize, Deserialize, JsonSchema)]
+#[cw_serde]
 #[serde(rename_all = "camelCase")]
 pub struct NonFungibleTokenPacketData {
     /// Uniquely identifies the collection which the tokens being

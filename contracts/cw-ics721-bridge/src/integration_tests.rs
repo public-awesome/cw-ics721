@@ -140,7 +140,7 @@ fn test_do_instantiate_and_mint() {
     app.execute_contract(
         Addr::unchecked("ekez"),
         nft.clone(),
-        &cw721_base::msg::ExecuteMsg::<Empty>::TransferNft {
+        &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
             recipient: nft.to_string(),
             token_id: "1".to_string(),
         },

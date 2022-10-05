@@ -413,10 +413,9 @@ fn test_ibc_packet_receive_invalid_packet_data() {
     assert!(res.is_ok());
     let error = try_get_ack_error(&IbcAcknowledgement::new(res.unwrap().acknowledgement));
 
-    assert_eq!(
-        error,
-        Some("Error parsing into type cw_ics721_bridge::ibc::NonFungibleTokenPacketData: missing field `classId`".to_string())
-    )
+    assert!(error
+        .unwrap()
+        .starts_with("Error parsing into type cw_ics721_bridge::ibc::NonFungibleTokenPacketData"))
 }
 
 #[test]

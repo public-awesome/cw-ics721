@@ -17,5 +17,5 @@ cosmwasm-std = "1.1"
 cosmwasm-schema = "1.1"
 cw-storage-plus = "0.15.0"
 cw2 = "0.15.0"
-thiserror = { version = "1.0.31" }
+thiserror = "1"
 cw721-base = { version = "0.15", features = [ "library" ] }
