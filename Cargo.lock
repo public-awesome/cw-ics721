@@ -347,7 +347,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw721-gas-tester"
+name = "cw721-tester"
 version = "0.0.1"
 dependencies = [
  "cosmwasm-schema",
