@@ -199,7 +199,6 @@ version = "0.0.1"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
- "cosmwasm-storage",
  "cw-multi-test",
  "cw-paginate",
  "cw-storage-plus 0.15.1",
@@ -247,12 +246,23 @@ dependencies = [
 [[package]]
 name = "cw-paginate"
 version = "0.2.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts.git#eeae76ffea38994bcd07d708032b54c920a8b630"
+source = "git+https://github.com/DA0-DA0/dao-contracts.git#1a2accbb425ba928845fa0a0f4231cb1fe9824a6"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
  "cw-storage-plus 0.13.4",
  "serde",
+]
+
+[[package]]
+name = "cw-pause-once"
+version = "0.0.1"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus 0.15.1",
+ "cw-utils 0.15.1",
+ "thiserror",
 ]
 
 [[package]]
@@ -350,7 +360,7 @@ dependencies = [
 [[package]]
 name = "cw721-proxy-derive"
 version = "0.0.1"
-source = "git+https://github.com/ezekiiel/cw721-proxy.git#f7c5a1d23ceeaa6d16dd9170adf0bbfc5eb186ac"
+source = "git+https://github.com/ezekiiel/cw721-proxy.git#463908f507264892f3661bbdf84a6b46121c9342"
 dependencies = [
  "cw721",
  "proc-macro2",
@@ -555,9 +565,9 @@ dependencies = [
 
 [[package]]
 name = "itoa"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c8af84674fe1f223a982c933a0ee1086ac4d4052aa0fb8060c12c6ad838e754"
+checksum = "4217ad341ebadf8d8e724e264f13e593e0648f5b3e94b3896a5df283be015ecc"
 
 [[package]]
 name = "k256"
@@ -790,9 +800,9 @@ dependencies = [
 
 [[package]]
 name = "signature"
-version = "1.6.3"
+version = "1.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deb766570a2825fa972bceff0d195727876a9cdf2460ab2e52d455dc2de47fd9"
+checksum = "74233d3b3b2f6d4b006dc19dee745e73e2a6bfb6f93607cd3b02bd5b00797d7c"
 dependencies = [
  "digest 0.10.5",
  "rand_core 0.6.4",

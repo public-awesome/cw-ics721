@@ -1,5 +1,5 @@
 import { CosmWasmSigner } from "@confio/relayer";
-import anyTest, { TestFn } from "ava";
+import anyTest, { ExecutionContext, TestFn } from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
 import { instantiateContract } from "./controller";
@@ -36,9 +36,10 @@ const test = anyTest as TestFn<TestContext>;
 
 const WASM_FILE_CW721 = "./internal/cw721_base_v0.15.0.wasm";
 const WASM_FILE_CW_ICS721_BRIDGE = "./internal/cw_ics721_bridge.wasm";
-const MALICIOUS_CW721 = "./internal/cw721_gas_tester.wasm";
+const MALICIOUS_CW721 = "./internal/cw721_tester.wasm";
+const BRIDGE_TESTER = "./internal/cw-ics721-bridge-tester";
 
-test.beforeEach(async (t) => {
+const standardSetup = async (t: ExecutionContext<TestContext>) => {
   t.context.wasmClient = await setupWasmClient(MNEMONIC);
   t.context.osmoClient = await setupOsmosisClient(MNEMONIC);
 
@@ -119,9 +120,11 @@ test.beforeEach(async (t) => {
   t.context.channel = channelInfo;
 
   t.pass();
-});
+};
 
 test.serial("transfer NFT", async (t) => {
+  standardSetup(t);
+
   const {
     wasmClient,
     wasmAddr,
@@ -184,6 +187,8 @@ test.serial("transfer NFT", async (t) => {
 });
 
 test.serial("malicious NFT", async (t) => {
+  standardSetup(t);
+
   const {
     wasmClient,
     osmoClient,
