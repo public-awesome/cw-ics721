@@ -1,11 +1,14 @@
 use cosmwasm_std::{Addr, Empty};
+use cw_pause_once::PauseOrchestrator;
 use cw_storage_plus::{Item, Map};
 use serde::Deserialize;
 
 /// The code ID we will use for instantiating new cw721s.
-pub const CW721_ICS_CODE_ID: Item<u64> = Item::new("cw721_code_id");
+pub const CW721_CODE_ID: Item<u64> = Item::new("cw721_code_id");
 /// The proxy that this contract is receiving NFTs from, if any.
 pub const PROXY: Item<Option<Addr>> = Item::new("proxy");
+/// Manages contract pauses.
+pub const PO: PauseOrchestrator = PauseOrchestrator::new("policy", "paused");
 
 /// Maps classID (from NonFungibleTokenPacketData) to the cw721
 /// contract we have instantiated for that classID.

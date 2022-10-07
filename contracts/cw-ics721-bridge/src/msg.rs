@@ -1,6 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{to_binary, Addr, Env, IbcTimeout, StdResult, WasmMsg};
 use cw721_proxy_derive::cw721_proxy;
+use cw_pause_once::UncheckedPausePolicy;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -17,6 +18,11 @@ pub struct InstantiateMsg {
     /// to implement the cw721 proxy interface defined in the
     /// cw721-proxy crate.
     pub proxy: Option<String>,
+    /// Policy for pausing this contract. If policy is none, the
+    /// contract will not be pausable. Otherwise, the contract will be
+    /// pausable a single time by a prespecified address for a
+    /// prespecified duration.
+    pub pause_policy: Option<UncheckedPausePolicy>,
 }
 
 #[cw721_proxy]
@@ -25,6 +31,12 @@ pub enum ExecuteMsg {
     /// Receives a NFT to be IBC transfered away. The `msg` field must
     /// be a binary encoded `IbcAwayMsg`.
     ReceiveNft(cw721::Cw721ReceiveMsg),
+
+    /// Pauses the bridge. Only an address allowed by the pause
+    /// policy may execute this method. The bridge will automatically
+    /// unpause after duration specified in the pause policy.
+    Pause {},
+
     /// Mesages used internally by the contract. These may only be
     /// called by the contract itself.
     Callback(CallbackMsg),
@@ -141,6 +153,14 @@ pub enum QueryMsg {
     /// `cw721::OwnerOfResonse`.
     #[returns(cw721::OwnerOfResponse)]
     Owner { class_id: String, token_id: String },
+}
+
+#[cw_serde]
+pub enum MigrateMsg {
+    WithUpdate {
+        pause_policy: Option<UncheckedPausePolicy>,
+        proxy: Option<String>,
+    },
 }
 
 impl TransferInfo {

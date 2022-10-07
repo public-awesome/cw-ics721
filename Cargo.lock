@@ -201,6 +201,7 @@ dependencies = [
  "cosmwasm-std",
  "cw-multi-test",
  "cw-paginate",
+ "cw-pause-once",
  "cw-storage-plus 0.15.1",
  "cw-utils 0.15.1",
  "cw2",

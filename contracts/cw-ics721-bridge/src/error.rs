@@ -1,4 +1,5 @@
 use cosmwasm_std::StdError;
+use cw_pause_once::PauseError;
 use cw_utils::ParseReplyError;
 use thiserror::Error;
 
@@ -6,6 +7,9 @@ use thiserror::Error;
 pub enum ContractError {
     #[error(transparent)]
     Std(#[from] StdError),
+
+    #[error(transparent)]
+    Pause(#[from] PauseError),
 
     #[error("unauthorized")]
     Unauthorized {},
