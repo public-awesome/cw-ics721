@@ -143,7 +143,7 @@ fn execute_receive_nft(
     msg: Binary,
 ) -> Result<Response, ContractError> {
     if PROXY.load(deps.storage)?.is_some() {
-        return Err(ContractError::Unauthorized {});
+        Err(ContractError::Unauthorized {})
     } else {
         do_receive_nft(deps, info, token_id, sender, msg)
     }

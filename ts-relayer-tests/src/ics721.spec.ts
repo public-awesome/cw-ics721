@@ -122,7 +122,7 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
 };
 
 test.serial("transfer NFT", async (t) => {
-  standardSetup(t);
+  await standardSetup(t);
 
   const {
     wasmClient,
@@ -135,6 +135,7 @@ test.serial("transfer NFT", async (t) => {
     channel,
   } = t.context;
 
+  t.log(JSON.stringify(wasmClient, undefined, 2));
   const tokenId = "1";
   await mint(wasmClient, wasmCw721, tokenId, wasmAddr, undefined);
   // assert token is minted
@@ -186,7 +187,7 @@ test.serial("transfer NFT", async (t) => {
 });
 
 test.serial("malicious NFT", async (t) => {
-  standardSetup(t);
+  await standardSetup(t);
 
   const {
     wasmClient,
