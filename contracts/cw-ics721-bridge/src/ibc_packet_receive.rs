@@ -7,7 +7,7 @@ use crate::{
     ibc::{NonFungibleTokenPacketData, ACK_AND_DO_NOTHING},
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg, NewTokenInfo, TransferInfo},
-    state::{INCOMING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_CLASS_TOKEN_TO_CHANNEL},
+    state::{INCOMING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO},
     ContractError,
 };
 
@@ -39,6 +39,8 @@ pub(crate) fn do_ibc_packet_receive(
     env: Env,
     packet: IbcPacket,
 ) -> Result<IbcReceiveResponse, ContractError> {
+    PO.error_if_paused(deps.storage)?;
+
     let data: NonFungibleTokenPacketData = from_binary(&packet.data)?;
     data.validate()?;
 

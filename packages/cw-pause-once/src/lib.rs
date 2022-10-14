@@ -68,6 +68,7 @@ impl<'a> PauseOrchestrator<'a> {
                 sender: sender.clone(),
             })
         } else {
+            self.pauser.save(storage, &None)?;
             self.paused.save(storage, &true)?;
             Ok(())
         }

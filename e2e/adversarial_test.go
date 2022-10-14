@@ -75,6 +75,8 @@ func (suite *AdversarialTestSuite) SetupTest() {
 
 		instantiateBridge := InstantiateICS721Bridge{
 			2,
+			nil,
+			nil,
 		}
 		instantiateBridgeRaw, err := json.Marshal(instantiateBridge)
 		require.NoError(suite.T(), err)

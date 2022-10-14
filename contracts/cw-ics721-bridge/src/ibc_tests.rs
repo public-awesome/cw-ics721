@@ -14,7 +14,7 @@ use crate::{
     },
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{InstantiateMsg, QueryMsg},
-    state::{CLASS_ID_TO_NFT_CONTRACT, NFT_CONTRACT_TO_CLASS_ID},
+    state::{CLASS_ID_TO_NFT_CONTRACT, NFT_CONTRACT_TO_CLASS_ID, PO},
     ContractError,
 };
 
@@ -410,6 +410,8 @@ fn test_ibc_packet_receive_invalid_packet_data() {
     let mut deps = mock_dependencies();
     let env = mock_env();
 
+    PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
+
     let res = ibc_packet_receive(deps.as_mut(), env, packet);
 
     assert!(res.is_ok());
@@ -427,6 +429,8 @@ fn test_ibc_packet_receive_missmatched_lengths() {
     let packet = IbcPacketReceiveMsg::new(mock_packet(to_binary(&data).unwrap()));
     let mut deps = mock_dependencies();
     let env = mock_env();
+
+    PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
 
     let res = ibc_packet_receive(deps.as_mut(), env, packet);
 
@@ -458,4 +462,30 @@ fn test_packet_json() {
 
     let encdoded = String::from_utf8(to_vec(&packet).unwrap()).unwrap();
     assert_eq!(expected, encdoded.as_str());
+}
+
+#[test]
+fn test_no_receive_when_paused() {
+    let data = to_binary(&QueryMsg::Metadata {
+        class_id: "foobar".to_string(),
+    })
+    .unwrap();
+
+    let packet = IbcPacketReceiveMsg::new(mock_packet(data));
+    let mut deps = mock_dependencies();
+    let env = mock_env();
+
+    PO.set_pauser(&mut deps.storage, &deps.api, Some("ekez"))
+        .unwrap();
+    PO.pause(&mut deps.storage, &Addr::unchecked("ekez"))
+        .unwrap();
+
+    let res = ibc_packet_receive(deps.as_mut(), env, packet);
+
+    assert!(res.is_ok());
+    let error = try_get_ack_error(&IbcAcknowledgement::new(res.unwrap().acknowledgement));
+
+    assert!(error
+        .unwrap()
+        .starts_with("contract is paused pending governance intervention"))
 }

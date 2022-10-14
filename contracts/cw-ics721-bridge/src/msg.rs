@@ -1,6 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::IbcTimeout;
 use cw721_proxy_derive::cw721_proxy;
+use cwd_interface::ModuleInstantiateInfo;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -16,7 +17,7 @@ pub struct InstantiateMsg {
     /// will only accept NFTs from that proxy. The proxy is expected
     /// to implement the cw721 proxy interface defined in the
     /// cw721-proxy crate.
-    pub proxy: Option<String>,
+    pub proxy: Option<ModuleInstantiateInfo>,
     /// Address that may pause the contract. PAUSER may pause the
     /// contract a single time; in pausing the contract they burn the
     /// right to do so again. A new pauser may be later nominated by

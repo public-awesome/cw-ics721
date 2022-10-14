@@ -48,10 +48,11 @@ func (suite *TransferTestSuite) SetupTest() {
 	chainBStoreResp = suite.chainB.StoreCodeFile("../external-wasms/cw721_base_v0.15.0.wasm")
 	require.Equal(suite.T(), uint64(2), chainBStoreResp.CodeID)
 
-	// Store the cw721_base contract.
-
 	instantiateICS721 := InstantiateICS721Bridge{
 		2,
+		// no pauser nor proxy by default.
+		nil,
+		nil,
 	}
 	instantiateICS721Raw, err := json.Marshal(instantiateICS721)
 	require.NoError(suite.T(), err)
@@ -265,6 +266,8 @@ func instantiateBridge(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAdd
 	// Instantiate the bridge contract.
 	instantiateICS721 := InstantiateICS721Bridge{
 		cw721resp.CodeID,
+		nil,
+		nil,
 	}
 	instantiateICS721Raw, err := json.Marshal(instantiateICS721)
 	require.NoError(t, err)
@@ -591,6 +594,8 @@ func TestCloseRejected(t *testing.T) {
 	// Store the cw721_base contract.
 	instantiateICS721 := InstantiateICS721Bridge{
 		2,
+		nil,
+		nil,
 	}
 	instantiateICS721Raw, err := json.Marshal(instantiateICS721)
 	require.NoError(t, err)
@@ -767,19 +772,4 @@ func (suite *TransferTestSuite) TestRefundOnAckFail() {
 	// Check that the NFT was returned to the sender due to the failure.
 	ownerA := queryGetOwnerOf(suite.T(), suite.chainA, chainANft.String())
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), ownerA)
-}
-
-// Tests that each contract query retuns the expected data both for
-// known, and unknown class IDs and NFT addresses.
-func (suite *TransferTestSuite) TestQueries() {
-}
-
-// Tests that the contract rejects connections that use an incorrect
-// IBC version.
-func TestConnectionFailsWithWrongVersion(t *testing.T) {
-}
-
-// Tests that the contract rejects connections that use an incorrect
-// ordering.
-func TestConnectionFailsWithWrongOrdering(t *testing.T) {
 }

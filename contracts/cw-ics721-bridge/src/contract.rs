@@ -8,7 +8,7 @@ use cw2::set_contract_version;
 
 use crate::{
     error::ContractError,
-    ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID},
+    ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
     msg::{
         CallbackMsg, ExecuteMsg, IbcAwayMsg, InstantiateMsg, MigrateMsg, NewTokenInfo, QueryMsg,
         TransferInfo,
@@ -25,23 +25,24 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     CW721_CODE_ID.save(deps.storage, &msg.cw721_base_code_id)?;
-    PROXY.save(
-        deps.storage,
-        &msg.proxy
-            .as_ref()
-            .map(|h| deps.api.addr_validate(h))
-            .transpose()?,
-    )?;
+    PROXY.save(deps.storage, &None)?;
     PO.set_pauser(deps.storage, deps.api, msg.pauser.as_deref())?;
 
+    let proxy_instantiate = msg
+        .proxy
+        .map(|m| m.into_wasm_msg(env.contract.address))
+        .map(|wasm| SubMsg::reply_on_success(wasm, INSTANTIATE_PROXY_REPLY_ID))
+        .map_or(vec![], |s| vec![s]);
+
     Ok(Response::default()
+        .add_submessages(proxy_instantiate)
         .add_attribute("method", "instantiate")
         .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string()))
 }
