@@ -37,7 +37,6 @@ const test = anyTest as TestFn<TestContext>;
 const WASM_FILE_CW721 = "./internal/cw721_base_v0.15.0.wasm";
 const WASM_FILE_CW_ICS721_BRIDGE = "./internal/cw_ics721_bridge.wasm";
 const MALICIOUS_CW721 = "./internal/cw721_tester.wasm";
-const BRIDGE_TESTER = "./internal/cw-ics721-bridge-tester";
 
 const standardSetup = async (t: ExecutionContext<TestContext>) => {
   t.context.wasmClient = await setupWasmClient(MNEMONIC);
@@ -207,7 +206,7 @@ test.serial("malicious NFT", async (t) => {
         name: "evil",
         symbol: "evil",
         minter: wasmClient.senderAddress,
-        target: wasmBridge, // run out of gas every time the bridge tries to return a NFT.
+        target: wasmBridge, // panic every time the bridge tries to return a NFT.
       },
     },
   });

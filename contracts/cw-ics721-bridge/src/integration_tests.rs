@@ -37,6 +37,7 @@ fn instantiate_bridge(app: &mut App) -> Addr {
         &InstantiateMsg {
             cw721_base_code_id: cw721_id,
             proxy: None,
+            pauser: None,
         },
         &[],
         "cw-ics721-bridge",
@@ -55,6 +56,7 @@ fn instantiate_bridge_with_proxy(app: &mut App, proxy: Option<String>) -> Addr {
         &InstantiateMsg {
             cw721_base_code_id: cw721_id,
             proxy,
+            pauser: None,
         },
         &[],
         "cw-ics721-bridge",

@@ -26,73 +26,12 @@ enum Action {
 
 /// Internal type for aggregating actions. Actions can be added via
 /// `add_action`. Once aggregation has completed, a
-/// `HandlePacketReceive` submessage can be created via
-/// `into_submessage`.
+/// `HandlePacketReceive` submessage can be created via the
+/// `into_submessage` method.
 #[derive(Default)]
 struct ActionAggregator {
     pub transfers: Option<TransferInfo>,
     pub new_tokens: Option<NewTokenInfo>,
-}
-
-impl ActionAggregator {
-    pub fn add_action(mut self, action: Action) -> Self {
-        match action {
-            Action::Transfer { class_id, token_id } => {
-                self.transfers = Some(
-                    self.transfers
-                        .map(|mut info| {
-                            info.token_ids.push(token_id.clone());
-                            info
-                        })
-                        .unwrap_or_else(|| TransferInfo {
-                            class_id,
-                            token_ids: vec![token_id],
-                        }),
-                )
-            }
-            Action::NewToken {
-                class_id,
-                token_id,
-                token_uri,
-            } => {
-                self.new_tokens = Some(
-                    self.new_tokens
-                        .map(|mut info| {
-                            info.token_ids.push(token_id.clone());
-                            info.token_uris.push(token_uri.clone());
-                            info
-                        })
-                        .unwrap_or_else(|| NewTokenInfo {
-                            class_id,
-                            token_ids: vec![token_id],
-                            token_uris: vec![token_uri],
-                        }),
-                )
-            }
-        }
-        self
-    }
-
-    pub fn into_submessage(
-        self,
-        contract: Addr,
-        receiver: Addr,
-        class_uri: Option<String>,
-    ) -> StdResult<SubMsg<Empty>> {
-        Ok(SubMsg::reply_always(
-            WasmMsg::Execute {
-                contract_addr: contract.into_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::HandlePacketReceive {
-                    class_uri,
-                    receiver: receiver.into_string(),
-                    transfers: self.transfers,
-                    new_tokens: self.new_tokens,
-                }))?,
-                funds: vec![],
-            },
-            ACK_AND_DO_NOTHING,
-        ))
-    }
 }
 
 pub(crate) fn do_ibc_packet_receive(
@@ -160,4 +99,100 @@ pub(crate) fn do_ibc_packet_receive(
         .add_attribute("class_id", data.class_id)
         .add_attribute("local_channel", packet.dest.channel_id)
         .add_attribute("counterparty_channel", packet.src.channel_id))
+}
+
+impl ActionAggregator {
+    pub fn add_action(mut self, action: Action) -> Self {
+        match action {
+            Action::Transfer { class_id, token_id } => {
+                self.transfers = Some(
+                    self.transfers
+                        .map(|mut info| {
+                            info.token_ids.push(token_id.clone());
+                            info
+                        })
+                        .unwrap_or_else(|| TransferInfo {
+                            class_id,
+                            token_ids: vec![token_id],
+                        }),
+                )
+            }
+            Action::NewToken {
+                class_id,
+                token_id,
+                token_uri,
+            } => {
+                self.new_tokens = Some(
+                    self.new_tokens
+                        .map(|mut info| {
+                            info.token_ids.push(token_id.clone());
+                            info.token_uris.push(token_uri.clone());
+                            info
+                        })
+                        .unwrap_or_else(|| NewTokenInfo {
+                            class_id,
+                            token_ids: vec![token_id],
+                            token_uris: vec![token_uri],
+                        }),
+                )
+            }
+        }
+        self
+    }
+
+    pub fn into_submessage(
+        self,
+        contract: Addr,
+        receiver: Addr,
+        class_uri: Option<String>,
+    ) -> StdResult<SubMsg<Empty>> {
+        Ok(SubMsg::reply_always(
+            WasmMsg::Execute {
+                contract_addr: contract.into_string(),
+                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::HandlePacketReceive {
+                    class_uri,
+                    receiver: receiver.into_string(),
+                    transfers: self.transfers,
+                    new_tokens: self.new_tokens,
+                }))?,
+                funds: vec![],
+            },
+            ACK_AND_DO_NOTHING,
+        ))
+    }
+}
+
+impl TransferInfo {
+    pub(crate) fn into_wasm_msg(self, env: &Env, receiver: &Addr) -> StdResult<WasmMsg> {
+        Ok(WasmMsg::Execute {
+            contract_addr: env.contract.address.to_string(),
+            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::BatchTransfer {
+                class_id: self.class_id,
+                receiver: receiver.to_string(),
+                token_ids: self.token_ids,
+            }))?,
+            funds: vec![],
+        })
+    }
+}
+
+impl NewTokenInfo {
+    pub(crate) fn into_wasm_msg(
+        self,
+        env: &Env,
+        receiver: &Addr,
+        class_uri: Option<String>,
+    ) -> StdResult<WasmMsg> {
+        Ok(WasmMsg::Execute {
+            contract_addr: env.contract.address.to_string(),
+            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
+                class_id: self.class_id,
+                class_uri,
+                receiver: receiver.to_string(),
+                token_ids: self.token_ids,
+                token_uris: self.token_uris,
+            }))?,
+            funds: vec![],
+        })
+    }
 }

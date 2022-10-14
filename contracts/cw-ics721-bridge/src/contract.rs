@@ -39,12 +39,7 @@ pub fn instantiate(
             .map(|h| deps.api.addr_validate(h))
             .transpose()?,
     )?;
-    PO.set_policy(
-        deps.storage,
-        msg.pause_policy
-            .map(|p| p.into_checked(deps.api))
-            .transpose()?,
-    )?;
+    PO.set_pauser(deps.storage, deps.api, msg.pauser.as_deref())?;
 
     Ok(Response::default()
         .add_attribute("method", "instantiate")
@@ -58,7 +53,7 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    PO.error_if_paused(deps.storage, &env.block)?;
+    PO.error_if_paused(deps.storage)?;
     match msg {
         ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
             sender,
@@ -70,7 +65,7 @@ pub fn execute(
             execute_receive_proxy_nft(deps, info, eyeball, msg)
         }
 
-        ExecuteMsg::Pause {} => execute_pause(deps, info, env),
+        ExecuteMsg::Pause {} => execute_pause(deps, info),
 
         ExecuteMsg::Callback(CallbackMsg::Mint {
             class_id,
@@ -153,8 +148,8 @@ fn execute_receive_nft(
     }
 }
 
-fn execute_pause(deps: DepsMut, info: MessageInfo, env: Env) -> Result<Response, ContractError> {
-    PO.pause(deps.storage, &info.sender, &env.block)?;
+fn execute_pause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    PO.pause(deps.storage, &info.sender)?;
     Ok(Response::default().add_attribute("method", "pause"))
 }
 
@@ -411,6 +406,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Owner { class_id, token_id } => {
             to_binary(&query_owner(deps, class_id, token_id)?)
         }
+        QueryMsg::Pauser {} => to_binary(&PO.query_pauser(deps.storage)?),
+        QueryMsg::Paused {} => to_binary(&PO.query_paused(deps.storage)?),
+        QueryMsg::Proxy {} => to_binary(&PROXY.load(deps.storage)?),
     }
 }
 
@@ -448,10 +446,7 @@ fn query_owner(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
     match msg {
-        MigrateMsg::WithUpdate {
-            pause_policy,
-            proxy,
-        } => {
+        MigrateMsg::WithUpdate { pauser, proxy } => {
             PROXY.save(
                 deps.storage,
                 &proxy
@@ -459,10 +454,7 @@ pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, Co
                     .map(|h| deps.api.addr_validate(h))
                     .transpose()?,
             )?;
-            PO.set_policy(
-                deps.storage,
-                pause_policy.map(|p| p.into_checked(deps.api)).transpose()?,
-            )?;
+            PO.set_pauser(deps.storage, deps.api, pauser.as_deref())?;
             Ok(Response::default().add_attribute("method", "migrate"))
         }
     }

@@ -84,12 +84,24 @@ pub fn ibc_channel_close(
         // Error any TX that would cause the channel to close that is
         // coming from the local chain.
         IbcChannelCloseMsg::CloseInit { channel: _ } => Err(ContractError::CantCloseChannel {}),
-        // If the close is coming from the other chain, we must allow
-        // the TX to pass. Otherwise, our chain will believe the
-        // channel to be open, while our counterparty will believe the
-        // channel to be closed.
+        // If we're here, something has gone catastrophically wrong on
+        // our counterparty chain. Per the `CloseInit` handler above,
+        // this contract will _never_ allow its channel to be
+        // closed.
+        //
+        // Clearly, if this happens for a channel with real NFTs that
+        // have been sent out on it, we need some admin
+        // intervention. What intervention? No idea. It is unclear why
+        // this would ever happen (without the counterparty being
+        // malicious in which case it's also situational), yet alone
+        // what to do in response. The admin of this contract is
+        // expected to migrate it if this happens.
+        //
+        // Note: erroring here would prevent our side of the channel
+        // closing (bad because the channel is, for all intents and
+        // purposes, closed) so we must allow the transaction through.
         IbcChannelCloseMsg::CloseConfirm { channel: _ } => Ok(IbcBasicResponse::default()),
-        _ => unreachable!("channel can not be closed"),
+        _ => unreachable!("https://github.com/CosmWasm/cosmwasm/pull/1449"),
     }
 }
 
@@ -213,7 +225,7 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
             // ever used in `DoInstantiateAndMint` which itself is always
             // a submessage of `ibc_packet_receive` which is caught and
             // handled correctly by the reply handler for
-            // `INSTANTIATE_AND_MINT_CW721_REPLY_ID`.
+            // `ACK_AND_DO_NOTHING`.
 
             let res = parse_reply_instantiate_data(reply)?;
             let cw721_addr = deps.api.addr_validate(&res.contract_address)?;

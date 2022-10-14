@@ -1,61 +1,46 @@
-use cosmwasm_std::{
-    testing::{mock_dependencies, mock_env},
-    Addr,
-};
-use cw_utils::{Duration, Expiration};
+use cosmwasm_std::{testing::mock_dependencies, Addr};
 
-use crate::{PauseError, PauseOrchestrator, UncheckedPausePolicy};
+use crate::{PauseError, PauseOrchestrator};
 
 #[test]
 fn test_pause() {
     let mut deps = mock_dependencies();
-    let mut env = mock_env();
+    let storage = &mut deps.storage;
+    let api = &deps.api;
 
-    let policy = UncheckedPausePolicy {
-        pauser: "ekez".to_string(),
-        pause_duration: Duration::Height(1),
-    };
+    let pauser = PauseOrchestrator::new("pauser", "paused");
+    pauser.set_pauser(storage, api, Some("ekez")).unwrap();
 
-    let po = PauseOrchestrator::new("policy", "pause");
-    po.set_policy(
-        &mut deps.storage,
-        Some(policy.into_checked(&deps.api).unwrap()),
-    )
-    .unwrap();
+    // Should start unpaused.
+    let paused = pauser.query_paused(storage).unwrap();
+    assert!(!paused);
 
-    // Only the designated pauser may pause.
-    let err: PauseError = po
-        .pause(&mut deps.storage, &Addr::unchecked("notekez"), &env.block)
-        .unwrap_err();
+    // Non-pauser can not pause.
+    let err = pauser.pause(storage, &Addr::unchecked("zeke")).unwrap_err();
     assert_eq!(
         err,
         PauseError::Unauthorized {
-            sender: Addr::unchecked("notekez")
-        }
-    );
-    // Not paused.
-    po.error_if_paused(&deps.storage, &env.block).unwrap();
-
-    po.pause(&mut deps.storage, &Addr::unchecked("ekez"), &env.block)
-        .unwrap();
-
-    let err: PauseError = po.error_if_paused(&deps.storage, &env.block).unwrap_err();
-    assert_eq!(
-        err,
-        PauseError::Paused {
-            expiration: Expiration::AtHeight(env.block.height + 1)
+            sender: Addr::unchecked("zeke")
         }
     );
 
-    // Time's arrow merely marches forward.
-    env.block.height += 1;
+    // Pauser can pause once.
+    pauser.pause(storage, &Addr::unchecked("ekez")).unwrap();
+    let paused = pauser.query_paused(storage).unwrap();
+    assert!(paused);
 
-    // No longer paused.
-    po.error_if_paused(&deps.storage, &env.block).unwrap();
-    // Original pauser burned their pause privledges.
-    let err: PauseError = po
-        .pause(&mut deps.storage, &Addr::unchecked("ekez"), &env.block)
-        .unwrap_err();
+    let err = pauser.pause(storage, &Addr::unchecked("ekez")).unwrap_err();
+    assert_eq!(err, PauseError::Paused {});
+
+    // Nominate a new pauser.
+    pauser.set_pauser(storage, api, Some("zeke")).unwrap();
+
+    // Nomination unpauses.
+    let paused = pauser.query_paused(storage).unwrap();
+    assert!(!paused);
+
+    // Old pauser may not pause.
+    let err = pauser.pause(storage, &Addr::unchecked("ekez")).unwrap_err();
     assert_eq!(
         err,
         PauseError::Unauthorized {
@@ -63,41 +48,8 @@ fn test_pause() {
         }
     );
 
-    // Assign a new pauser.
-    let policy = UncheckedPausePolicy {
-        pauser: "meow".to_string(),
-        pause_duration: Duration::Time(100),
-    };
-    po.set_policy(
-        &mut deps.storage,
-        Some(policy.into_checked(&deps.api).unwrap()),
-    )
-    .unwrap();
-
-    // New pauser can pause.
-    po.pause(&mut deps.storage, &Addr::unchecked("meow"), &env.block)
-        .unwrap();
-
-    let err: PauseError = po.error_if_paused(&deps.storage, &env.block).unwrap_err();
-    assert_eq!(
-        err,
-        PauseError::Paused {
-            expiration: Expiration::AtTime(env.block.time.plus_seconds(100))
-        }
-    );
-
-    // Removing the pauser removes their pause as well.
-    po.set_policy(&mut deps.storage, None).unwrap();
-    po.error_if_paused(&deps.storage, &env.block).unwrap();
-
-    // With no policy set, attempting to pause fails.
-    let err: PauseError = po
-        .pause(&mut deps.storage, &Addr::unchecked("meow"), &env.block)
-        .unwrap_err();
-    assert_eq!(
-        err,
-        PauseError::Unauthorized {
-            sender: Addr::unchecked("meow")
-        }
-    );
+    // New pauser may pause.
+    pauser.pause(storage, &Addr::unchecked("zeke")).unwrap();
+    let paused = pauser.query_paused(storage).unwrap();
+    assert!(paused);
 }

@@ -129,10 +129,10 @@ impl NonFungibleTokenPacketData {
             return Err(ContractError::TokenInfoLenMissmatch {});
         }
 
-        // TODO: Should we check the tokenIds field for duplicates?
-        // O(log(N)). A well behaved cw721 implementation will catch
-        // this downstream if we try and mint / trasnfer the same
-        // token twice.
+        // Could check the tokenIds field for duplicates, O(log(N)). A
+        // well behaved cw721 implementation will catch this
+        // downstream if we try and mint / trasnfer the same token
+        // twice.
 
         Ok(())
     }
