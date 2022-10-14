@@ -8,13 +8,14 @@ use cw2::set_contract_version;
 
 use crate::{
     error::ContractError,
-    ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID},
+    ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
     msg::{
-        CallbackMsg, ExecuteMsg, IbcAwayMsg, InstantiateMsg, NewTokenInfo, QueryMsg, TransferInfo,
+        CallbackMsg, ExecuteMsg, IbcAwayMsg, InstantiateMsg, MigrateMsg, NewTokenInfo, QueryMsg,
+        TransferInfo,
     },
     state::{
-        UniversalNftInfoResponse, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT,
-        CW721_ICS_CODE_ID, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PROXY,
+        UniversalNftInfoResponse, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
+        NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY,
     },
 };
 
@@ -24,22 +25,24 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-    CW721_ICS_CODE_ID.save(deps.storage, &msg.cw721_base_code_id)?;
-    PROXY.save(
-        deps.storage,
-        &msg.proxy
-            .as_ref()
-            .map(|h| deps.api.addr_validate(h))
-            .transpose()?,
-    )?;
+    CW721_CODE_ID.save(deps.storage, &msg.cw721_base_code_id)?;
+    PROXY.save(deps.storage, &None)?;
+    PO.set_pauser(deps.storage, deps.api, msg.pauser.as_deref())?;
+
+    let proxy_instantiate = msg
+        .proxy
+        .map(|m| m.into_wasm_msg(env.contract.address))
+        .map(|wasm| SubMsg::reply_on_success(wasm, INSTANTIATE_PROXY_REPLY_ID))
+        .map_or(vec![], |s| vec![s]);
 
     Ok(Response::default()
+        .add_submessages(proxy_instantiate)
         .add_attribute("method", "instantiate")
         .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string()))
 }
@@ -51,6 +54,7 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
+    PO.error_if_paused(deps.storage)?;
     match msg {
         ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
             sender,
@@ -61,6 +65,8 @@ pub fn execute(
         ExecuteMsg::ReceiveProxyNft { eyeball, msg } => {
             execute_receive_proxy_nft(deps, info, eyeball, msg)
         }
+
+        ExecuteMsg::Pause {} => execute_pause(deps, info),
 
         ExecuteMsg::Callback(CallbackMsg::Mint {
             class_id,
@@ -137,10 +143,15 @@ fn execute_receive_nft(
     msg: Binary,
 ) -> Result<Response, ContractError> {
     if PROXY.load(deps.storage)?.is_some() {
-        return Err(ContractError::Unauthorized {});
+        Err(ContractError::Unauthorized {})
     } else {
         do_receive_nft(deps, info, token_id, sender, msg)
     }
+}
+
+fn execute_pause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    PO.pause(deps.storage, &info.sender)?;
+    Ok(Response::default().add_attribute("method", "pause"))
 }
 
 fn do_receive_nft(
@@ -299,23 +310,17 @@ fn execute_do_instantiate_and_mint(
     // Optionally, instantiate a new cw721 contract if one does not
     // yet exist.
     let submessages = if CLASS_ID_TO_NFT_CONTRACT.has(deps.storage, class_id.clone()) {
-        // NOTE: We do not check that the incoming `class_uri` matches
-        // the `class_uri` of other NFTs we have seen that are part of
-        // the collection. The result of this is that, from the
-        // perspective of our chain, the first NFT of a collection to
-        // arrive sets the class level metadata for all preceding
-        // NFTs.
         vec![]
     } else {
         let message = SubMsg::<Empty>::reply_on_success(
             WasmMsg::Instantiate {
-                admin: None, // TODO: Any reason to set ourselves as admin?
-                code_id: CW721_ICS_CODE_ID.load(deps.storage)?,
+                admin: None,
+                code_id: CW721_CODE_ID.load(deps.storage)?,
                 msg: to_binary(&cw721_base::msg::InstantiateMsg {
                     // Name of the collection MUST be class_id as this is how
                     // we create a map entry on reply.
                     name: class_id.to_string(),
-                    symbol: class_id.to_string(), // TODO: What should we put here?
+                    symbol: class_id.to_string(),
                     minter: env.contract.address.to_string(),
                 })?,
                 funds: vec![],
@@ -402,6 +407,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Owner { class_id, token_id } => {
             to_binary(&query_owner(deps, class_id, token_id)?)
         }
+        QueryMsg::Pauser {} => to_binary(&PO.query_pauser(deps.storage)?),
+        QueryMsg::Paused {} => to_binary(&PO.query_paused(deps.storage)?),
+        QueryMsg::Proxy {} => to_binary(&PROXY.load(deps.storage)?),
     }
 }
 
@@ -434,6 +442,23 @@ fn query_owner(
         },
     )?;
     Ok(resp)
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
+    match msg {
+        MigrateMsg::WithUpdate { pauser, proxy } => {
+            PROXY.save(
+                deps.storage,
+                &proxy
+                    .as_ref()
+                    .map(|h| deps.api.addr_validate(h))
+                    .transpose()?,
+            )?;
+            PO.set_pauser(deps.storage, deps.api, pauser.as_deref())?;
+            Ok(Response::default().add_attribute("method", "migrate"))
+        }
+    }
 }
 
 #[cfg(test)]

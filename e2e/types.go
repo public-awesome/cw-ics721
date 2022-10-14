@@ -1,7 +1,16 @@
 package e2e_test
 
+type ModuleInstantiateInfo struct {
+	CodeID uint64 `json:"code_id"`
+	Msg    string `json:"msg"`
+	Admin  string `json:"admin"`
+	Label  string `json:"label"`
+}
+
 type InstantiateICS721Bridge struct {
-	CW721CodeID uint64 `json:"cw721_base_code_id"`
+	CW721CodeID uint64                 `json:"cw721_base_code_id"`
+	Proxy       *ModuleInstantiateInfo `json:"proxy"`
+	Pauser      *string                `json:"pauser"`
 }
 
 type InstantiateCw721 struct {

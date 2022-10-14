@@ -14,19 +14,21 @@ use crate::{
     ibc_packet_receive::do_ibc_packet_receive,
     state::{
         CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID,
-        OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL, PROXY,
     },
     ContractError,
 };
 
 /// Submessage reply ID used for instantiating cw721 contracts.
 pub(crate) const INSTANTIATE_CW721_REPLY_ID: u64 = 0;
+/// Submessage reply ID used for instantiating the proxy contract.
+pub(crate) const INSTANTIATE_PROXY_REPLY_ID: u64 = 1;
 /// Submessages dispatched with this reply ID will set the ack on the
 /// response depending on if the submessage execution succeded or
 /// failed.
-pub(crate) const ACK_AND_DO_NOTHING: u64 = 1;
+pub(crate) const ACK_AND_DO_NOTHING: u64 = 2;
 /// The IBC version this contract expects to communicate with.
-pub(crate) const IBC_VERSION: &str = "ics721-1";
+pub const IBC_VERSION: &str = "ics721-1";
 
 #[cw_serde]
 #[serde(rename_all = "camelCase")]
@@ -84,12 +86,24 @@ pub fn ibc_channel_close(
         // Error any TX that would cause the channel to close that is
         // coming from the local chain.
         IbcChannelCloseMsg::CloseInit { channel: _ } => Err(ContractError::CantCloseChannel {}),
-        // If the close is coming from the other chain, we must allow
-        // the TX to pass. Otherwise, our chain will believe the
-        // channel to be open, while our counterparty will believe the
-        // channel to be closed.
+        // If we're here, something has gone catastrophically wrong on
+        // our counterparty chain. Per the `CloseInit` handler above,
+        // this contract will _never_ allow its channel to be
+        // closed.
+        //
+        // Clearly, if this happens for a channel with real NFTs that
+        // have been sent out on it, we need some admin
+        // intervention. What intervention? No idea. It is unclear why
+        // this would ever happen (without the counterparty being
+        // malicious in which case it's also situational), yet alone
+        // what to do in response. The admin of this contract is
+        // expected to migrate it if this happens.
+        //
+        // Note: erroring here would prevent our side of the channel
+        // closing (bad because the channel is, for all intents and
+        // purposes, closed) so we must allow the transaction through.
         IbcChannelCloseMsg::CloseConfirm { channel: _ } => Ok(IbcBasicResponse::default()),
-        _ => unreachable!("channel can not be closed"),
+        _ => unreachable!("https://github.com/CosmWasm/cosmwasm/pull/1449"),
     }
 }
 
@@ -213,7 +227,7 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
             // ever used in `DoInstantiateAndMint` which itself is always
             // a submessage of `ibc_packet_receive` which is caught and
             // handled correctly by the reply handler for
-            // `INSTANTIATE_AND_MINT_CW721_REPLY_ID`.
+            // `ACK_AND_DO_NOTHING`.
 
             let res = parse_reply_instantiate_data(reply)?;
             let cw721_addr = deps.api.addr_validate(&res.contract_address)?;
@@ -233,6 +247,15 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
                 .add_attribute("method", "instantiate_cw721_reply")
                 .add_attribute("class_id", class_id)
                 .add_attribute("cw721_addr", cw721_addr))
+        }
+        INSTANTIATE_PROXY_REPLY_ID => {
+            let res = parse_reply_instantiate_data(reply)?;
+            let proxy_addr = deps.api.addr_validate(&res.contract_address)?;
+            PROXY.save(deps.storage, &Some(proxy_addr))?;
+
+            Ok(Response::default()
+                .add_attribute("method", "instantiate_proxy_reply_id")
+                .add_attribute("proxy", res.contract_address))
         }
         // These messages don't need to do any state changes in the
         // reply - just need to commit an ack.

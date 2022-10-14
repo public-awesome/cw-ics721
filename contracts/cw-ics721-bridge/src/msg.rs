@@ -1,6 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{to_binary, Addr, Env, IbcTimeout, StdResult, WasmMsg};
+use cosmwasm_std::IbcTimeout;
 use cw721_proxy_derive::cw721_proxy;
+use cwd_interface::ModuleInstantiateInfo;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -10,13 +11,18 @@ pub struct InstantiateMsg {
     /// NOTE: this _must_ correspond to the cw721-base contract. Using
     /// a regular cw721 may cause the ICS 721 interface implemented by
     /// this contract to stop working, and IBCd away NFTs to be
-    /// unreturnable (cw721 does not have a mint method in the spec).
+    /// unreturnable as cw721 does not have a mint method in the spec.
     pub cw721_base_code_id: u64,
     /// An optional proxy contract. If a proxy is set the contract
     /// will only accept NFTs from that proxy. The proxy is expected
     /// to implement the cw721 proxy interface defined in the
     /// cw721-proxy crate.
-    pub proxy: Option<String>,
+    pub proxy: Option<ModuleInstantiateInfo>,
+    /// Address that may pause the contract. PAUSER may pause the
+    /// contract a single time; in pausing the contract they burn the
+    /// right to do so again. A new pauser may be later nominated by
+    /// the CosmWasm level admin via a migration.
+    pub pauser: Option<String>,
 }
 
 #[cw721_proxy]
@@ -25,6 +31,11 @@ pub enum ExecuteMsg {
     /// Receives a NFT to be IBC transfered away. The `msg` field must
     /// be a binary encoded `IbcAwayMsg`.
     ReceiveNft(cw721::Cw721ReceiveMsg),
+
+    /// Pauses the bridge. Only the pauser may call this. In pausing
+    /// the contract, the pauser burns the right to do so again.
+    Pause {},
+
     /// Mesages used internally by the contract. These may only be
     /// called by the contract itself.
     Callback(CallbackMsg),
@@ -82,23 +93,33 @@ pub enum CallbackMsg {
     /// and NEW_TOKENS into a `DoInstantiateAndMint`, then dispatches
     /// those methods.
     HandlePacketReceive {
+        /// The address receiving the NFTs.
         receiver: String,
+        /// The URI for the collection being transfered.
         class_uri: Option<String>,
+        /// Information about transfer actions.
         transfers: Option<TransferInfo>,
+        /// Information about mint actions.
         new_tokens: Option<NewTokenInfo>,
     },
 }
 
 #[cw_serde]
 pub struct TransferInfo {
+    /// The class ID the tokens belong to.
     pub class_id: String,
+    /// The tokens to be transfered.
     pub token_ids: Vec<String>,
 }
 
 #[cw_serde]
 pub struct NewTokenInfo {
+    /// The class ID to mint tokens for.
     pub class_id: String,
+    /// The token IDs of the tokens to be minted.
     pub token_ids: Vec<String>,
+    /// The URIs of the tokens to be minted. Matched with token_ids by
+    /// index.
     pub token_uris: Vec<String>,
 }
 
@@ -127,7 +148,7 @@ pub enum QueryMsg {
     /// Gets the NFT contract associated wtih the provided class
     /// ID. If no such contract exists, returns None. Returns
     /// Option<Addr>.
-    #[returns(Option<Addr>)]
+    #[returns(Option<::cosmwasm_std::Addr>)]
     NftContractForClassId { class_id: String },
 
     /// Gets the class level metadata URI for the provided
@@ -139,41 +160,30 @@ pub enum QueryMsg {
     /// Gets the owner of the NFT identified by CLASS_ID and
     /// TOKEN_ID. Errors if no such NFT exists. Returns
     /// `cw721::OwnerOfResonse`.
-    #[returns(cw721::OwnerOfResponse)]
+    #[returns(::cw721::OwnerOfResponse)]
     Owner { class_id: String, token_id: String },
+
+    /// Gets the address that may pause this contract if one is set.
+    #[returns(Option<::cosmwasm_std::Addr>)]
+    Pauser {},
+
+    /// Gets the current pause status.
+    #[returns(bool)]
+    Paused {},
+
+    /// Gets this contract's cw721-proxy if one is set.
+    #[returns(Option<::cosmwasm_std::Addr>)]
+    Proxy {},
 }
 
-impl TransferInfo {
-    pub(crate) fn into_wasm_msg(self, env: &Env, receiver: &Addr) -> StdResult<WasmMsg> {
-        Ok(WasmMsg::Execute {
-            contract_addr: env.contract.address.to_string(),
-            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::BatchTransfer {
-                class_id: self.class_id,
-                receiver: receiver.to_string(),
-                token_ids: self.token_ids,
-            }))?,
-            funds: vec![],
-        })
-    }
-}
-
-impl NewTokenInfo {
-    pub(crate) fn into_wasm_msg(
-        self,
-        env: &Env,
-        receiver: &Addr,
-        class_uri: Option<String>,
-    ) -> StdResult<WasmMsg> {
-        Ok(WasmMsg::Execute {
-            contract_addr: env.contract.address.to_string(),
-            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
-                class_id: self.class_id,
-                class_uri,
-                receiver: receiver.to_string(),
-                token_ids: self.token_ids,
-                token_uris: self.token_uris,
-            }))?,
-            funds: vec![],
-        })
-    }
+#[cw_serde]
+pub enum MigrateMsg {
+    WithUpdate {
+        /// The address that may pause the contract. If `None` is
+        /// provided the current pauser will be removed.
+        pauser: Option<String>,
+        /// The cw721-proxy for this contract. If `None` is provided
+        /// the current proxy will be removed.
+        proxy: Option<String>,
+    },
 }

@@ -1,5 +1,5 @@
 import { CosmWasmSigner } from "@confio/relayer";
-import anyTest, { TestFn } from "ava";
+import anyTest, { ExecutionContext, TestFn } from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
 import { instantiateContract } from "./controller";
@@ -36,9 +36,9 @@ const test = anyTest as TestFn<TestContext>;
 
 const WASM_FILE_CW721 = "./internal/cw721_base_v0.15.0.wasm";
 const WASM_FILE_CW_ICS721_BRIDGE = "./internal/cw_ics721_bridge.wasm";
-const MALICIOUS_CW721 = "./internal/cw721_gas_tester.wasm";
+const MALICIOUS_CW721 = "./internal/cw721_tester.wasm";
 
-test.beforeEach(async (t) => {
+const standardSetup = async (t: ExecutionContext<TestContext>) => {
   t.context.wasmClient = await setupWasmClient(MNEMONIC);
   t.context.osmoClient = await setupOsmosisClient(MNEMONIC);
 
@@ -119,9 +119,11 @@ test.beforeEach(async (t) => {
   t.context.channel = channelInfo;
 
   t.pass();
-});
+};
 
 test.serial("transfer NFT", async (t) => {
+  await standardSetup(t);
+
   const {
     wasmClient,
     wasmAddr,
@@ -133,6 +135,7 @@ test.serial("transfer NFT", async (t) => {
     channel,
   } = t.context;
 
+  t.log(JSON.stringify(wasmClient, undefined, 2));
   const tokenId = "1";
   await mint(wasmClient, wasmCw721, tokenId, wasmAddr, undefined);
   // assert token is minted
@@ -184,6 +187,8 @@ test.serial("transfer NFT", async (t) => {
 });
 
 test.serial("malicious NFT", async (t) => {
+  await standardSetup(t);
+
   const {
     wasmClient,
     osmoClient,
@@ -202,7 +207,7 @@ test.serial("malicious NFT", async (t) => {
         name: "evil",
         symbol: "evil",
         minter: wasmClient.senderAddress,
-        target: wasmBridge, // run out of gas every time the bridge tries to return a NFT.
+        target: wasmBridge, // panic every time the bridge tries to return a NFT.
       },
     },
   });
