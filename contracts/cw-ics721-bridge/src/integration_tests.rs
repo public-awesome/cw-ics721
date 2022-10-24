@@ -1,11 +1,11 @@
 use cosmwasm_std::{to_binary, Addr, Empty, IbcTimeout, IbcTimeoutBlock, WasmMsg};
+use cw_cii::{Admin, ContractInstantiateInfo};
 use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 use cw_pause_once::PauseError;
-use cwd_interface::{Admin, ModuleInstantiateInfo};
 
 use crate::{
     msg::{
-        CallbackMsg, ExecuteMsg, IbcAwayMsg, InstantiateMsg, MigrateMsg, QueryMsg, TransferInfo,
+        CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg, TransferInfo,
     },
     ContractError,
 };
@@ -79,7 +79,7 @@ fn instantiate_bridge_with_pauser(app: &mut App, pauser: &str) -> Addr {
     .unwrap()
 }
 
-fn instantiate_bridge_with_proxy(app: &mut App, proxy: Option<ModuleInstantiateInfo>) -> Addr {
+fn instantiate_bridge_with_proxy(app: &mut App, proxy: Option<ContractInstantiateInfo>) -> Addr {
     let cw721_id = app.store_code(cw721_contract());
     let bridge_id = app.store_code(bridge_contract());
 
@@ -149,7 +149,7 @@ fn test_do_instantiate_and_mint_weird_data() {
     app.execute_contract(
         bridge.clone(),
         bridge,
-        &ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
+        &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
             class_id: "bad kids".to_string(),
             class_uri: None,
             token_ids: vec!["1".to_string()],
@@ -170,7 +170,7 @@ fn test_do_instantiate_and_mint() {
     app.execute_contract(
         bridge.clone(),
         bridge.clone(),
-        &ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
+        &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
             class_id: "bad kids".to_string(),
             class_uri: Some("https://moonphase.is".to_string()),
             token_ids: vec!["1".to_string(), "2".to_string()],
@@ -189,7 +189,7 @@ fn test_do_instantiate_and_mint() {
         .wrap()
         .query_wasm_smart(
             bridge.clone(),
-            &QueryMsg::NftContractForClassId {
+            &QueryMsg::NftContract {
                 class_id: "bad kids".to_string(),
             },
         )
@@ -277,7 +277,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
     app.execute_contract(
         bridge.clone(),
         bridge.clone(),
-        &ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
+        &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
             class_id: "bad kids".to_string(),
             class_uri: Some("https://moonphase.is".to_string()),
             token_ids: vec!["1".to_string()],
@@ -293,7 +293,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
     app.execute_contract(
         bridge.clone(),
         bridge.clone(),
-        &ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
+        &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
             class_id: "bad kids".to_string(),
             class_uri: Some("https://moonphase.is".to_string()),
             token_ids: vec!["2".to_string()],
@@ -309,7 +309,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         .wrap()
         .query_wasm_smart(
             bridge,
-            &QueryMsg::NftContractForClassId {
+            &QueryMsg::NftContract {
                 class_id: "bad kids".to_string(),
             },
         )
@@ -341,7 +341,7 @@ fn test_do_instantiate_and_mint_permissions() {
         .execute_contract(
             Addr::unchecked("ekez"),
             bridge,
-            &ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
+            &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
                 class_id: "bad kids".to_string(),
                 class_uri: Some("https://moonphase.is".to_string()),
                 token_ids: vec!["1".to_string()],
@@ -399,14 +399,14 @@ fn test_proxy_authorized() {
     let proxy_id = app.store_code(proxy_contract());
     let bridge = instantiate_bridge_with_proxy(
         &mut app,
-        Some(ModuleInstantiateInfo {
+        Some(ContractInstantiateInfo {
             code_id: proxy_id,
             msg: to_binary(&rlp::msg::InstantiateMsg {
                 rate_limit: rlp::Rate::PerBlock(10),
                 origin: None,
             })
             .unwrap(),
-            admin: Some(Admin::CoreModule {}),
+            admin: Some(Admin::Instantiator {}),
             label: "rate limited proxy".to_string(),
         }),
     );
@@ -453,7 +453,7 @@ fn test_proxy_authorized() {
             msg: cw721::Cw721ReceiveMsg {
                 sender: "ekez".to_string(),
                 token_id: "1".to_string(),
-                msg: to_binary(&IbcAwayMsg {
+                msg: to_binary(&IbcOutgoingMsg {
                     receiver: "ekez".to_string(),
                     channel_id: "channel-0".to_string(),
                     timeout: IbcTimeout::with_block(IbcTimeoutBlock {
@@ -479,14 +479,14 @@ fn test_no_receive_with_proxy() {
     let proxy_id = app.store_code(proxy_contract());
     let bridge = instantiate_bridge_with_proxy(
         &mut app,
-        Some(ModuleInstantiateInfo {
+        Some(ContractInstantiateInfo {
             code_id: proxy_id,
             msg: to_binary(&rlp::msg::InstantiateMsg {
                 rate_limit: rlp::Rate::PerBlock(10),
                 origin: None,
             })
             .unwrap(),
-            admin: Some(Admin::CoreModule {}),
+            admin: Some(Admin::Instantiator {}),
             label: "rate limited proxy".to_string(),
         }),
     );
@@ -498,7 +498,7 @@ fn test_no_receive_with_proxy() {
             &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
                 sender: "ekez".to_string(),
                 token_id: "1".to_string(),
-                msg: to_binary(&IbcAwayMsg {
+                msg: to_binary(&IbcOutgoingMsg {
                     receiver: "ekez".to_string(),
                     channel_id: "channel-0".to_string(),
                     timeout: IbcTimeout::with_block(IbcTimeoutBlock {

@@ -172,8 +172,8 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	require.Equal(suite.T(), suite.chainB.SenderAccount.GetAddress().String(), resp.Owner)
 
 	// Get the address of the instantiated cw721.
-	getClassQuery := NftContractForClassIdQuery{
-		NftContractForClassId: NftContractForClassIdQueryData{
+	getClassQuery := NftContractQuery{
+		NftContractForClassId: NftContractQueryData{
 			ClassID: chainBClassID,
 		},
 	}
@@ -184,8 +184,8 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	suite.T().Logf("Chain B cw721: %s", chainBCw721)
 
 	// Check that the classID for the contract has been set properly.
-	getClassIDQuery := ClassIdForNFTContractQuery{
-		ClassIdForNFTContract: ClassIdForNFTContractQueryData{
+	getClassIDQuery := ClassIdQuery{
+		ClassIdForNFTContract: ClassIdQueryData{
 			Contract: chainBCw721,
 		},
 	}
@@ -232,8 +232,8 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 
 	// Check that the GetClass query returns what we expect for
 	// local NFTs.
-	getClassQuery = NftContractForClassIdQuery{
-		NftContractForClassId: NftContractForClassIdQueryData{
+	getClassQuery = NftContractQuery{
+		NftContractForClassId: NftContractQueryData{
 			ClassID: cw721.String(),
 		},
 	}
@@ -326,8 +326,8 @@ func ics721Nft(t *testing.T, chain *wasmibctesting.TestChain, path *wasmibctesti
 }
 
 func queryGetNftForClass(t *testing.T, chain *wasmibctesting.TestChain, bridge, classID string) string {
-	getClassQuery := NftContractForClassIdQuery{
-		NftContractForClassId: NftContractForClassIdQueryData{
+	getClassQuery := NftContractQuery{
+		NftContractForClassId: NftContractQueryData{
 			ClassID: classID,
 		},
 	}

@@ -1,0 +1,5 @@
+# CosmWasm Contract Instantiate Info (cw-cii)
+
+Provides a type `ContractInstantiateInfo` which may be provided as
+part of a contract message and specifies all the needed information
+for instantiating a new contract.

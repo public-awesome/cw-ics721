@@ -23,9 +23,9 @@ cw721-base = { version = "0.15", features = ["library"] }
 thiserror = "1"
 serde = "1.0"
 cw-paginate = { git = "https://github.com/DA0-DA0/dao-contracts.git", tag = "v2.0.0-beta" }
-cwd-interface = { git = "https://github.com/DA0-DA0/dao-contracts.git", tag = "v2.0.0-beta" }
 cw721-proxy-derive = { git = "https://github.com/0xekez/cw721-proxy.git" }
 cw-pause-once = { path = "../../packages/cw-pause-once" }
+cw-cii = { path = "../../packages/cw-cii" }
 
 [dev-dependencies]
 cw-multi-test = "0.13.4"

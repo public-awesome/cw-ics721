@@ -187,7 +187,7 @@ impl NewTokenInfo {
     ) -> StdResult<WasmMsg> {
         Ok(WasmMsg::Execute {
             contract_addr: env.contract.address.to_string(),
-            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
+            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
                 class_id: self.class_id,
                 class_uri,
                 receiver: receiver.to_string(),

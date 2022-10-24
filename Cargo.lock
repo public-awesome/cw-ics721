@@ -194,22 +194,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "cw-cii"
+version = "0.0.1"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+]
+
+[[package]]
 name = "cw-ics721-bridge"
 version = "0.0.1"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cw-cii",
  "cw-multi-test",
  "cw-paginate",
  "cw-pause-once",
  "cw-storage-plus 0.15.1",
  "cw-utils 0.15.1",
- "cw2 0.15.1",
+ "cw2",
  "cw721",
  "cw721-base",
  "cw721-proxy-derive",
  "cw721-rate-limited-proxy",
- "cwd-interface",
  "serde",
  "thiserror",
 ]
@@ -223,7 +231,7 @@ dependencies = [
  "cosmwasm-storage",
  "cw-ics721-bridge",
  "cw-storage-plus 0.15.1",
- "cw2 0.15.1",
+ "cw2",
  "thiserror",
 ]
 
@@ -323,23 +331,11 @@ checksum = "0ae0b69fa7679de78825b4edeeec045066aa2b2c4b6e063d80042e565bb4da5c"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
- "cw2 0.15.1",
+ "cw2",
  "schemars",
  "semver",
  "serde",
  "thiserror",
-]
-
-[[package]]
-name = "cw2"
-version = "0.13.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04cf4639517490dd36b333bbd6c4fbd92e325fd0acf4683b41753bc5eb63bfc1"
-dependencies = [
- "cosmwasm-std",
- "cw-storage-plus 0.13.4",
- "schemars",
- "serde",
 ]
 
 [[package]]
@@ -378,7 +374,7 @@ dependencies = [
  "cosmwasm-std",
  "cw-storage-plus 0.15.1",
  "cw-utils 0.15.1",
- "cw2 0.15.1",
+ "cw2",
  "cw721",
  "schemars",
  "serde",
@@ -418,7 +414,7 @@ dependencies = [
  "cosmwasm-std",
  "cw-rate-limiter",
  "cw-storage-plus 0.15.1",
- "cw2 0.15.1",
+ "cw2",
  "cw721",
  "cw721-proxy",
  "cw721-proxy-derive",
@@ -432,31 +428,9 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus 0.15.1",
- "cw2 0.15.1",
+ "cw2",
  "cw721-base",
  "thiserror",
-]
-
-[[package]]
-name = "cwd-interface"
-version = "0.2.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts.git?tag=v2.0.0-beta#2ff37311f4335b6c5b2e49f8d3727313a86a251f"
-dependencies = [
- "cosmwasm-std",
- "cw2 0.13.4",
- "cwd-macros",
- "schemars",
- "serde",
-]
-
-[[package]]
-name = "cwd-macros"
-version = "0.2.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts.git?tag=v2.0.0-beta#2ff37311f4335b6c5b2e49f8d3727313a86a251f"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

@@ -4,29 +4,27 @@ use cw_storage_plus::{Item, Map};
 use serde::Deserialize;
 
 /// The code ID we will use for instantiating new cw721s.
-pub const CW721_CODE_ID: Item<u64> = Item::new("cw721_code_id");
+pub const CW721_CODE_ID: Item<u64> = Item::new("a");
 /// The proxy that this contract is receiving NFTs from, if any.
-pub const PROXY: Item<Option<Addr>> = Item::new("proxy");
+pub const PROXY: Item<Option<Addr>> = Item::new("b");
 /// Manages contract pauses.
-pub const PO: PauseOrchestrator = PauseOrchestrator::new("policy", "paused");
+pub const PO: PauseOrchestrator = PauseOrchestrator::new("c", "d");
 
 /// Maps classID (from NonFungibleTokenPacketData) to the cw721
 /// contract we have instantiated for that classID.
-pub const CLASS_ID_TO_NFT_CONTRACT: Map<String, Addr> = Map::new("class_id_to_contract");
+pub const CLASS_ID_TO_NFT_CONTRACT: Map<String, Addr> = Map::new("e");
 /// Maps cw721 contracts to the classID they were instantiated for.
-pub const NFT_CONTRACT_TO_CLASS_ID: Map<Addr, String> = Map::new("contract_to_class_id");
+pub const NFT_CONTRACT_TO_CLASS_ID: Map<Addr, String> = Map::new("f");
 
 /// Maps between classIDs and classUris. We need to keep this state
 /// ourselves as cw721 contracts do not have class-level metadata.
-pub const CLASS_ID_TO_CLASS_URI: Map<String, Option<String>> = Map::new("class_id_to_class_uri");
+pub const CLASS_ID_TO_CLASS_URI: Map<String, Option<String>> = Map::new("g");
 
 /// Maps (class ID, token ID) -> local channel ID. Used to determine
 /// the local channel that NFTs have been sent out on.
-pub const OUTGOING_CLASS_TOKEN_TO_CHANNEL: Map<(String, String), String> =
-    Map::new("outgoing_class_token_to_channel");
+pub const OUTGOING_CLASS_TOKEN_TO_CHANNEL: Map<(String, String), String> = Map::new("h");
 /// Same as above, but for NFTs arriving at this contract.
-pub const INCOMING_CLASS_TOKEN_TO_CHANNEL: Map<(String, String), String> =
-    Map::new("incoming_class_token_to_channel");
+pub const INCOMING_CLASS_TOKEN_TO_CHANNEL: Map<(String, String), String> = Map::new("i");
 
 #[derive(Deserialize)]
 pub struct UniversalNftInfoResponse {

@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::IbcTimeout;
 use cw721_proxy_derive::cw721_proxy;
-use cwd_interface::ModuleInstantiateInfo;
+use cw_cii::ContractInstantiateInfo;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -17,7 +17,7 @@ pub struct InstantiateMsg {
     /// will only accept NFTs from that proxy. The proxy is expected
     /// to implement the cw721 proxy interface defined in the
     /// cw721-proxy crate.
-    pub proxy: Option<ModuleInstantiateInfo>,
+    pub proxy: Option<ContractInstantiateInfo>,
     /// Address that may pause the contract. PAUSER may pause the
     /// contract a single time; in pausing the contract they burn the
     /// right to do so again. A new pauser may be later nominated by
@@ -29,7 +29,7 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     /// Receives a NFT to be IBC transfered away. The `msg` field must
-    /// be a binary encoded `IbcAwayMsg`.
+    /// be a binary encoded `IbcOutgoingMsg`.
     ReceiveNft(cw721::Cw721ReceiveMsg),
 
     /// Pauses the bridge. Only the pauser may call this. In pausing
@@ -62,7 +62,7 @@ pub enum CallbackMsg {
     },
     /// Much like mint, but will instantiate a new cw721 contract iff
     /// the classID does not have one yet.
-    DoInstantiateAndMint {
+    InstantiateAndMint {
         /// The ics721 class ID to mint for.
         class_id: String,
         /// The URI for this class ID.
@@ -124,15 +124,14 @@ pub struct NewTokenInfo {
 }
 
 #[cw_serde]
-pub struct IbcAwayMsg {
+pub struct IbcOutgoingMsg {
     /// The address that should receive the NFT being sent on the
     /// *receiving chain*.
     pub receiver: String,
     /// The *local* channel ID this ought to be sent away on. This
     /// contract must have a connection on this channel.
     pub channel_id: String,
-    /// Timeout for the IBC message. TODO: make this optional and set
-    /// default?
+    /// Timeout for the IBC message.
     pub timeout: IbcTimeout,
 }
 
@@ -143,13 +142,13 @@ pub enum QueryMsg {
     /// contract. If there is no class ID for the provided contract,
     /// returns None.
     #[returns(Option<String>)]
-    ClassIdForNftContract { contract: String },
+    ClassId { contract: String },
 
     /// Gets the NFT contract associated wtih the provided class
     /// ID. If no such contract exists, returns None. Returns
     /// Option<Addr>.
     #[returns(Option<::cosmwasm_std::Addr>)]
-    NftContractForClassId { class_id: String },
+    NftContract { class_id: String },
 
     /// Gets the class level metadata URI for the provided
     /// class_id. If there is no metadata, returns None. Returns

@@ -179,7 +179,7 @@ test.serial("transfer NFT", async (t) => {
 
   const osmoClassId = `${t.context.channel.channel.dest.portId}/${t.context.channel.channel.dest.channelId}/${t.context.wasmCw721}`;
   const osmoCw721 = await osmoClient.sign.queryContractSmart(osmoBridge, {
-    nft_contract_for_class_id: { class_id: osmoClassId },
+    nft_contract: { class_id: osmoClassId },
   });
 
   tokenOwner = await ownerOf(osmoClient, osmoCw721, tokenId);
@@ -246,7 +246,7 @@ test.serial("malicious NFT", async (t) => {
 
   const osmoClassId = `${t.context.channel.channel.dest.portId}/${t.context.channel.channel.dest.channelId}/${cw721}`;
   const osmoCw721 = await osmoClient.sign.queryContractSmart(osmoBridge, {
-    nft_contract_for_class_id: { class_id: osmoClassId },
+    nft_contract: { class_id: osmoClassId },
   });
 
   ibcMsg = {

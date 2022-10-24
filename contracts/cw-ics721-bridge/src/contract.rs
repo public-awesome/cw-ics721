@@ -10,8 +10,8 @@ use crate::{
     error::ContractError,
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
     msg::{
-        CallbackMsg, ExecuteMsg, IbcAwayMsg, InstantiateMsg, MigrateMsg, NewTokenInfo, QueryMsg,
-        TransferInfo,
+        CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, NewTokenInfo,
+        QueryMsg, TransferInfo,
     },
     state::{
         UniversalNftInfoResponse, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
@@ -61,55 +61,67 @@ pub fn execute(
             token_id,
             msg,
         }) => execute_receive_nft(deps, info, token_id, sender, msg),
-
         ExecuteMsg::ReceiveProxyNft { eyeball, msg } => {
             execute_receive_proxy_nft(deps, info, eyeball, msg)
         }
-
         ExecuteMsg::Pause {} => execute_pause(deps, info),
+        ExecuteMsg::Callback(msg) => execute_callback(deps, env, info, msg),
+    }
+}
 
-        ExecuteMsg::Callback(CallbackMsg::Mint {
-            class_id,
-            token_ids,
-            token_uris,
-            receiver,
-        }) => execute_mint(
-            deps.as_ref(),
-            env,
-            info,
-            class_id,
-            token_ids,
-            token_uris,
-            receiver,
-        ),
-        ExecuteMsg::Callback(CallbackMsg::DoInstantiateAndMint {
-            class_id,
-            class_uri,
-            token_ids,
-            token_uris,
-            receiver,
-        }) => execute_do_instantiate_and_mint(
-            deps, env, info, class_id, class_uri, token_ids, token_uris, receiver,
-        ),
-        ExecuteMsg::Callback(CallbackMsg::BatchTransfer {
-            class_id,
-            receiver,
-            token_ids,
-        }) => execute_batch_transfer(deps.as_ref(), env, info, class_id, receiver, token_ids),
-        ExecuteMsg::Callback(CallbackMsg::HandlePacketReceive {
-            receiver,
-            class_uri,
-            transfers,
-            new_tokens,
-        }) => execute_handle_packet_receive(
-            deps.as_ref(),
-            env,
-            info,
-            receiver,
-            class_uri,
-            transfers,
-            new_tokens,
-        ),
+fn execute_callback(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: CallbackMsg,
+) -> Result<Response, ContractError> {
+    if info.sender != env.contract.address {
+        Err(ContractError::Unauthorized {})
+    } else {
+        match msg {
+            CallbackMsg::Mint {
+                class_id,
+                token_ids,
+                token_uris,
+                receiver,
+            } => execute_mint(
+                deps.as_ref(),
+                env,
+                info,
+                class_id,
+                token_ids,
+                token_uris,
+                receiver,
+            ),
+            CallbackMsg::InstantiateAndMint {
+                class_id,
+                class_uri,
+                token_ids,
+                token_uris,
+                receiver,
+            } => execute_do_instantiate_and_mint(
+                deps, env, info, class_id, class_uri, token_ids, token_uris, receiver,
+            ),
+            CallbackMsg::BatchTransfer {
+                class_id,
+                receiver,
+                token_ids,
+            } => execute_batch_transfer(deps.as_ref(), env, info, class_id, receiver, token_ids),
+            CallbackMsg::HandlePacketReceive {
+                receiver,
+                class_uri,
+                transfers,
+                new_tokens,
+            } => execute_handle_packet_receive(
+                deps.as_ref(),
+                env,
+                info,
+                receiver,
+                class_uri,
+                transfers,
+                new_tokens,
+            ),
+        }
     }
 }
 
@@ -162,7 +174,7 @@ fn do_receive_nft(
     msg: Binary,
 ) -> Result<Response, ContractError> {
     let sender = deps.api.addr_validate(&sender)?;
-    let msg: IbcAwayMsg = from_binary(&msg)?;
+    let msg: IbcOutgoingMsg = from_binary(&msg)?;
 
     let class_id = if NFT_CONTRACT_TO_CLASS_ID.has(deps.storage, info.sender.clone()) {
         NFT_CONTRACT_TO_CLASS_ID.load(deps.storage, info.sender.clone())?
@@ -397,10 +409,10 @@ fn execute_batch_transfer(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::ClassIdForNftContract { contract } => {
+        QueryMsg::ClassId { contract } => {
             to_binary(&query_class_id_for_nft_contract(deps, contract)?)
         }
-        QueryMsg::NftContractForClassId { class_id } => {
+        QueryMsg::NftContract { class_id } => {
             to_binary(&query_nft_contract_for_class_id(deps, class_id)?)
         }
         QueryMsg::Metadata { class_id } => to_binary(&query_metadata(deps, class_id)?),
@@ -511,7 +523,7 @@ mod tests {
         let info = mock_info(NFT_ADDR, &[]);
         let token_id = "1".to_string();
         let sender = "ekez".to_string();
-        let msg = to_binary(&IbcAwayMsg {
+        let msg = to_binary(&IbcOutgoingMsg {
             receiver: "callum".to_string(),
             channel_id: "channel-1".to_string(),
             timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
@@ -550,7 +562,7 @@ mod tests {
         let info = mock_info(NFT_ADDR, &[]);
         let token_id = "1".to_string();
         let sender = "ekez".to_string();
-        let msg = to_binary(&IbcAwayMsg {
+        let msg = to_binary(&IbcOutgoingMsg {
             receiver: "ekez".to_string(),
             channel_id: "channel-1".to_string(),
             timeout: IbcTimeout::with_timestamp(Timestamp::from_nanos(42)),

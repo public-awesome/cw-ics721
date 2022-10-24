@@ -39,19 +39,19 @@ type OwnerQuery struct {
 }
 
 // Bridge query for obtaining a NFT contract address given a class ID.
-type NftContractForClassIdQueryData struct {
+type NftContractQueryData struct {
 	ClassID string `json:"class_id"`
 }
-type NftContractForClassIdQuery struct {
-	NftContractForClassId NftContractForClassIdQueryData `json:"nft_contract_for_class_id"`
+type NftContractQuery struct {
+	NftContractForClassId NftContractQueryData `json:"nft_contract"`
 }
 
 // Query for getting class ID given NFT contract.
-type ClassIdForNFTContractQueryData struct {
+type ClassIdQueryData struct {
 	Contract string `json:"contract"`
 }
-type ClassIdForNFTContractQuery struct {
-	ClassIdForNFTContract ClassIdForNFTContractQueryData `json:"class_id_for_nft_contract"`
+type ClassIdQuery struct {
+	ClassIdForNFTContract ClassIdQueryData `json:"class_id"`
 }
 
 // Query for getting metadata for a class ID from the bridge.
