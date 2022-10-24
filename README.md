@@ -1,62 +1,100 @@
 This is an implementation of the [ICS 721
 specification](https://github.com/cosmos/ibc/tree/master/spec/app/ics-721-nft-transfer)
-written in CosmWasm.
+written in CosmWasm. It allows NFTs to be moved between IBC compatible
+blockchains.
 
-**This code has not yet been audited. Please, do not use it for
-anything mission critical.**
+This implementation
 
-This is an extended implementation of [ICS
-721](https://github.com/cosmos/ibc/tree/master/spec/app/ics-721-nft-transfer)
-to make ICS 721 NFTs
-[cw721](https://github.com/CosmWasm/cw-nfts/tree/main/packages/cw721)
-compatible. This means that any dapp that interacts with cw721 NFTs
-can also interact with NFTs from other blockchains when this
-implementation of ICS 721 is on the receiving side of the transfer.
+1. is entirely compatible with the cw721 NFT standard, the standard
+   used by most NFT marketplaces in the IBC ecosystem;
+2. has a minimal, but powerful governance system that can quickly
+   pause the system in an emergency, without ceding any of the
+   governance module's control over the bridge;
+3. supports a proxy system that allows for arbitrary filtering and
+   rate limiting of outgoing NFTs;
+4. is well tested.
 
-Three contracts orchestrate this:
+## From a thousand feet up
 
-1. `cw-ics721-bridge` implements the "NFT transfer bridge" and "NFT
-   asset tracking module" parts of the ICS 721 spec.
-2. `ics-escrow` escrows NFTs while are away on foreign chains.
+The complete process for an ICS-721 NFT transfer is described in this
+flowchart:
 
-## Sending NFTs
+![image](https://user-images.githubusercontent.com/30676292/195717720-8d0629c1-dcdb-4f99-8ffd-b828dc1a216d.png)
 
-To send a NFT from one chain to another over IBC:
+At a high level, to transfer a NFT to another blockchain:
 
-1. The bridge contract receives the NFT via cw721's `Send` method.
-2. The bridge contract deserializes the `msg` field on `Send` into an
-   `IbcAwayMsg` which specifies the channel the NFT ought to be sent
-   away on as well as the receiver on the receiving chain.
-3. The sent cw721 is locked in the escrow contract for the sending
-   channel.
-4. A message is sent to the bridge contract on the other side of the
-   connection which causes it to mint an equivalent NFT on the
-   receiving chain.
-5. Upon receiving confirmation (ACK) from the receiving chain that the
-   transfer has completed, burns the NFTs if they are returning to
-   their original chain. For example for the path `A -> B -> A`, the
-   NFTs minted on transfer from `A -> B` are burned on transfer from
-   `B -> A`.
+1. The NFT is locked on the source chain.
+2. A message is delivered over IBC to the destination chain describing
+   the NFT that has been locked.
+3. A duplicate version of the locked NFT is instantiated and minted on
+   the destination chain.
 
-## Receiving NFTs
+The duplicate NFT on the receiving chain is a debt-voucher. Possession
+of that debt-voucher on the receiving chain gives the holder the right
+to redeem it for the original NFT on the source chain.
 
-Upon receiving the message sent in (4) above, the bridge contract
-checks if the NFT it is receiving had previously been sent from it to
-the other chain. If it has been, the contract:
+To return the transferred NFT:
 
-1. Updates the classID field on the NFT in accordance with the
-   [specification](https://github.com/cosmos/ibc/tree/main/spec/app/ics-721-nft-transfer#data-structures).
-2. Unescrows the NFTs that are returning and sends them to the
-   receivers specified in the
-   [`NonFungibleTokenPacketData`](https://github.com/cosmos/ibc/tree/main/spec/app/ics-721-nft-transfer#data-structures)
-   message.
+1. The debt voucher is returned to the bridge.
+2. A message is sent to the source chain informing it that the debt
+   voucher has been returned.
+3. The original NFT is unlocked and sent to the receiver of the NFT.
 
-If the bridge contract determines that the NFTs being transfered have
-not previously been sent from the chain it:
+The failure handling logic for this contract is also reasonably simple
+to explain: if the receiver does not process the packet correctly, the
+NFT sent to the bridge is returned to the sender as if the transfer
+had never happened.
 
-1. Updates the classID field to add its path information.
-2. If it has never seen a NFT that is part of the collection being
-   sent over, instantiates a new cw721 contract to represent that
-   collection.
-3. Mints new cw721 NFTs using the instantiated cw721 for the
-   collection being sent over for the receivers.
+## Quick pauses and filtering
+
+This implementation can be quickly paused by a subDAO and supports
+rich filtering and rate limiting for the NFTs allowed to traverse it.
+
+Pause functionality is designed to allow for quick pauses by a trusted
+group, without conceding the ability to lock the contract to that
+group. To this end, the admin of this contract may appoint a subDAO
+which may pause the contract a _single time_. In pausing the contract,
+the subDAO looses the ability to pause again until it is reauthorized
+by governance.
+
+After a pause, the bridge will remain paused until governance chooses
+to unpause it. During the unpause process governance may appoint a new
+subDAO or reappoint the existing one as pause manager. It is imagined
+that the admin of this contract will be a chain's community pool, and
+the pause manager will be a small, active subDAO. This process means
+that the subDAO may pause the contract in the event of a problem, but
+may not lock the contract, as in pausing the contract the subDAO burns
+its ability to do so again.
+
+Filtering is enabled by an optional proxy that the bridge may be
+configured to use. If a proxy is configured, the bridge will only
+accept NFTs delivered by the proxy address. This proxy interface is
+very minimal and enables very flexible rate limiting and
+filtering. Currently, per-collection rate limiting is
+implemented. Users of this bridge are enchouraged to implement their
+own filtering regimes and may add them to the [proxy
+repository](https://github.com/0xekez/cw721-proxy) so that others may
+use them.
+
+## Failure handling eratta
+
+This contract will never close an IBC channel between itself and
+another bridge. If the other side of a channel closes the connection,
+the bridge assumes this has happened due to a catastrophic bug in its
+counterparty or a malicious action. As such, if a channel closes NFTs
+will not be removable from it until governance intervention sets the
+policy for what to do.
+
+Depending on what kind of filtering is applied to this contract,
+permissionless chains where anyone can instantiate a NFT contract may
+allow the transfer of a buggy cw721 implementation that causes
+transfers to fail.
+
+These sorts of issues can cause trouble with relayer
+implementations. The inability to collect fees for relaying is a
+limitation of the IBC protocol and this bridge contract can not hope
+to address that. To this end, it is strongly recommended that users of
+this bridge and all other IBC bridges have users [relay their own
+packets](https://github.com/DA0-DA0/dao-dao-ui/issues/885). We will be
+working on an implementation of this that other front ends can easily
+integrate as part of this work.
