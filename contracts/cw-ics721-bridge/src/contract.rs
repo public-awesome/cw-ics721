@@ -331,8 +331,8 @@ fn execute_do_instantiate_and_mint(
                 msg: to_binary(&cw721_base::msg::InstantiateMsg {
                     // Name of the collection MUST be class_id as this is how
                     // we create a map entry on reply.
-                    name: class_id.to_string(),
-                    symbol: class_id.to_string(),
+                    name: class_id,
+                    symbol: class_id,
                     minter: env.contract.address.to_string(),
                 })?,
                 funds: vec![],
