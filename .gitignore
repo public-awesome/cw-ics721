@@ -5,21 +5,25 @@
 **/*.rs.bk
 
 # Build results
-target/
+**/target/
 
 # IDEs
-.vscode/
-.idea/
-*.iml
+**/.vscode/
+**/.idea/
+**/*.iml
+**/.editorconfig
 
 # Auto-gen
-.cargo-ok
+**/.cargo-ok
 
 # Build artifacts
-*.wasm
-hash.txt
-contracts.txt
-artifacts/
+**/*.wasm
+**/hash.txt
+**/contracts.txt
+**/artifacts/
 
 # code coverage
-tarpaulin-report.*
+**/tarpaulin-report.*
+
+# logs
+debug*.log

@@ -2,6 +2,10 @@
 newline_style = "unix"
 hard_tabs = false
 tab_spaces = 4
+wrap_comments = true
+comment_width = 70
+group_imports = "StdExternalCrate"
+imports_granularity = "Crate"
 
 # unstable... should we require `rustup run nightly cargo fmt` ?
 # or just update the style guide when they are stable?
@@ -12,4 +16,3 @@ tab_spaces = 4
 #struct_field_align_threshold = 20
 #struct_lit_single_line = true
 #report_todo = "Always"
-

@@ -1,0 +1,6 @@
+This is a cw721-base contract which is instantiated with a target
+address. The target address may receive NFTs and send them, but any
+attempt to transfer them will cause the contract to panic.
+
+This is used to test the behavior of the bridge contract in the face
+of a malicious cw721 implementations.

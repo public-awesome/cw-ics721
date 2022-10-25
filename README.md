@@ -1,57 +1,100 @@
-# ICS721
+This is an implementation of the [ICS 721
+specification](https://github.com/cosmos/ibc/tree/master/spec/app/ics-721-nft-transfer)
+written in CosmWasm. It allows NFTs to be moved between IBC compatible
+blockchains.
 
-This is an _IBC Enabled_ contract that allows sending NFTs from one CosmWasm chain over the ICS721 (draft) standard to another CosmWasm chain.
+This implementation
 
-It can be extended to also send NFTs from a CosmWasm chain to the native NFT module on a Cosmos SDK chain that doesn't have CosmWasm support.
+1. is entirely compatible with the cw721 NFT standard, the standard
+   used by most NFT marketplaces in the IBC ecosystem;
+2. has a minimal, but powerful governance system that can quickly
+   pause the system in an emergency, without ceding any of the
+   governance module's control over the bridge;
+3. supports a proxy system that allows for arbitrary filtering and
+   rate limiting of outgoing NFTs;
+4. is well tested.
 
-## Workflow
+## From a thousand feet up
 
-Similar to cw20-ics20, the contract starts with minimal state, just the default timeout for all the packets it sends.
+The complete process for an ICS-721 NFT transfer is described in this
+flowchart:
 
-An external party has to make one or more channels using this contract as one endpoint.
+![image](https://user-images.githubusercontent.com/30676292/195717720-8d0629c1-dcdb-4f99-8ffd-b828dc1a216d.png)
 
-You can send any SG721 token to this contract via the [receiver pattern](https://github.com/CosmWasm/cw-nfts/blob/main/packages/cw721/src/receiver.rs).
+At a high level, to transfer a NFT to another blockchain:
 
-## Messages
+1. The NFT is locked on the source chain.
+2. A message is delivered over IBC to the destination chain describing
+   the NFT that has been locked.
+3. A duplicate version of the locked NFT is instantiated and minted on
+   the destination chain.
 
-This contract only accepts a `Sg721ReceiveMsg` from a sg721 contract.
+The duplicate NFT on the receiving chain is a debt-voucher. Possession
+of that debt-voucher on the receiving chain gives the holder the right
+to redeem it for the original NFT on the source chain.
 
-```rust
-pub struct Sg721ReceiveMsg {
-    pub sender: String,
-    pub token_id: String,
-    pub msg: Binary,
-}
-```
+To return the transferred NFT:
 
-The data inside the message must be JSON-serialized.
+1. The debt voucher is returned to the bridge.
+2. A message is sent to the source chain informing it that the debt
+   voucher has been returned.
+3. The original NFT is unlocked and sent to the receiver of the NFT.
 
-```rust
-pub struct TransferMsg {
-    /// The local channel to send the packets on
-    pub channel: String,
-    /// The remote address to send to
-    /// Don't use HumanAddress as this will likely have a different Bech32 prefix than we use
-    /// and cannot be validated locally
-    pub remote_address: String,
-    /// How long the packet lives in seconds. If not specified, use default_timeout
-    pub timeout: Option<u64>,
-}
-```
+The failure handling logic for this contract is also reasonably simple
+to explain: if the receiver does not process the packet correctly, the
+NFT sent to the bridge is returned to the sender as if the transfer
+had never happened.
 
-## Queries
+## Quick pauses and filtering
 
-Queries only make sense relative to the established channels of this contract.
+This implementation can be quickly paused by a subDAO and supports
+rich filtering and rate limiting for the NFTs allowed to traverse it.
 
-- `Port{}` - returns the port ID this contract has bound, so you can create channels. This info can be queried
-  via wasmd contract info query, but we expose another query here for convenience.
-- `ListChannels{}` - returns a (currently unpaginated) list of all channels that have been created on this contract.
-  Returns their local channelId along with some basic metadata, like the remote port/channel and the connection they
-  run on top of.
-- `Channel{id}` - returns more detailed information on one specific channel. In addition to the information available
-  in the list view, it returns the list of class_ids (which include the contract address).
-- `Tokens{channel_id, class_id}` - returns all the tokens that have been sent through the channel for a specific class-id.
+Pause functionality is designed to allow for quick pauses by a trusted
+group, without conceding the ability to lock the contract to that
+group. To this end, the admin of this contract may appoint a subDAO
+which may pause the contract a _single time_. In pausing the contract,
+the subDAO looses the ability to pause again until it is reauthorized
+by governance.
 
-## Credits
+After a pause, the bridge will remain paused until governance chooses
+to unpause it. During the unpause process governance may appoint a new
+subDAO or reappoint the existing one as pause manager. It is imagined
+that the admin of this contract will be a chain's community pool, and
+the pause manager will be a small, active subDAO. This process means
+that the subDAO may pause the contract in the event of a problem, but
+may not lock the contract, as in pausing the contract the subDAO burns
+its ability to do so again.
 
-This README was adapted from the cw20-ics20 [README](https://github.com/CosmWasm/cw-plus/tree/main/contracts/cw20-ics20).
+Filtering is enabled by an optional proxy that the bridge may be
+configured to use. If a proxy is configured, the bridge will only
+accept NFTs delivered by the proxy address. This proxy interface is
+very minimal and enables very flexible rate limiting and
+filtering. Currently, per-collection rate limiting is
+implemented. Users of this bridge are enchouraged to implement their
+own filtering regimes and may add them to the [proxy
+repository](https://github.com/0xekez/cw721-proxy) so that others may
+use them.
+
+## Failure handling eratta
+
+This contract will never close an IBC channel between itself and
+another bridge. If the other side of a channel closes the connection,
+the bridge assumes this has happened due to a catastrophic bug in its
+counterparty or a malicious action. As such, if a channel closes NFTs
+will not be removable from it until governance intervention sets the
+policy for what to do.
+
+Depending on what kind of filtering is applied to this contract,
+permissionless chains where anyone can instantiate a NFT contract may
+allow the transfer of a buggy cw721 implementation that causes
+transfers to fail.
+
+These sorts of issues can cause trouble with relayer
+implementations. The inability to collect fees for relaying is a
+limitation of the IBC protocol and this bridge contract can not hope
+to address that. To this end, it is strongly recommended that users of
+this bridge and all other IBC bridges have users [relay their own
+packets](https://github.com/DA0-DA0/dao-dao-ui/issues/885). We will be
+working on an implementation of this that other front ends can easily
+integrate as part of this work.

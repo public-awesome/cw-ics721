@@ -1,0 +1,11 @@
+This provides a simple type, `PauseOrchestrator`, that allows a
+specified address to execute a pause a single time and pause for a
+prespecified duration.
+
+This might be useful if you want to delegate the ability to pause
+a contract to an address, while also not allowing that address to
+perminantly lock the contract. For example, you may want to set
+the prespecified duration to slightly over one governance cycle
+for SDK governance, and then set a small subDAO as the
+pauser. This way the subDAO may pause the contract quickly, but
+must be reauthorized by governance to do it again.

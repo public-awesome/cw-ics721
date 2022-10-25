@@ -1,0 +1,4 @@
+this directory contains wasm files that are used for testing who's
+source code lives elsewhere. specifically, it contains a version
+`0.15` cw721-base wasm file from the
+[cw-nfts](https://github.com/CosmWasm/cw-nfts) repository.

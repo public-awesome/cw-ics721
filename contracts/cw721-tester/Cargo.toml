@@ -1,0 +1,20 @@
+[package]
+name = "cw721-tester"
+version = "0.0.1"
+authors = ["ekez <zekemedley@gmail.com>"]
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+backtraces = ["cosmwasm-std/backtraces"]
+library = []
+
+[dependencies]
+cosmwasm-std = "1.1"
+cosmwasm-schema = "1.1"
+cw-storage-plus = "0.15.0"
+cw2 = "0.15.0"
+thiserror = "1"
+cw721-base = { version = "0.15", features = [ "library" ] }

@@ -1,15 +1,16 @@
 [workspace]
-members = ["contracts/*"]
-
-[profile.release.package.ics721]
-codegen-units = 1
-incremental = false
-
+members = ["contracts/*", "packages/*"]
+resolver = "2"
 
 [profile.release]
-rpath = false
-lto = true
-overflow-checks = true
+codegen-units = 1
 opt-level = 3
 debug = false
+rpath = false
+lto = true
 debug-assertions = false
+panic = 'abort'
+incremental = false
+# Please do not disable these. Doing so will cause overflow checks in
+# all workspace members to stop working. Overflows should be errors.
+overflow-checks = true
