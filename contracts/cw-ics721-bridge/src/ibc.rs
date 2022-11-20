@@ -4,7 +4,7 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacket, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, Reply, Response, StdResult, SubMsgResult, WasmMsg,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, Reply, Response, StdResult, SubMsgResult, WasmMsg, Ibc3ChannelOpenResponse,
 };
 use cw_utils::parse_reply_instantiate_data;
 
@@ -58,8 +58,9 @@ pub fn ibc_channel_open(
     _deps: DepsMut,
     _env: Env,
     msg: IbcChannelOpenMsg,
-) -> Result<(), ContractError> {
-    validate_order_and_version(msg.channel(), msg.counterparty_version())
+) -> Result<Option<Ibc3ChannelOpenResponse>, ContractError> {
+    validate_order_and_version(msg.channel(), msg.counterparty_version())?;
+    Ok(None)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

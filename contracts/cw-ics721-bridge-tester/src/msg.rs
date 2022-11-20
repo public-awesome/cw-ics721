@@ -1,4 +1,4 @@
-use cosmwasm_schema::cw_serde;
+use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::IbcTimeout;
 
 #[cw_serde]
@@ -31,10 +31,13 @@ pub enum ExecuteMsg {
 }
 
 #[cw_serde]
+#[derive(QueryResponses)]
 pub enum QueryMsg {
     /// Gets the current ack mode. Returns `AckMode`.
+    #[returns(AckMode)]
     AckMode {},
     /// Gets the mode of the last ack this contract received. Errors
     /// if no ACK has ever been received. Returns `AckMode`.
+    #[returns(AckMode)]
     LastAck {},
 }

@@ -22,6 +22,7 @@ const CONTRACT_PORT: &str = "wasm.address1";
 const REMOTE_PORT: &str = "stars.address1";
 const CONNECTION_ID: &str = "connection-2";
 const CHANNEL_ID: &str = "channel-1";
+const RELAYER_ADDR: &str = "relayer";
 const DEFAULT_TIMEOUT: u64 = 42; // Seconds.
 
 const ADDR1: &str = "addr1";
@@ -406,7 +407,7 @@ fn test_ibc_packet_receive_invalid_packet_data() {
     })
     .unwrap();
 
-    let packet = IbcPacketReceiveMsg::new(mock_packet(data));
+    let packet = IbcPacketReceiveMsg::new(mock_packet(data), Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
 
@@ -426,7 +427,7 @@ fn test_ibc_packet_receive_invalid_packet_data() {
 fn test_ibc_packet_receive_missmatched_lengths() {
     let data = build_ics_packet("bad kids", None, vec!["kid A"], vec![], "ekez", "callum");
 
-    let packet = IbcPacketReceiveMsg::new(mock_packet(to_binary(&data).unwrap()));
+    let packet = IbcPacketReceiveMsg::new(mock_packet(to_binary(&data).unwrap()), Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
 
@@ -471,7 +472,7 @@ fn test_no_receive_when_paused() {
     })
     .unwrap();
 
-    let packet = IbcPacketReceiveMsg::new(mock_packet(data));
+    let packet = IbcPacketReceiveMsg::new(mock_packet(data), Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
 
