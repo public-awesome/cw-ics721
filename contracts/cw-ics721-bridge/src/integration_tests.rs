@@ -1,12 +1,14 @@
-use cosmwasm_std::{to_binary, Addr, Empty, IbcTimeout, IbcTimeoutBlock, WasmMsg};
+use cosmwasm_std::{to_binary, Addr, Binary, Empty, IbcTimeout, IbcTimeoutBlock, WasmMsg};
 use cw_cii::{Admin, ContractInstantiateInfo};
 use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 use cw_pause_once::PauseError;
 
 use crate::{
     msg::{
-        CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg, TransferInfo,
+        CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg, Token,
+        TransferInfo,
     },
+    state::CollectionMetadata,
     ContractError,
 };
 
@@ -141,19 +143,43 @@ fn test_instantiate() {
 }
 
 #[test]
-fn test_do_instantiate_and_mint_weird_data() {
+fn test_instantiate_empty_data() {
     let mut app = App::default();
 
     let bridge = instantiate_bridge(&mut app);
 
+    // Should fail as token_id must be non-empty in cw721.
+    app.execute_contract(
+        bridge.clone(),
+        bridge.clone(),
+        &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
+            class_id: "bad kids".to_string(),
+            class_data: Binary::default(),
+            class_uri: String::default(),
+            tokens: vec![Token {
+                token_id: String::default(),
+                token_uri: String::default(),
+                token_data: Binary::default(),
+            }],
+            receiver: "ekez".to_string(),
+        }),
+        &[],
+    )
+    .unwrap_err();
+
+    // Works with non-empty token ID.
     app.execute_contract(
         bridge.clone(),
         bridge,
         &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
             class_id: "bad kids".to_string(),
-            class_uri: None,
-            token_ids: vec!["1".to_string()],
-            token_uris: vec!["".to_string()], // Empty string should be allowed.
+            class_data: Binary::default(),
+            class_uri: String::default(),
+            tokens: vec![Token {
+                token_id: "1".to_string(),
+                token_uri: String::default(),
+                token_data: Binary::default(),
+            }],
             receiver: "ekez".to_string(),
         }),
         &[],
@@ -162,7 +188,7 @@ fn test_do_instantiate_and_mint_weird_data() {
 }
 
 #[test]
-fn test_do_instantiate_and_mint() {
+fn test_instantiate_and_mint() {
     let mut app = App::default();
 
     let bridge = instantiate_bridge(&mut app);
@@ -172,11 +198,19 @@ fn test_do_instantiate_and_mint() {
         bridge.clone(),
         &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
             class_id: "bad kids".to_string(),
-            class_uri: Some("https://moonphase.is".to_string()),
-            token_ids: vec!["1".to_string(), "2".to_string()],
-            token_uris: vec![
-                "https://moonphase.is/image.svg".to_string(),
-                "https://moonphase.is/image.svg".to_string(),
+            class_uri: "https://moonphase.is".to_string(),
+            class_data: to_binary("class data").unwrap(),
+            tokens: vec![
+                Token {
+                    token_id: "1".to_string(),
+                    token_uri: "https://moonphase.is/image.svg".to_string(),
+                    token_data: to_binary("some data").unwrap(),
+                },
+                Token {
+                    token_id: "2".to_string(),
+                    token_uri: "https://moonphase.is/image.svg".to_string(),
+                    token_data: to_binary("some OTHER data").unwrap(),
+                },
             ],
             receiver: "ekez".to_string(),
         }),
@@ -225,6 +259,19 @@ fn test_do_instantiate_and_mint() {
         Some("https://moonphase.is/image.svg".to_string())
     );
 
+    // I can query token data while the token is in the bridge.
+    let data_two: Binary = app
+        .wrap()
+        .query_wasm_smart(
+            &bridge,
+            &QueryMsg::TokenMetadata {
+                token_id: "2".to_string(),
+                class_id: "bad kids".to_string(),
+            },
+        )
+        .unwrap();
+    assert_eq!(data_two, to_binary("some OTHER data").unwrap());
+
     // Check that we can transfer the NFT via the ICS721 interface.
     app.execute_contract(
         Addr::unchecked("ekez"),
@@ -240,7 +287,7 @@ fn test_do_instantiate_and_mint() {
     let owner: cw721::OwnerOfResponse = app
         .wrap()
         .query_wasm_smart(
-            bridge,
+            &bridge,
             &QueryMsg::Owner {
                 token_id: "1".to_string(),
                 class_id: "bad kids".to_string(),
@@ -264,6 +311,37 @@ fn test_do_instantiate_and_mint() {
         .unwrap();
 
     assert_eq!(base_owner, owner);
+
+    // I can query token data while the token is NOT in the bridge.
+    let data_one: Binary = app
+        .wrap()
+        .query_wasm_smart(
+            &bridge,
+            &QueryMsg::TokenMetadata {
+                token_id: "1".to_string(),
+                class_id: "bad kids".to_string(),
+            },
+        )
+        .unwrap();
+    assert_eq!(data_one, to_binary("some data").unwrap());
+
+    // Collection metadata is set appropriately.
+    let collection: CollectionMetadata = app
+        .wrap()
+        .query_wasm_smart(
+            &bridge,
+            &QueryMsg::CollectionMetadata {
+                class_id: "bad kids".to_string(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        collection,
+        CollectionMetadata {
+            class_uri: "https://moonphase.is".to_string(),
+            class_data: to_binary("class data").unwrap(),
+        }
+    );
 }
 
 #[test]
@@ -279,14 +357,36 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         bridge.clone(),
         &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
             class_id: "bad kids".to_string(),
-            class_uri: Some("https://moonphase.is".to_string()),
-            token_ids: vec!["1".to_string()],
-            token_uris: vec!["https://moonphase.is/image.svg".to_string()],
+            class_uri: "https://moonphase.is".to_string(),
+            class_data: Binary::default(),
+            tokens: vec![Token {
+                token_id: "1".to_string(),
+                token_uri: "https://moonphase.is/image.svg".to_string(),
+                token_data: to_binary("some data").unwrap(),
+            }],
             receiver: "ekez".to_string(),
         }),
         &[],
     )
     .unwrap();
+
+    // Check collection metadata pre-update.
+    let collection: CollectionMetadata = app
+        .wrap()
+        .query_wasm_smart(
+            &bridge,
+            &QueryMsg::CollectionMetadata {
+                class_id: "bad kids".to_string(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        collection,
+        CollectionMetadata {
+            class_uri: "https://moonphase.is".to_string(),
+            class_data: Binary::default(),
+        }
+    );
 
     // This will only do a mint as the contract for the class ID has
     // already been instantiated.
@@ -295,20 +395,42 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         bridge.clone(),
         &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
             class_id: "bad kids".to_string(),
-            class_uri: Some("https://moonphase.is".to_string()),
-            token_ids: vec!["2".to_string()],
-            token_uris: vec!["https://moonphase.is/image.svg".to_string()],
+            class_uri: "https://moonphase.is".to_string(),
+            class_data: to_binary("hello there").unwrap(),
+            tokens: vec![Token {
+                token_id: "2".to_string(),
+                token_uri: "https://moonphase.is/image.svg".to_string(),
+                token_data: to_binary("some OTHER data").unwrap(),
+            }],
             receiver: "ekez".to_string(),
         }),
         &[],
     )
     .unwrap();
 
+    // Check collection metadata post-update.
+    let collection: CollectionMetadata = app
+        .wrap()
+        .query_wasm_smart(
+            &bridge,
+            &QueryMsg::CollectionMetadata {
+                class_id: "bad kids".to_string(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        collection,
+        CollectionMetadata {
+            class_uri: "https://moonphase.is".to_string(),
+            class_data: to_binary("hello there").unwrap(),
+        }
+    );
+
     // Get the address of the instantiated NFT.
     let nft: Addr = app
         .wrap()
         .query_wasm_smart(
-            bridge,
+            &bridge,
             &QueryMsg::NftContract {
                 class_id: "bad kids".to_string(),
             },
@@ -327,7 +449,21 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         )
         .unwrap();
 
-    assert_eq!(tokens.tokens, vec!["1".to_string(), "2".to_string()])
+    assert_eq!(tokens.tokens, vec!["1".to_string(), "2".to_string()]);
+
+    // Make sure token data was set for the NFT minted after the cw721 was
+    // instantaited.
+    let data_one: Binary = app
+        .wrap()
+        .query_wasm_smart(
+            &bridge,
+            &QueryMsg::TokenMetadata {
+                token_id: "2".to_string(),
+                class_id: "bad kids".to_string(),
+            },
+        )
+        .unwrap();
+    assert_eq!(data_one, to_binary("some OTHER data").unwrap());
 }
 
 #[test]
@@ -343,9 +479,13 @@ fn test_do_instantiate_and_mint_permissions() {
             bridge,
             &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
                 class_id: "bad kids".to_string(),
-                class_uri: Some("https://moonphase.is".to_string()),
-                token_ids: vec!["1".to_string()],
-                token_uris: vec!["https://moonphase.is/image.svg".to_string()],
+                class_uri: "https://moonphase.is".to_string(),
+                class_data: Binary::default(),
+                tokens: vec![Token {
+                    token_id: "1".to_string(),
+                    token_uri: "https://moonphase.is/image.svg".to_string(),
+                    token_data: Binary::default(),
+                }],
                 receiver: "ekez".to_string(),
             }),
             &[],
@@ -390,7 +530,7 @@ fn test_no_proxy_unauthorized() {
 // when you try to send one. If we're sending an IBC message this test
 // has passed though.
 #[test]
-#[should_panic(expected = "Unsupported type")]
+#[should_panic(expected = "Cannot execute Ibc")]
 fn test_proxy_authorized() {
     use cw721_rate_limited_proxy as rlp;
 
@@ -460,6 +600,7 @@ fn test_proxy_authorized() {
                         revision: 0,
                         height: 10,
                     }),
+                    memo: None,
                 })
                 .unwrap(),
             },
@@ -505,6 +646,7 @@ fn test_no_receive_with_proxy() {
                         revision: 0,
                         height: 10,
                     }),
+                    memo: None,
                 })
                 .unwrap(),
             }),
@@ -556,7 +698,8 @@ fn test_pause() {
             bridge.clone(),
             &ExecuteMsg::Callback(CallbackMsg::HandlePacketReceive {
                 receiver: "ekez".to_string(),
-                class_uri: None,
+                class_uri: String::default(),
+                class_data: Binary::default(),
                 transfers: Some(TransferInfo {
                     class_id: "bad kids".to_string(),
                     token_ids: vec!["1".to_string()],

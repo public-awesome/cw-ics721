@@ -322,7 +322,7 @@ func ics721Nft(t *testing.T, chain *wasmibctesting.TestChain, path *wasmibctesti
 		Funds:    []sdk.Coin{},
 	})
 	require.NoError(t, err)
-	coordinator.RelayAndAckPendingPackets(path)
+	require.NoError(t, coordinator.RelayAndAckPendingPackets(path))
 }
 
 func queryGetNftForClass(t *testing.T, chain *wasmibctesting.TestChain, bridge, classID string) string {
@@ -334,6 +334,7 @@ func queryGetNftForClass(t *testing.T, chain *wasmibctesting.TestChain, bridge, 
 	cw721 := ""
 	err := chain.SmartQuery(bridge, getClassQuery, &cw721)
 	require.NoError(t, err)
+	require.NotEqual(t, "", cw721)
 	return cw721
 }
 
@@ -772,4 +773,71 @@ func (suite *TransferTestSuite) TestRefundOnAckFail() {
 	// Check that the NFT was returned to the sender due to the failure.
 	ownerA := queryGetOwnerOf(suite.T(), suite.chainA, chainANft.String())
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), ownerA)
+}
+
+// Tests that the `ics721_memo` field is set in the TXn attributes if
+// a memo is included in the transfer message.
+func (suite *TransferTestSuite) TestMemo() {
+	var (
+		sourcePortID      = suite.chainA.ContractInfo(suite.chainABridge).IBCPortID
+		counterpartPortID = suite.chainB.ContractInfo(suite.chainBBridge).IBCPortID
+	)
+	path := wasmibctesting.NewPath(suite.chainA, suite.chainB)
+	path.EndpointA.ChannelConfig = &ibctesting.ChannelConfig{
+		PortID:  sourcePortID,
+		Version: "ics721-1",
+		Order:   channeltypes.UNORDERED,
+	}
+	path.EndpointB.ChannelConfig = &ibctesting.ChannelConfig{
+		PortID:  counterpartPortID,
+		Version: "ics721-1",
+		Order:   channeltypes.UNORDERED,
+	}
+
+	suite.coordinator.SetupConnections(path)
+	suite.coordinator.CreateChannels(path)
+
+	chainANft := instantiateCw721(suite.T(), suite.chainA)
+	mintNFT(suite.T(), suite.chainA, chainANft.String(), "bad kid 1", suite.chainA.SenderAccount.GetAddress())
+
+	ibcAway := fmt.Sprintf(`{ "receiver": "%s", "channel_id": "%s", "timeout": { "timestamp": "%d" }, "memo": "meeeeemo" }`, suite.chainB.SenderAccount.GetAddress().String(), path.EndpointA.ChannelID, suite.coordinator.CurrentTime.UnixNano()+1000000000000)
+	ibcAwayEncoded := b64.StdEncoding.EncodeToString([]byte(ibcAway))
+
+	// Send the NFT away.
+	_, err := suite.chainA.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainA.SenderAccount.GetAddress().String(),
+		Contract: chainANft.String(),
+		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "bad kid 1", "msg": "%s" } }`, suite.chainABridge.String(), ibcAwayEncoded)),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+
+	// Broken out of RelayAndAckPendingPackets so that we can
+	// check attributes.
+	suite.coordinator.IncrementTime()
+	suite.coordinator.CommitBlock(path.EndpointA.Chain)
+	err = path.EndpointB.UpdateClient()
+	require.NoError(suite.T(), err)
+	require.True(suite.T(), len(path.EndpointA.Chain.PendingSendPackets) == 1)
+
+	// Broken out of RecvPacket
+	// endpoint := path.EndpointB
+	// packet := suite.chainA.PendingSendPackets[0]
+	// packetKey := host.PacketCommitmentKey(packet.GetSourcePort(), packet.GetSourceChannel(), packet.GetSequence())
+	// proof, proofHeight := endpoint.Counterparty.Chain.QueryProof(packetKey)
+
+	// recvMsg := channeltypes.NewMsgRecvPacket(packet, proof, proofHeight, endpoint.Chain.SenderAccount.GetAddress().String())
+	// _, err = endpoint.Chain.SendMsgs(recvMsg)
+	// require.NoError(suite.T(), err)
+
+	// events := res.GetEvents()
+	// for _, event := range events {
+	// 	attributes := event.Attributes
+	// 	for _, attr := range attributes {
+	// 		if string(attr.Key) == "ics721_memo" && string(attr.Value) == "meeeeemo" {
+	// 			return
+	// 		}
+	// 	}
+	// }
+	// require.Fail(suite.T(), "failed to locate memo field in recv TXn")
 }

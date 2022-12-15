@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::IbcTimeout;
+use cosmwasm_std::{Binary, IbcTimeout};
 use cw721_proxy_derive::cw721_proxy;
 use cw_cii::ContractInstantiateInfo;
 
@@ -49,13 +49,8 @@ pub enum CallbackMsg {
         /// The class_id to mint for. This must have previously been
         /// created with `SaveClass`.
         class_id: String,
-        /// Unique identifiers for the tokens.
-        token_ids: Vec<String>,
-        /// Urls pointing to metadata about the NFTs to mint. For
-        /// example, this may point to ERC721 metadata on IPFS. Must
-        /// be the same length as token_ids. token_uris[i] is the
-        /// metadata for token_ids[i].
-        token_uris: Vec<String>,
+        /// The tokens to be minted.
+        tokens: Vec<Token>,
         /// The address that ought to receive the NFTs. This is a
         /// local address, not a bech32 public key.
         receiver: String,
@@ -66,16 +61,13 @@ pub enum CallbackMsg {
         /// The ics721 class ID to mint for.
         class_id: String,
         /// The URI for this class ID.
-        class_uri: Option<String>,
-        /// Unique identifiers for the tokens being transfered.
-        token_ids: Vec<String>,
-        /// A list of urls pointing to metadata about the NFTs. For
-        /// example, this may point to ERC721 metadata on ipfs.
-        ///
-        /// Must be the same length as token_ids.
-        token_uris: Vec<String>,
-        /// The address that ought to receive the NFT. This is a local
-        /// address, not a bech32 public key.
+        class_uri: String,
+        /// The on-chain metadata for this collection.
+        class_data: Binary,
+        /// The tokens to create.
+        tokens: Vec<Token>,
+        /// The address that ought to receive the NFTs. This is a
+        /// local address, not a bech32 public key.
         receiver: String,
     },
     /// Transfers a number of NFTs identified by CLASS_ID and
@@ -95,8 +87,10 @@ pub enum CallbackMsg {
     HandlePacketReceive {
         /// The address receiving the NFTs.
         receiver: String,
-        /// The URI for the collection being transfered.
-        class_uri: Option<String>,
+        /// The metadata URI for the collection being transfered.
+        class_uri: String,
+        /// On-chain metadata for the collection being transfered.
+        class_data: Binary,
         /// Information about transfer actions.
         transfers: Option<TransferInfo>,
         /// Information about mint actions.
@@ -112,15 +106,20 @@ pub struct TransferInfo {
     pub token_ids: Vec<String>,
 }
 
+/// An ICS-721 token and associated metadata.
+#[cw_serde]
+pub struct Token {
+    pub token_id: String,
+    pub token_uri: String,
+    pub token_data: Binary,
+}
+
 #[cw_serde]
 pub struct NewTokenInfo {
     /// The class ID to mint tokens for.
     pub class_id: String,
-    /// The token IDs of the tokens to be minted.
-    pub token_ids: Vec<String>,
-    /// The URIs of the tokens to be minted. Matched with token_ids by
-    /// index.
-    pub token_uris: Vec<String>,
+    /// Tokens to create.
+    pub tokens: Vec<Token>,
 }
 
 #[cw_serde]
@@ -128,6 +127,8 @@ pub struct IbcOutgoingMsg {
     /// The address that should receive the NFT being sent on the
     /// *receiving chain*.
     pub receiver: String,
+    /// A memo to include with the NFT transfer.
+    pub memo: Option<String>,
     /// The *local* channel ID this ought to be sent away on. This
     /// contract must have a connection on this channel.
     pub channel_id: String,
@@ -150,11 +151,15 @@ pub enum QueryMsg {
     #[returns(Option<::cosmwasm_std::Addr>)]
     NftContract { class_id: String },
 
-    /// Gets the class level metadata URI for the provided
-    /// class_id. If there is no metadata, returns None. Returns
-    /// `Option<String>`.
-    #[returns(Option<String>)]
-    Metadata { class_id: String },
+    /// Gets the class level metadata for the provided class_id.
+    #[returns(crate::state::CollectionMetadata)]
+    CollectionMetadata { class_id: String },
+
+    /// Gets the on-chain metadata for the provided token. If no
+    /// metadata has been specified, `cosmwasm_std::Binary::default()`
+    /// is returned.
+    #[returns(::cosmwasm_std::Binary)]
+    TokenMetadata { class_id: String, token_id: String },
 
     /// Gets the owner of the NFT identified by CLASS_ID and
     /// TOKEN_ID. Errors if no such NFT exists. Returns

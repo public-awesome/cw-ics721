@@ -14,7 +14,7 @@ library = []
 [dependencies]
 cosmwasm-std = "1.1"
 cosmwasm-schema = "1.1"
-cw-storage-plus = "0.15.0"
-cw2 = "0.15.0"
+cw-storage-plus = "0.16"
+cw2 = "0.16"
 thiserror = "1"
-cw721-base = { version = "0.15", features = [ "library" ] }
+cw721-base = { version = "0.16", features = [ "library" ] }

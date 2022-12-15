@@ -2,9 +2,10 @@ use cosmwasm_schema::cw_serde;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg,
-    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacket, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, Reply, Response, StdResult, SubMsgResult, WasmMsg,
+    from_binary, to_binary, Binary, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg,
+    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacket, IbcPacketAckMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, Reply, Response, StdResult,
+    SubMsgResult, WasmMsg,
 };
 use cw_utils::parse_reply_instantiate_data;
 
@@ -38,19 +39,43 @@ pub struct NonFungibleTokenPacketData {
     pub class_id: String,
     /// URL that points to metadata about the collection. This is not
     /// validated.
-    pub class_uri: Option<String>,
+    pub class_uri: String,
+    /// On-chain metadata associated with the collection. This is not
+    /// validated.
+    ///
+    /// The cw721 specification does not support collection-level
+    /// on-chain metadata so this information is not reflected in the
+    /// instantiated cw721, though the bridge may be queried to
+    /// retreive it and the data will be forwarded as expected if a
+    /// NFT with collection level metadata arrives at this bridge and
+    /// is later transfered to another chain.
+    pub class_data: Binary,
     /// Uniquely identifies the tokens in the NFT collection being
     /// transfered.
     pub token_ids: Vec<String>,
     /// URL that points to metadata for each token being
     /// transfered. `tokenUris[N]` should hold the metadata for
-    /// `tokenIds[N]` and both lists should have the same length.
+    /// `tokenIds[N]` and both lists must have same length.
     pub token_uris: Vec<String>,
+    /// On-chain metadata for each token being transfered
+    /// `tokenData[N]` should hold the metadata for `tokenIds[N]` and
+    /// both lists must have the same length.
+    ///
+    /// Like `classData`, the cw721 spec does not support on-chain
+    /// metadata for individual tokens. The tokenData for tokens sent
+    /// this contract can be retreived by querying the bridge instead
+    /// of the cw721. tokenData will be forwarded if a NFT with
+    /// tokenData is transfered to another chain.
+    pub token_data: Vec<Binary>,
     /// The address sending the tokens on the sending chain.
     pub sender: String,
     /// The address that should receive the tokens on the receiving
     /// chain.
     pub receiver: String,
+    /// A memo to include with the transfer. The contents of this
+    /// field will not impact transfer logic. The memo will be set as
+    /// the `ics721_memo` attribute on the surounding TXn.
+    pub memo: String,
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -58,8 +83,9 @@ pub fn ibc_channel_open(
     _deps: DepsMut,
     _env: Env,
     msg: IbcChannelOpenMsg,
-) -> Result<(), ContractError> {
-    validate_order_and_version(msg.channel(), msg.counterparty_version())
+) -> Result<IbcChannelOpenResponse, ContractError> {
+    validate_order_and_version(msg.channel(), msg.counterparty_version())?;
+    Ok(None)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -103,7 +129,6 @@ pub fn ibc_channel_close(
         // closing (bad because the channel is, for all intents and
         // purposes, closed) so we must allow the transaction through.
         IbcChannelCloseMsg::CloseConfirm { channel: _ } => Ok(IbcBasicResponse::default()),
-        _ => unreachable!("https://github.com/CosmWasm/cosmwasm/pull/1449"),
     }
 }
 

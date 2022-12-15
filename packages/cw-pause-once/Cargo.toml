@@ -8,6 +8,6 @@ description = "a package to allow an address to pause a single time for a prespe
 [dependencies]
 cosmwasm-std = "1.1"
 cosmwasm-schema = "1.1"
-cw-utils = "0.15"
-cw-storage-plus = "0.15"
+cw-utils = "0.16"
+cw-storage-plus = "0.16"
 thiserror = "1"

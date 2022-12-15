@@ -1,12 +1,12 @@
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, DepsMut, Empty, Env, IbcPacket, IbcReceiveResponse, StdResult,
-    SubMsg, WasmMsg,
+    from_binary, to_binary, Addr, Binary, DepsMut, Empty, Env, IbcPacket, IbcReceiveResponse,
+    StdResult, SubMsg, WasmMsg,
 };
 
 use crate::{
     ibc::{NonFungibleTokenPacketData, ACK_AND_DO_NOTHING},
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
-    msg::{CallbackMsg, ExecuteMsg, NewTokenInfo, TransferInfo},
+    msg::{CallbackMsg, ExecuteMsg, NewTokenInfo, Token, TransferInfo},
     state::{INCOMING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO},
     ContractError,
 };
@@ -21,6 +21,7 @@ enum Action {
         class_id: String,
         token_id: String,
         token_uri: String,
+        token_data: Binary,
     },
 }
 
@@ -51,10 +52,10 @@ pub(crate) fn do_ibc_packet_receive(
     let submessage = data
         .token_ids
         .into_iter()
-        .zip(data.token_uris.into_iter())
+        .zip(data.token_uris.into_iter().zip(data.token_data.into_iter()))
         .try_fold(
             Vec::<Action>::with_capacity(token_count),
-            |mut messages, (token_id, token_uri)| -> StdResult<_> {
+            |mut messages, (token_id, (token_uri, token_data))| -> StdResult<_> {
                 if let Some(local_class_id) = local_class_id {
                     let key = (local_class_id.to_string(), token_id.clone());
                     let outgoing_channel =
@@ -87,20 +88,27 @@ pub(crate) fn do_ibc_packet_receive(
                     class_id: local_class_id,
                     token_id,
                     token_uri,
+                    token_data,
                 });
                 Ok(messages)
             },
         )?
         .into_iter()
         .fold(ActionAggregator::default(), ActionAggregator::add_action)
-        .into_submessage(env.contract.address, receiver, data.class_uri)?;
+        .into_submessage(
+            env.contract.address,
+            receiver,
+            data.class_uri,
+            data.class_data,
+        )?;
 
     Ok(IbcReceiveResponse::default()
         .add_submessage(submessage)
         .add_attribute("method", "do_ibc_packet_receive")
         .add_attribute("class_id", data.class_id)
         .add_attribute("local_channel", packet.dest.channel_id)
-        .add_attribute("counterparty_channel", packet.src.channel_id))
+        .add_attribute("counterparty_channel", packet.src.channel_id)
+        .add_attribute("ics721_memo", data.memo))
 }
 
 impl ActionAggregator {
@@ -123,18 +131,21 @@ impl ActionAggregator {
                 class_id,
                 token_id,
                 token_uri,
+                token_data,
             } => {
                 self.new_tokens = Some(
                     self.new_tokens
                         .map(|mut info| {
-                            info.token_ids.push(token_id.clone());
-                            info.token_uris.push(token_uri.clone());
+                            info.tokens.push(Token {
+                                token_id,
+                                token_uri,
+                                token_data,
+                            });
                             info
                         })
                         .unwrap_or_else(|| NewTokenInfo {
                             class_id,
-                            token_ids: vec![token_id],
-                            token_uris: vec![token_uri],
+                            tokens: vec![],
                         }),
                 )
             }
@@ -146,13 +157,15 @@ impl ActionAggregator {
         self,
         contract: Addr,
         receiver: Addr,
-        class_uri: Option<String>,
+        class_uri: String,
+        class_data: Binary,
     ) -> StdResult<SubMsg<Empty>> {
         Ok(SubMsg::reply_always(
             WasmMsg::Execute {
                 contract_addr: contract.into_string(),
                 msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::HandlePacketReceive {
                     class_uri,
+                    class_data,
                     receiver: receiver.into_string(),
                     transfers: self.transfers,
                     new_tokens: self.new_tokens,
@@ -183,16 +196,17 @@ impl NewTokenInfo {
         self,
         env: &Env,
         receiver: &Addr,
-        class_uri: Option<String>,
+        class_uri: String,
+        class_data: Binary,
     ) -> StdResult<WasmMsg> {
         Ok(WasmMsg::Execute {
             contract_addr: env.contract.address.to_string(),
             msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
                 class_id: self.class_id,
                 class_uri,
+                class_data,
                 receiver: receiver.to_string(),
-                token_ids: self.token_ids,
-                token_uris: self.token_uris,
+                tokens: self.tokens,
             }))?,
             funds: vec![],
         })

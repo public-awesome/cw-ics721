@@ -98,11 +98,14 @@ fn build_ics_packet(
 ) -> NonFungibleTokenPacketData {
     NonFungibleTokenPacketData {
         class_id: class_id.to_string(),
-        class_uri: class_uri.map(|s| s.to_string()),
+        class_uri: class_uri.unwrap_or_default().to_string(),
+        class_data: Binary::default(),
+        token_data: (0..token_ids.len()).map(|_| Binary::default()).collect(),
         token_ids: token_ids.into_iter().map(|s| s.to_string()).collect(),
         token_uris: token_uris.into_iter().map(|s| s.to_string()).collect(),
         sender: sender.to_string(),
         receiver: receiver.to_string(),
+        memo: String::default(),
     }
 }
 
@@ -401,12 +404,12 @@ fn test_ibc_channel_connect_invalid_version_counterparty() {
 
 #[test]
 fn test_ibc_packet_receive_invalid_packet_data() {
-    let data = to_binary(&QueryMsg::Metadata {
+    let data = to_binary(&QueryMsg::CollectionMetadata {
         class_id: "foobar".to_string(),
     })
     .unwrap();
 
-    let packet = IbcPacketReceiveMsg::new(mock_packet(data));
+    let packet = IbcPacketReceiveMsg::new(mock_packet(data), Addr::unchecked("relayer"));
     let mut deps = mock_dependencies();
     let env = mock_env();
 
@@ -426,7 +429,10 @@ fn test_ibc_packet_receive_invalid_packet_data() {
 fn test_ibc_packet_receive_missmatched_lengths() {
     let data = build_ics_packet("bad kids", None, vec!["kid A"], vec![], "ekez", "callum");
 
-    let packet = IbcPacketReceiveMsg::new(mock_packet(to_binary(&data).unwrap()));
+    let packet = IbcPacketReceiveMsg::new(
+        mock_packet(to_binary(&data).unwrap()),
+        Addr::unchecked("ekez"),
+    );
     let mut deps = mock_dependencies();
     let env = mock_env();
 
@@ -458,7 +464,7 @@ fn test_packet_json() {
         "wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc",
     );
     // Example message generated from the SDK
-    let expected = r#"{"classId":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","classUri":"https://metadata-url.com/my-metadata","tokenIds":["1","2","3"],"tokenUris":["https://metadata-url.com/my-metadata1","https://metadata-url.com/my-metadata2","https://metadata-url.com/my-metadata3"],"sender":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","receiver":"wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc"}"#;
+    let expected = r#"{"classId":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","classUri":"https://metadata-url.com/my-metadata","classData":"","tokenIds":["1","2","3"],"tokenUris":["https://metadata-url.com/my-metadata1","https://metadata-url.com/my-metadata2","https://metadata-url.com/my-metadata3"],"tokenData":["","",""],"sender":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","receiver":"wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc","memo":""}"#;
 
     let encdoded = String::from_utf8(to_vec(&packet).unwrap()).unwrap();
     assert_eq!(expected, encdoded.as_str());
@@ -466,12 +472,12 @@ fn test_packet_json() {
 
 #[test]
 fn test_no_receive_when_paused() {
-    let data = to_binary(&QueryMsg::Metadata {
+    let data = to_binary(&QueryMsg::CollectionMetadata {
         class_id: "foobar".to_string(),
     })
     .unwrap();
 
-    let packet = IbcPacketReceiveMsg::new(mock_packet(data));
+    let packet = IbcPacketReceiveMsg::new(mock_packet(data), Addr::unchecked("relayer"));
     let mut deps = mock_dependencies();
     let env = mock_env();
 
