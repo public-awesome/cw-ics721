@@ -1,0 +1,8 @@
+[package]
+name = "zip-optional"
+version = "0.1.0"
+edition = "2021"
+authors = ["ekez <ekez@withoutdoing.com>"]
+description = "an iterator type for zipping with an optional iterator"
+
+[dependencies]
