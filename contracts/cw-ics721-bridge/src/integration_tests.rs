@@ -386,11 +386,14 @@ fn test_no_proxy_unauthorized() {
 }
 
 // Tests that the proxy can send NFTs via this contract. multi test
-// doesn't support IBC messages and panics with "unsupported type"
-// when you try to send one. If we're sending an IBC message this test
-// has passed though.
+// doesn't support IBC messages and panics with "Unexpected exec msg
+// SendPacket" when you try to send one. If we're sending an IBC
+// message this test has passed though.
+//
+// NOTE: this test may fail when updating multi-test as the panic
+// string may change.
 #[test]
-#[should_panic(expected = "Unsupported type")]
+#[should_panic(expected = "Unexpected exec msg SendPacket")]
 fn test_proxy_authorized() {
     use cw721_rate_limited_proxy as rlp;
 

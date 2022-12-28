@@ -25,6 +25,7 @@ const CHANNEL_ID: &str = "channel-1";
 const DEFAULT_TIMEOUT: u64 = 42; // Seconds.
 
 const ADDR1: &str = "addr1";
+const RELAYER_ADDR: &str = "relayer";
 const CW721_CODE_ID: u64 = 0;
 
 fn mock_channel(channel_id: &str) -> IbcChannel {
@@ -35,7 +36,7 @@ fn mock_channel(channel_id: &str) -> IbcChannel {
         },
         IbcEndpoint {
             port_id: REMOTE_PORT.to_string(),
-            channel_id: format!("{}5", channel_id),
+            channel_id: format!("{channel_id}5"),
         },
         IbcOrder::Unordered,
         IBC_VERSION,
@@ -230,7 +231,7 @@ fn test_ibc_channel_open_ordered_channel() {
         },
         IbcEndpoint {
             port_id: REMOTE_PORT.to_string(),
-            channel_id: format!("{}5", channel_id),
+            channel_id: format!("{channel_id}5"),
         },
         IbcOrder::Ordered,
         IBC_VERSION,
@@ -258,7 +259,7 @@ fn test_ibc_channel_open_invalid_version() {
         },
         IbcEndpoint {
             port_id: REMOTE_PORT.to_string(),
-            channel_id: format!("{}5", channel_id),
+            channel_id: format!("{channel_id}5"),
         },
         IbcOrder::Unordered,
         "invalid_version",
@@ -286,7 +287,7 @@ fn test_ibc_channel_open_invalid_version_counterparty() {
         },
         IbcEndpoint {
             port_id: REMOTE_PORT.to_string(),
-            channel_id: format!("{}5", channel_id),
+            channel_id: format!("{channel_id}5"),
         },
         IbcOrder::Unordered,
         IBC_VERSION,
@@ -329,7 +330,7 @@ fn test_ibc_channel_connect_ordered_channel() {
         },
         IbcEndpoint {
             port_id: REMOTE_PORT.to_string(),
-            channel_id: format!("{}5", channel_id),
+            channel_id: format!("{channel_id}5"),
         },
         IbcOrder::Ordered,
         IBC_VERSION,
@@ -357,7 +358,7 @@ fn test_ibc_channel_connect_invalid_version() {
         },
         IbcEndpoint {
             port_id: REMOTE_PORT.to_string(),
-            channel_id: format!("{}5", channel_id),
+            channel_id: format!("{channel_id}5"),
         },
         IbcOrder::Unordered,
         "invalid_version",
@@ -385,7 +386,7 @@ fn test_ibc_channel_connect_invalid_version_counterparty() {
         },
         IbcEndpoint {
             port_id: REMOTE_PORT.to_string(),
-            channel_id: format!("{}5", channel_id),
+            channel_id: format!("{channel_id}5"),
         },
         IbcOrder::Unordered,
         IBC_VERSION,
@@ -406,7 +407,7 @@ fn test_ibc_packet_receive_invalid_packet_data() {
     })
     .unwrap();
 
-    let packet = IbcPacketReceiveMsg::new(mock_packet(data));
+    let packet = IbcPacketReceiveMsg::new(mock_packet(data), Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
 
@@ -426,7 +427,10 @@ fn test_ibc_packet_receive_invalid_packet_data() {
 fn test_ibc_packet_receive_missmatched_lengths() {
     let data = build_ics_packet("bad kids", None, vec!["kid A"], vec![], "ekez", "callum");
 
-    let packet = IbcPacketReceiveMsg::new(mock_packet(to_binary(&data).unwrap()));
+    let packet = IbcPacketReceiveMsg::new(
+        mock_packet(to_binary(&data).unwrap()),
+        Addr::unchecked(RELAYER_ADDR),
+    );
     let mut deps = mock_dependencies();
     let env = mock_env();
 
@@ -471,7 +475,7 @@ fn test_no_receive_when_paused() {
     })
     .unwrap();
 
-    let packet = IbcPacketReceiveMsg::new(mock_packet(data));
+    let packet = IbcPacketReceiveMsg::new(mock_packet(data), Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
 

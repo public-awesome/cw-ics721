@@ -3,8 +3,9 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg,
-    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacket, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, Reply, Response, StdResult, SubMsgResult, WasmMsg,
+    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacket, IbcPacketAckMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, Reply, Response, StdResult,
+    SubMsgResult, WasmMsg,
 };
 use cw_utils::parse_reply_instantiate_data;
 
@@ -58,8 +59,9 @@ pub fn ibc_channel_open(
     _deps: DepsMut,
     _env: Env,
     msg: IbcChannelOpenMsg,
-) -> Result<(), ContractError> {
-    validate_order_and_version(msg.channel(), msg.counterparty_version())
+) -> Result<IbcChannelOpenResponse, ContractError> {
+    validate_order_and_version(msg.channel(), msg.counterparty_version())?;
+    Ok(None)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -103,7 +105,6 @@ pub fn ibc_channel_close(
         // closing (bad because the channel is, for all intents and
         // purposes, closed) so we must allow the transaction through.
         IbcChannelCloseMsg::CloseConfirm { channel: _ } => Ok(IbcBasicResponse::default()),
-        _ => unreachable!("https://github.com/CosmWasm/cosmwasm/pull/1449"),
     }
 }
 
