@@ -9,14 +9,12 @@ use cw2::set_contract_version;
 use crate::{
     error::ContractError,
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
-    msg::{
-        CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, NewTokenInfo,
-        QueryMsg, TransferInfo,
-    },
+    msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     state::{
         UniversalNftInfoResponse, CLASS_ID_TO_CLASS_URI, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
         NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY,
     },
+    token_types::{ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
 };
 
 const CONTRACT_NAME: &str = "crates.io:cw-ics721-bridge";
@@ -79,48 +77,19 @@ fn execute_callback(
         Err(ContractError::Unauthorized {})
     } else {
         match msg {
+            CallbackMsg::CreateVouchers { receiver, create } => {
+                callback_create_vouchers(deps, env, receiver, create)
+            }
+            CallbackMsg::RedeemVouchers { receiver, redeem } => {
+                callback_redeem_vouchers(deps.as_ref(), receiver, redeem)
+            }
             CallbackMsg::Mint {
                 class_id,
-                token_ids,
-                token_uris,
+                tokens,
                 receiver,
-            } => execute_mint(
-                deps.as_ref(),
-                env,
-                info,
-                class_id,
-                token_ids,
-                token_uris,
-                receiver,
-            ),
-            CallbackMsg::InstantiateAndMint {
-                class_id,
-                class_uri,
-                token_ids,
-                token_uris,
-                receiver,
-            } => execute_do_instantiate_and_mint(
-                deps, env, info, class_id, class_uri, token_ids, token_uris, receiver,
-            ),
-            CallbackMsg::BatchTransfer {
-                class_id,
-                receiver,
-                token_ids,
-            } => execute_batch_transfer(deps.as_ref(), env, info, class_id, receiver, token_ids),
-            CallbackMsg::HandlePacketReceive {
-                receiver,
-                class_uri,
-                transfers,
-                new_tokens,
-            } => execute_handle_packet_receive(
-                deps.as_ref(),
-                env,
-                info,
-                receiver,
-                class_uri,
-                transfers,
-                new_tokens,
-            ),
+            } => callback_mint(deps.as_ref(), class_id, tokens, receiver),
+
+            CallbackMsg::Conjunction { operands } => Ok(Response::default().add_messages(operands)),
         }
     }
 }
@@ -144,7 +113,7 @@ fn execute_receive_proxy_nft(
         sender,
         msg,
     } = msg;
-    do_receive_nft(deps, info, token_id, sender, msg)
+    nft_rx(deps, info, TokenId::new(token_id), sender, msg)
 }
 
 fn execute_receive_nft(
@@ -157,7 +126,7 @@ fn execute_receive_nft(
     if PROXY.load(deps.storage)?.is_some() {
         Err(ContractError::Unauthorized {})
     } else {
-        do_receive_nft(deps, info, token_id, sender, msg)
+        nft_rx(deps, info, TokenId::new(token_id), sender, msg)
     }
 }
 
@@ -166,10 +135,10 @@ fn execute_pause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractE
     Ok(Response::default().add_attribute("method", "pause"))
 }
 
-fn do_receive_nft(
+fn nft_rx(
     deps: DepsMut,
     info: MessageInfo,
-    token_id: String,
+    token_id: TokenId,
     sender: String,
     msg: Binary,
 ) -> Result<Response, ContractError> {
@@ -179,16 +148,17 @@ fn do_receive_nft(
     let class_id = if NFT_CONTRACT_TO_CLASS_ID.has(deps.storage, info.sender.clone()) {
         NFT_CONTRACT_TO_CLASS_ID.load(deps.storage, info.sender.clone())?
     } else {
-        let class_id = info.sender.to_string();
+        let class_id = ClassId::new(info.sender.to_string());
         // If we do not yet have a class ID for this contract, it is a
         // local NFT and its class ID is its conract address.
         NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, info.sender.clone(), &class_id)?;
-        CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, info.sender.to_string(), &info.sender)?;
+        CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class_id.clone(), &info.sender)?;
         // We set class level metadata to None for local NFTs.
         //
         // Merging and usage of this PR may change that:
         // <https://github.com/CosmWasm/cw-nfts/pull/75>
-        CLASS_ID_TO_CLASS_URI.save(deps.storage, info.sender.to_string(), &None)?;
+        CLASS_ID_TO_CLASS_URI.save(deps.storage, class_id.clone(), &None)?;
+        // TODO: set metadata
         class_id
     };
 
@@ -199,17 +169,17 @@ fn do_receive_nft(
     let UniversalNftInfoResponse { token_uri, .. } = deps.querier.query_wasm_smart(
         info.sender,
         &cw721::Cw721QueryMsg::NftInfo {
-            token_id: token_id.clone(),
+            token_id: token_id.clone().into(),
         },
     )?;
 
     let ibc_message = NonFungibleTokenPacketData {
         class_id: class_id.clone(),
         class_uri,
+        class_data: None, // TODO: check for values we need to forward from a source chain.
+        token_data: None,
         token_ids: vec![token_id.clone()],
-        token_uris: vec![token_uri.unwrap_or_default()], /* Currently token_uri is optional in
-                                                          * cw721 - we set to empty string as
-                                                          * default. */
+        token_uris: token_uri.map(|uri| vec![uri]),
         sender: sender.into_string(),
         receiver: msg.receiver,
     };
@@ -233,61 +203,21 @@ fn do_receive_nft(
         .add_message(ibc_message))
 }
 
-fn execute_handle_packet_receive(
+fn callback_mint(
     deps: Deps,
-    env: Env,
-    info: MessageInfo,
-    receiver: String,
-    class_uri: Option<String>,
-    transfers: Option<TransferInfo>,
-    new_tokens: Option<NewTokenInfo>,
-) -> Result<Response, ContractError> {
-    if info.sender != env.contract.address {
-        return Err(ContractError::Unauthorized {});
-    }
-    let receiver = deps.api.addr_validate(&receiver)?;
-
-    let mut messages = Vec::with_capacity(2);
-    if let Some(transfer_info) = transfers {
-        messages.push(transfer_info.into_wasm_msg(&env, &receiver)?)
-    }
-    if let Some(token_info) = new_tokens {
-        messages.push(token_info.into_wasm_msg(&env, &receiver, class_uri)?)
-    }
-
-    Ok(Response::default()
-        .add_attribute("method", "handle_packet_receive")
-        .add_messages(messages))
-}
-
-fn execute_mint(
-    deps: Deps,
-    env: Env,
-    info: MessageInfo,
-    class_id: String,
-    token_ids: Vec<String>,
-    token_uris: Vec<String>,
+    class_id: ClassId,
+    tokens: Vec<Token>,
     receiver: String,
 ) -> Result<Response, ContractError> {
-    if info.sender != env.contract.address {
-        return Err(ContractError::Unauthorized {});
-    }
-    if token_ids.len() != token_uris.len() {
-        return Err(ContractError::ImbalancedTokenInfo {});
-    }
-
     let receiver = deps.api.addr_validate(&receiver)?;
     let cw721_addr = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class_id)?;
 
-    let mint_messages = token_ids
+    let mint = tokens
         .into_iter()
-        // Can zip without worrying about dropping data as we assert
-        // that lengths are the same above.
-        .zip(token_uris.into_iter())
-        .map(|(token_id, token_uri)| -> StdResult<WasmMsg> {
+        .map(|Token { id, uri, data: _ }| {
             let msg = cw721_base::msg::ExecuteMsg::<Empty, Empty>::Mint(cw721_base::MintMsg {
-                token_id,
-                token_uri: Some(token_uri),
+                token_id: id.into(),
+                token_uri: uri,
                 owner: receiver.to_string(),
                 extension: Empty::default(),
             });
@@ -301,27 +231,17 @@ fn execute_mint(
 
     Ok(Response::default()
         .add_attribute("method", "execute_mint")
-        .add_messages(mint_messages))
+        .add_messages(mint))
 }
 
-#[allow(clippy::too_many_arguments)]
-fn execute_do_instantiate_and_mint(
+fn callback_create_vouchers(
     deps: DepsMut,
     env: Env,
-    info: MessageInfo,
-    class_id: String,
-    class_uri: Option<String>,
-    token_ids: Vec<String>,
-    token_uris: Vec<String>,
     receiver: String,
+    create: VoucherCreation,
 ) -> Result<Response, ContractError> {
-    if info.sender != env.contract.address {
-        return Err(ContractError::Unauthorized {});
-    }
-
-    // Optionally, instantiate a new cw721 contract if one does not
-    // yet exist.
-    let submessages = if CLASS_ID_TO_NFT_CONTRACT.has(deps.storage, class_id.clone()) {
+    let VoucherCreation { class, tokens } = create;
+    let instantiate = if CLASS_ID_TO_NFT_CONTRACT.has(deps.storage, class.id.clone()) {
         vec![]
     } else {
         let message = SubMsg::<Empty>::reply_on_success(
@@ -331,8 +251,8 @@ fn execute_do_instantiate_and_mint(
                 msg: to_binary(&cw721_base::msg::InstantiateMsg {
                     // Name of the collection MUST be class_id as this is how
                     // we create a map entry on reply.
-                    name: class_id.clone(),
-                    symbol: class_id.clone(),
+                    name: class.id.clone().into(),
+                    symbol: class.id.clone().into(),
                     minter: env.contract.address.to_string(),
                 })?,
                 funds: vec![],
@@ -351,43 +271,32 @@ fn execute_do_instantiate_and_mint(
     // ID we have already seen comes in with new metadata, we assume
     // that the metadata has been updated on the source chain and
     // update it for the class ID locally as well.
-    CLASS_ID_TO_CLASS_URI.save(deps.storage, class_id.clone(), &class_uri)?;
+    CLASS_ID_TO_CLASS_URI.save(deps.storage, class.id.clone(), &class.uri)?;
+    // TODO: refactor and store data here as well.
 
-    // Mint the requested tokens. Submessages and their replies are
-    // always executed before regular messages [1], so we can sleep
-    // nicely knowing this won't happen until the cw721 contract has
-    // been instantiated.
-    //
-    // [1] https://github.com/CosmWasm/cosmwasm/blob/main/SEMANTICS.md#order-and-rollback
-    let mint_message = WasmMsg::Execute {
+    let mint = WasmMsg::Execute {
         contract_addr: env.contract.address.into_string(),
         msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::Mint {
-            class_id,
-            token_ids,
-            token_uris,
+            class_id: class.id,
             receiver,
+            tokens,
         }))?,
         funds: vec![],
     };
 
     Ok(Response::default()
-        .add_attribute("method", "do_instantiate_and_mint")
-        .add_submessages(submessages)
-        .add_message(mint_message))
+        .add_attribute("method", "callback_create_vouchers")
+        .add_submessages(instantiate)
+        .add_message(mint))
 }
 
-fn execute_batch_transfer(
+fn callback_redeem_vouchers(
     deps: Deps,
-    env: Env,
-    info: MessageInfo,
-    class_id: String,
     receiver: String,
-    token_ids: Vec<String>,
+    redeem: VoucherRedemption,
 ) -> Result<Response, ContractError> {
-    if info.sender != env.contract.address {
-        return Err(ContractError::Unauthorized {});
-    }
-    let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class_id)?;
+    let VoucherRedemption { class, token_ids } = redeem;
+    let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class.id)?;
     let receiver = deps.api.addr_validate(&receiver)?;
     Ok(Response::default().add_messages(
         token_ids
@@ -397,7 +306,7 @@ fn execute_batch_transfer(
                     contract_addr: nft_contract.to_string(),
                     msg: to_binary(&cw721::Cw721ExecuteMsg::TransferNft {
                         recipient: receiver.to_string(),
-                        token_id,
+                        token_id: token_id.into(),
                     })?,
                     funds: vec![],
                 })
@@ -425,18 +334,18 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-fn query_class_id_for_nft_contract(deps: Deps, contract: String) -> StdResult<Option<String>> {
+fn query_class_id_for_nft_contract(deps: Deps, contract: String) -> StdResult<Option<ClassId>> {
     let contract = deps.api.addr_validate(&contract)?;
     NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, contract)
 }
 
 fn query_nft_contract_for_class_id(deps: Deps, class_id: String) -> StdResult<Option<Addr>> {
-    CLASS_ID_TO_NFT_CONTRACT.may_load(deps.storage, class_id)
+    CLASS_ID_TO_NFT_CONTRACT.may_load(deps.storage, ClassId::new(class_id))
 }
 
 fn query_metadata(deps: Deps, class_id: String) -> StdResult<Option<String>> {
     Ok(CLASS_ID_TO_CLASS_URI
-        .may_load(deps.storage, class_id)?
+        .may_load(deps.storage, ClassId::new(class_id))?
         .flatten())
 }
 
@@ -445,7 +354,7 @@ fn query_owner(
     class_id: String,
     token_id: String,
 ) -> StdResult<cw721::OwnerOfResponse> {
-    let class_uri = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class_id)?;
+    let class_uri = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, ClassId::new(class_id))?;
     let resp: cw721::OwnerOfResponse = deps.querier.query_wasm_smart(
         class_uri,
         &cw721::Cw721QueryMsg::OwnerOf {
@@ -521,7 +430,7 @@ mod tests {
         deps.querier = querier;
 
         let info = mock_info(NFT_ADDR, &[]);
-        let token_id = "1".to_string();
+        let token_id = TokenId::new("1");
         let sender = "ekez".to_string();
         let msg = to_binary(&IbcOutgoingMsg {
             receiver: "callum".to_string(),
@@ -530,7 +439,7 @@ mod tests {
         })
         .unwrap();
 
-        let res = do_receive_nft(deps.as_mut(), info, token_id, sender, msg).unwrap();
+        let res = nft_rx(deps.as_mut(), info, token_id.clone(), sender.clone(), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
 
         assert_eq!(
@@ -539,11 +448,13 @@ mod tests {
                 channel_id: "channel-1".to_string(),
                 timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
                 data: to_binary(&NonFungibleTokenPacketData {
-                    class_id: NFT_ADDR.to_string(),
+                    class_id: ClassId::new(NFT_ADDR),
                     class_uri: None,
-                    token_ids: vec!["1".to_string()],
-                    token_uris: vec!["https://moonphase.is/image.svg".to_string()],
-                    sender: "ekez".to_string(),
+                    class_data: None,
+                    token_data: None,
+                    token_ids: vec![token_id],
+                    token_uris: Some(vec!["https://moonphase.is/image.svg".to_string()]),
+                    sender,
                     receiver: "callum".to_string(),
                 })
                 .unwrap()
@@ -560,7 +471,7 @@ mod tests {
         deps.querier = querier;
 
         let info = mock_info(NFT_ADDR, &[]);
-        let token_id = "1".to_string();
+        let token_id = TokenId::new("1");
         let sender = "ekez".to_string();
         let msg = to_binary(&IbcOutgoingMsg {
             receiver: "ekez".to_string(),
@@ -569,10 +480,10 @@ mod tests {
         })
         .unwrap();
 
-        do_receive_nft(deps.as_mut(), info, token_id, sender, msg).unwrap();
+        nft_rx(deps.as_mut(), info, token_id, sender, msg).unwrap();
 
         let class_uri = CLASS_ID_TO_CLASS_URI
-            .load(deps.as_ref().storage, "nft".to_string())
+            .load(deps.as_ref().storage, ClassId::new(NFT_ADDR))
             .unwrap();
         assert_eq!(class_uri, None);
     }

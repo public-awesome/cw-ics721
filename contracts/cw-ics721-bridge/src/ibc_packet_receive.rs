@@ -1,40 +1,48 @@
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, DepsMut, Empty, Env, IbcPacket, IbcReceiveResponse, StdResult,
-    SubMsg, WasmMsg,
+    from_binary, to_binary, Addr, Binary, DepsMut, Empty, Env, IbcPacket, IbcReceiveResponse,
+    StdResult, SubMsg, WasmMsg,
 };
+
+use zip_optional::Zippable;
 
 use crate::{
     ibc::{NonFungibleTokenPacketData, ACK_AND_DO_NOTHING},
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
-    msg::{CallbackMsg, ExecuteMsg, NewTokenInfo, TransferInfo},
+    msg::{CallbackMsg, ExecuteMsg},
     state::{INCOMING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO},
+    token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
     ContractError,
 };
 
 /// Every incoming token has some associated action.
 enum Action {
-    /// We have seen this token before, it should be transfered.
-    Transfer { class_id: String, token_id: String },
-    /// We have not seen this token before, a new one needs to be
-    /// created.
-    NewToken {
-        class_id: String,
-        token_id: String,
-        token_uri: String,
+    /// Debt-voucher redemption.
+    Redemption {
+        class_id: ClassId,
+        token_id: TokenId,
     },
+    /// Debt-voucher creation.
+    Creation { class_id: ClassId, token: Token },
 }
 
 /// Internal type for aggregating actions. Actions can be added via
 /// `add_action`. Once aggregation has completed, a
 /// `HandlePacketReceive` submessage can be created via the
 /// `into_submessage` method.
+///
+/// Unlike `class_id`, class data and uri will always be the same
+/// across one transfer so we store only one copy at the top level and
+/// initialize it at creation time.
 #[derive(Default)]
 struct ActionAggregator {
-    pub transfers: Option<TransferInfo>,
-    pub new_tokens: Option<NewTokenInfo>,
+    class_uri: Option<String>,
+    class_data: Option<Binary>,
+
+    redemption: Option<VoucherRedemption>,
+    creation: Option<VoucherCreation>,
 }
 
-pub(crate) fn do_ibc_packet_receive(
+pub(crate) fn ibc_rx(
     deps: DepsMut,
     env: Env,
     packet: IbcPacket,
@@ -44,6 +52,54 @@ pub(crate) fn do_ibc_packet_receive(
     let data: NonFungibleTokenPacketData = from_binary(&packet.data)?;
     data.validate()?;
 
+    // below is a functional implementation of this imperative psudocode:
+    //
+    // ```
+    // def select_actions(class_id, token, ibc_channel):
+    //     (local_class_id, could_be_local) = pop_src_prefix(class_id)
+    //     actions = []
+    //
+    //     for token in tokens:
+    //         if could_be_local:
+    //             returning_to_source = outgoing_tokens.has(token)
+    //             if returning_to_source:
+    //                 outgoing_tokens.remove(token)
+    //                 actions.push(redeem_voucher, token, local_class_id)
+    //                 continue
+    //         incoming_tokens.save(token)
+    //         prefixed_class_id = prefix(class_id, ibc_channel)
+    //         actions.push(create_voucher, token, prefixed_class_id)
+    //
+    //     return actions
+    // ```
+    //
+    // as `class_id` is fixed:
+    //
+    // 1. all `create_voucher` actions will have class id `prefixed_class_id`
+    // 2. all `redeem_voucher` actions will have class id `local_class_id`
+    //
+    // in other words:
+    //
+    // 1. `create_voucher` actions will all have the same `class_id`
+    // 2. `redeem_voucher` actions will all have the same `class_id`
+    //
+    // this property is made use of in the `VoucherRedemption` and
+    // `VoucherCreation` types which aggregate redemption and creation
+    // actions.
+    //
+    // notably:
+    //
+    // 3. not all create and redeem actions will have the same
+    //    `class_id`.
+    //
+    // by counterexample: two identical tokens are sent by a malicious
+    // counterparty, the first removes the token from the
+    // outgoing_tokens map, the second then creates a create_voucher
+    // action.
+    //
+    // see `TestDoubleSendInSingleMessage` in `/e2e/adversarial_test.go`
+    // for a test demonstrating this.
+
     let local_class_id = try_pop_source_prefix(&packet.src, &data.class_id);
     let receiver = deps.api.addr_validate(&data.receiver)?;
     let token_count = data.token_ids.len();
@@ -51,12 +107,14 @@ pub(crate) fn do_ibc_packet_receive(
     let submessage = data
         .token_ids
         .into_iter()
-        .zip(data.token_uris.into_iter())
+        .zip_optional(data.token_uris)
+        .zip_optional(data.token_data)
         .try_fold(
             Vec::<Action>::with_capacity(token_count),
-            |mut messages, (token_id, token_uri)| -> StdResult<_> {
+            |mut messages, ((token_id, token_uri), token_data)| -> StdResult<_> {
                 if let Some(local_class_id) = local_class_id {
-                    let key = (local_class_id.to_string(), token_id.clone());
+                    let local_class_id = ClassId::new(local_class_id);
+                    let key = (local_class_id.clone(), token_id.clone());
                     let outgoing_channel =
                         OUTGOING_CLASS_TOKEN_TO_CHANNEL.may_load(deps.storage, key.clone())?;
                     let returning_to_source = outgoing_channel.map_or(false, |outgoing_channel| {
@@ -67,9 +125,9 @@ pub(crate) fn do_ibc_packet_receive(
                         // channel. Unlock the local version for the
                         // receiver.
                         OUTGOING_CLASS_TOKEN_TO_CHANNEL.remove(deps.storage, key);
-                        messages.push(Action::Transfer {
+                        messages.push(Action::Redemption {
                             token_id,
-                            class_id: local_class_id.to_string(),
+                            class_id: local_class_id,
                         });
                         return Ok(messages);
                     }
@@ -77,23 +135,29 @@ pub(crate) fn do_ibc_packet_receive(
                 // It's not something we've sent out before => make a
                 // new NFT.
                 let local_prefix = get_endpoint_prefix(&packet.dest);
-                let local_class_id = format!("{}{}", local_prefix, data.class_id);
+                let local_class_id = ClassId::new(format!("{}{}", local_prefix, data.class_id));
                 INCOMING_CLASS_TOKEN_TO_CHANNEL.save(
                     deps.storage,
                     (local_class_id.clone(), token_id.clone()),
                     &packet.dest.channel_id,
                 )?;
-                messages.push(Action::NewToken {
+                messages.push(Action::Creation {
                     class_id: local_class_id,
-                    token_id,
-                    token_uri,
+                    token: Token {
+                        id: token_id,
+                        uri: token_uri,
+                        data: token_data,
+                    },
                 });
                 Ok(messages)
             },
         )?
         .into_iter()
-        .fold(ActionAggregator::default(), ActionAggregator::add_action)
-        .into_submessage(env.contract.address, receiver, data.class_uri)?;
+        .fold(
+            ActionAggregator::new(data.class_uri, data.class_data),
+            ActionAggregator::add_action,
+        )
+        .into_submessage(env.contract.address, receiver)?;
 
     Ok(IbcReceiveResponse::default()
         .add_submessage(submessage)
@@ -104,97 +168,72 @@ pub(crate) fn do_ibc_packet_receive(
 }
 
 impl ActionAggregator {
+    pub fn new(class_uri: Option<String>, class_data: Option<Binary>) -> Self {
+        Self {
+            class_uri,
+            class_data,
+            redemption: None,
+            creation: None,
+        }
+    }
+
     pub fn add_action(mut self, action: Action) -> Self {
         match action {
-            Action::Transfer { class_id, token_id } => {
-                self.transfers = Some(
-                    self.transfers
-                        .map(|mut info| {
-                            info.token_ids.push(token_id.clone());
-                            info
-                        })
-                        .unwrap_or_else(|| TransferInfo {
-                            class_id,
-                            token_ids: vec![token_id],
-                        }),
-                )
+            Action::Redemption { class_id, token_id } => {
+                self.redemption = match self.redemption {
+                    Some(mut r) => {
+                        r.token_ids.push(token_id);
+                        Some(r)
+                    }
+                    None => Some(VoucherRedemption {
+                        class: Class {
+                            id: class_id,
+                            uri: self.class_uri.clone(),
+                            data: self.class_data.clone(),
+                        },
+                        token_ids: vec![token_id],
+                    }),
+                }
             }
-            Action::NewToken {
-                class_id,
-                token_id,
-                token_uri,
-            } => {
-                self.new_tokens = Some(
-                    self.new_tokens
-                        .map(|mut info| {
-                            info.token_ids.push(token_id.clone());
-                            info.token_uris.push(token_uri.clone());
-                            info
-                        })
-                        .unwrap_or_else(|| NewTokenInfo {
-                            class_id,
-                            token_ids: vec![token_id],
-                            token_uris: vec![token_uri],
-                        }),
-                )
+            Action::Creation { class_id, token } => {
+                self.creation = match self.creation {
+                    Some(mut c) => {
+                        c.tokens.push(token);
+                        Some(c)
+                    }
+                    None => Some(VoucherCreation {
+                        class: Class {
+                            id: class_id,
+                            uri: self.class_uri.clone(),
+                            data: self.class_data.clone(),
+                        },
+                        tokens: vec![token],
+                    }),
+                }
             }
-        }
+        };
         self
     }
 
-    pub fn into_submessage(
-        self,
-        contract: Addr,
-        receiver: Addr,
-        class_uri: Option<String>,
-    ) -> StdResult<SubMsg<Empty>> {
-        Ok(SubMsg::reply_always(
+    pub fn into_submessage(self, contract: Addr, receiver: Addr) -> StdResult<SubMsg<Empty>> {
+        let mut m = Vec::with_capacity(2);
+        if let Some(redeem) = self.redemption {
+            m.push(redeem.into_wasm_msg(contract.clone(), receiver.to_string())?)
+        }
+        if let Some(create) = self.creation {
+            m.push(create.into_wasm_msg(contract.clone(), receiver.into_string())?)
+        }
+        let message = if m.len() == 1 {
+            m[0].clone()
+        } else {
             WasmMsg::Execute {
                 contract_addr: contract.into_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::HandlePacketReceive {
-                    class_uri,
-                    receiver: receiver.into_string(),
-                    transfers: self.transfers,
-                    new_tokens: self.new_tokens,
+                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::Conjunction {
+                    operands: m,
                 }))?,
                 funds: vec![],
-            },
-            ACK_AND_DO_NOTHING,
-        ))
-    }
-}
-
-impl TransferInfo {
-    pub(crate) fn into_wasm_msg(self, env: &Env, receiver: &Addr) -> StdResult<WasmMsg> {
-        Ok(WasmMsg::Execute {
-            contract_addr: env.contract.address.to_string(),
-            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::BatchTransfer {
-                class_id: self.class_id,
-                receiver: receiver.to_string(),
-                token_ids: self.token_ids,
-            }))?,
-            funds: vec![],
-        })
-    }
-}
-
-impl NewTokenInfo {
-    pub(crate) fn into_wasm_msg(
-        self,
-        env: &Env,
-        receiver: &Addr,
-        class_uri: Option<String>,
-    ) -> StdResult<WasmMsg> {
-        Ok(WasmMsg::Execute {
-            contract_addr: env.contract.address.to_string(),
-            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
-                class_id: self.class_id,
-                class_uri,
-                receiver: receiver.to_string(),
-                token_ids: self.token_ids,
-                token_uris: self.token_uris,
-            }))?,
-            funds: vec![],
-        })
+            }
+        };
+        Ok(SubMsg::reply_always(message, ACK_AND_DO_NOTHING))
     }
 }

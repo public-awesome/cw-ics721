@@ -4,9 +4,8 @@ use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 use cw_pause_once::PauseError;
 
 use crate::{
-    msg::{
-        CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg, TransferInfo,
-    },
+    msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
+    token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
     ContractError,
 };
 
@@ -149,12 +148,21 @@ fn test_do_instantiate_and_mint_weird_data() {
     app.execute_contract(
         bridge.clone(),
         bridge,
-        &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
-            class_id: "bad kids".to_string(),
-            class_uri: None,
-            token_ids: vec!["1".to_string()],
-            token_uris: vec!["".to_string()], // Empty string should be allowed.
+        &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
             receiver: "ekez".to_string(),
+            create: VoucherCreation {
+                class: Class {
+                    id: ClassId::new("bad kids"),
+                    uri: None,
+                    data: None,
+                },
+                tokens: vec![Token {
+                    id: TokenId::new("1"),
+                    // Empty URI string allowed.
+                    uri: Some("".to_string()),
+                    data: None,
+                }],
+            },
         }),
         &[],
     )
@@ -170,15 +178,27 @@ fn test_do_instantiate_and_mint() {
     app.execute_contract(
         bridge.clone(),
         bridge.clone(),
-        &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
-            class_id: "bad kids".to_string(),
-            class_uri: Some("https://moonphase.is".to_string()),
-            token_ids: vec!["1".to_string(), "2".to_string()],
-            token_uris: vec![
-                "https://moonphase.is/image.svg".to_string(),
-                "https://moonphase.is/image.svg".to_string(),
-            ],
+        &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
             receiver: "ekez".to_string(),
+            create: VoucherCreation {
+                class: Class {
+                    id: ClassId::new("bad kids"),
+                    uri: Some("https://moonphase.is".to_string()),
+                    data: None,
+                },
+                tokens: vec![
+                    Token {
+                        id: TokenId::new("1"),
+                        uri: Some("https://moonphase.is/image.svg".to_string()),
+                        data: None,
+                    },
+                    Token {
+                        id: TokenId::new("2"),
+                        uri: Some("https://moonphase.is/image.svg".to_string()),
+                        data: None,
+                    },
+                ],
+            },
         }),
         &[],
     )
@@ -277,12 +297,20 @@ fn test_do_instantiate_and_mint_no_instantiate() {
     app.execute_contract(
         bridge.clone(),
         bridge.clone(),
-        &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
-            class_id: "bad kids".to_string(),
-            class_uri: Some("https://moonphase.is".to_string()),
-            token_ids: vec!["1".to_string()],
-            token_uris: vec!["https://moonphase.is/image.svg".to_string()],
+        &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
             receiver: "ekez".to_string(),
+            create: VoucherCreation {
+                class: Class {
+                    id: ClassId::new("bad kids"),
+                    uri: Some("https://moonphase.is".to_string()),
+                    data: None,
+                },
+                tokens: vec![Token {
+                    id: TokenId::new("1"),
+                    uri: Some("https://moonphase.is/image.svg".to_string()),
+                    data: None,
+                }],
+            },
         }),
         &[],
     )
@@ -293,12 +321,20 @@ fn test_do_instantiate_and_mint_no_instantiate() {
     app.execute_contract(
         bridge.clone(),
         bridge.clone(),
-        &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
-            class_id: "bad kids".to_string(),
-            class_uri: Some("https://moonphase.is".to_string()),
-            token_ids: vec!["2".to_string()],
-            token_uris: vec!["https://moonphase.is/image.svg".to_string()],
+        &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
             receiver: "ekez".to_string(),
+            create: VoucherCreation {
+                class: Class {
+                    id: ClassId::new("bad kids"),
+                    uri: Some("https://moonphase.is".to_string()),
+                    data: None,
+                },
+                tokens: vec![Token {
+                    id: TokenId::new("2"),
+                    uri: Some("https://moonphase.is/image.svg".to_string()),
+                    data: None,
+                }],
+            },
         }),
         &[],
     )
@@ -339,14 +375,22 @@ fn test_do_instantiate_and_mint_permissions() {
     // Method is only callable by the contract itself.
     let err: ContractError = app
         .execute_contract(
-            Addr::unchecked("ekez"),
+            Addr::unchecked("notbridge"),
             bridge,
-            &ExecuteMsg::Callback(CallbackMsg::InstantiateAndMint {
-                class_id: "bad kids".to_string(),
-                class_uri: Some("https://moonphase.is".to_string()),
-                token_ids: vec!["1".to_string()],
-                token_uris: vec!["https://moonphase.is/image.svg".to_string()],
+            &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
                 receiver: "ekez".to_string(),
+                create: VoucherCreation {
+                    class: Class {
+                        id: ClassId::new("bad kids"),
+                        uri: Some("https://moonphase.is".to_string()),
+                        data: None,
+                    },
+                    tokens: vec![Token {
+                        id: TokenId::new("1"),
+                        uri: Some("https://moonphase.is/image.svg".to_string()),
+                        data: None,
+                    }],
+                },
             }),
             &[],
         )
@@ -557,15 +601,7 @@ fn test_pause() {
         .execute_contract(
             bridge.clone(),
             bridge.clone(),
-            &ExecuteMsg::Callback(CallbackMsg::HandlePacketReceive {
-                receiver: "ekez".to_string(),
-                class_uri: None,
-                transfers: Some(TransferInfo {
-                    class_id: "bad kids".to_string(),
-                    token_ids: vec!["1".to_string()],
-                }),
-                new_tokens: None,
-            }),
+            &ExecuteMsg::Callback(CallbackMsg::Conjunction { operands: vec![] }),
             &[],
         )
         .unwrap_err()

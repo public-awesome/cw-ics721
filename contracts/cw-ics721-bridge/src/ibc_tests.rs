@@ -15,6 +15,7 @@ use crate::{
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{InstantiateMsg, QueryMsg},
     state::{CLASS_ID_TO_NFT_CONTRACT, NFT_CONTRACT_TO_CLASS_ID, PO},
+    token_types::{ClassId, TokenId},
     ContractError,
 };
 
@@ -93,15 +94,18 @@ fn build_ics_packet(
     class_id: &str,
     class_uri: Option<&str>,
     token_ids: Vec<&str>,
-    token_uris: Vec<&str>,
+    token_uris: Option<Vec<&str>>,
     sender: &str,
     receiver: &str,
 ) -> NonFungibleTokenPacketData {
     NonFungibleTokenPacketData {
-        class_id: class_id.to_string(),
+        class_id: ClassId::new(class_id),
         class_uri: class_uri.map(|s| s.to_string()),
-        token_ids: token_ids.into_iter().map(|s| s.to_string()).collect(),
-        token_uris: token_uris.into_iter().map(|s| s.to_string()).collect(),
+        // TODO: test me.
+        class_data: None,
+        token_data: None,
+        token_ids: token_ids.into_iter().map(TokenId::new).collect(),
+        token_uris: token_uris.map(|t| t.into_iter().map(|s| s.to_string()).collect()),
         sender: sender.to_string(),
         receiver: receiver.to_string(),
     }
@@ -163,7 +167,7 @@ fn test_reply_cw721() {
         .unwrap();
 
     assert_eq!(nft, Addr::unchecked("cosmos2contract"));
-    assert_eq!(class_id, "wasm.address1/channel-10/address2".to_string());
+    assert_eq!(class_id.to_string(), "wasm.address1/channel-10/address2");
 }
 
 #[test]
@@ -425,7 +429,15 @@ fn test_ibc_packet_receive_invalid_packet_data() {
 
 #[test]
 fn test_ibc_packet_receive_missmatched_lengths() {
-    let data = build_ics_packet("bad kids", None, vec!["kid A"], vec![], "ekez", "callum");
+    let data = build_ics_packet(
+        "bad kids",
+        None,
+        vec!["kid A"],
+        // More URIs are provided than tokens.
+        Some(vec!["a", "b"]),
+        "ekez",
+        "callum",
+    );
 
     let packet = IbcPacketReceiveMsg::new(
         mock_packet(to_binary(&data).unwrap()),
@@ -443,7 +455,7 @@ fn test_ibc_packet_receive_missmatched_lengths() {
 
     assert_eq!(
         error,
-        Some("tokenId list has different length than tokenUri list".to_string())
+        Some(ContractError::TokenInfoLenMissmatch {}.to_string())
     )
 }
 
@@ -453,16 +465,17 @@ fn test_packet_json() {
         "stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n",
         Some("https://metadata-url.com/my-metadata"),
         vec!["1", "2", "3"],
-        vec![
+        Some(vec![
             "https://metadata-url.com/my-metadata1",
             "https://metadata-url.com/my-metadata2",
             "https://metadata-url.com/my-metadata3",
-        ],
+        ]),
         "stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n",
         "wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc",
     );
     // Example message generated from the SDK
-    let expected = r#"{"classId":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","classUri":"https://metadata-url.com/my-metadata","tokenIds":["1","2","3"],"tokenUris":["https://metadata-url.com/my-metadata1","https://metadata-url.com/my-metadata2","https://metadata-url.com/my-metadata3"],"sender":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","receiver":"wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc"}"#;
+    // TODO: test with non-null tokenData and classData.
+    let expected = r#"{"classId":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","classUri":"https://metadata-url.com/my-metadata","classData":null,"tokenIds":["1","2","3"],"tokenUris":["https://metadata-url.com/my-metadata1","https://metadata-url.com/my-metadata2","https://metadata-url.com/my-metadata3"],"tokenData":null,"sender":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","receiver":"wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc"}"#;
 
     let encdoded = String::from_utf8(to_vec(&packet).unwrap()).unwrap();
     assert_eq!(expected, encdoded.as_str());

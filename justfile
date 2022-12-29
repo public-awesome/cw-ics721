@@ -23,3 +23,6 @@ integration-test:
     npm i --prefix ts-relayer-tests && npm run full-test --prefix ts-relayer-tests
 
 test: unit-test simulation-test integration-test
+
+lint:
+	cargo +nightly clippy --all-targets -- -D warnings

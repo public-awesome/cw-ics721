@@ -231,6 +231,7 @@ dependencies = [
  "cw721-rate-limited-proxy",
  "serde",
  "thiserror",
+ "zip-optional",
 ]
 
 [[package]]

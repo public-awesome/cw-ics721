@@ -89,9 +89,6 @@ pub(crate) fn validate_order_and_version(
     channel: &IbcChannel,
     counterparty_version: Option<&str>,
 ) -> Result<(), ContractError> {
-    // We expect an unordered channel here. Ordered channels have the
-    // property that if a message is lost the entire channel will stop
-    // working until you start it again.
     if channel.order != IbcOrder::Unordered {
         return Err(ContractError::OrderedChannel {});
     }
@@ -123,16 +120,46 @@ pub(crate) fn validate_order_and_version(
     Ok(())
 }
 
+macro_rules! non_empty_optional {
+    ($e:expr) => {
+        if $e.map_or(false, |data| data.is_empty()) {
+            return Err(ContractError::EmptyOptional {});
+        }
+    };
+}
+
 impl NonFungibleTokenPacketData {
+    // TODO: many, many, many countless unit tests for this function.
     pub fn validate(&self) -> Result<(), ContractError> {
-        if self.token_ids.len() != self.token_uris.len() {
+        if self.class_id.is_empty() {
+            return Err(ContractError::EmptyClassId {});
+        }
+
+        non_empty_optional!(self.class_uri.as_ref());
+        non_empty_optional!(self.class_data.as_ref());
+
+        let token_count = self.token_ids.len();
+        if token_count == 0 {
+            return Err(ContractError::NoTokens {});
+        }
+
+        // Non-empty optionality of tokenData an tokenUris implicitly
+        // checked here.
+        if self
+            .token_data
+            .as_ref()
+            .map_or(false, |data| data.len() != token_count)
+            || self
+                .token_uris
+                .as_ref()
+                .map_or(false, |data| data.len() != token_count)
+        {
             return Err(ContractError::TokenInfoLenMissmatch {});
         }
 
-        // Could check the tokenIds field for duplicates, O(log(N)). A
-        // well behaved cw721 implementation will catch this
-        // downstream if we try and mint / trasnfer the same token
-        // twice.
+        // This contract assumes that the backing cw721 is functional,
+        // so no need to check tokenIds for duplicates as the cw721
+        // will prevent minting of duplicates.
 
         Ok(())
     }

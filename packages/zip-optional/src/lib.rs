@@ -1,7 +1,5 @@
 #![doc = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/README.md"))]
 
-use std::iter::Iterator;
-
 pub enum ZipOptional<A, B> {
     Some { a: A, b: B },
     None { a: A },
