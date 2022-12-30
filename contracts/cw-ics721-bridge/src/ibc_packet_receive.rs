@@ -42,7 +42,7 @@ struct ActionAggregator {
     creation: Option<VoucherCreation>,
 }
 
-pub(crate) fn ibc_rx(
+pub(crate) fn receive_ibc_packet(
     deps: DepsMut,
     env: Env,
     packet: IbcPacket,
@@ -161,7 +161,7 @@ pub(crate) fn ibc_rx(
 
     Ok(IbcReceiveResponse::default()
         .add_submessage(submessage)
-        .add_attribute("method", "do_ibc_packet_receive")
+        .add_attribute("method", "receive_ibc_packet")
         .add_attribute("class_id", data.class_id)
         .add_attribute("local_channel", packet.dest.channel_id)
         .add_attribute("counterparty_channel", packet.src.channel_id))

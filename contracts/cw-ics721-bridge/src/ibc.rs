@@ -12,7 +12,7 @@ use cw_utils::parse_reply_instantiate_data;
 use crate::{
     error::Never,
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error, validate_order_and_version},
-    ibc_packet_receive::ibc_rx,
+    ibc_packet_receive::receive_ibc_packet,
     state::{
         CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, PROXY,
@@ -128,7 +128,7 @@ pub fn ibc_packet_receive(
     // Regardless of if our processing of this packet works we need to
     // commit an ACK to the chain. As such, we wrap all handling logic
     // in a seprate function and on error write out an error ack.
-    match ibc_rx(deps, env, msg.packet) {
+    match receive_ibc_packet(deps, env, msg.packet) {
         Ok(response) => Ok(response),
         Err(error) => Ok(IbcReceiveResponse::new()
             .add_attribute("method", "ibc_packet_receive")

@@ -113,7 +113,7 @@ fn execute_receive_proxy_nft(
         sender,
         msg,
     } = msg;
-    nft_rx(deps, info, TokenId::new(token_id), sender, msg)
+    receive_nft(deps, info, TokenId::new(token_id), sender, msg)
 }
 
 fn execute_receive_nft(
@@ -126,7 +126,7 @@ fn execute_receive_nft(
     if PROXY.load(deps.storage)?.is_some() {
         Err(ContractError::Unauthorized {})
     } else {
-        nft_rx(deps, info, TokenId::new(token_id), sender, msg)
+        receive_nft(deps, info, TokenId::new(token_id), sender, msg)
     }
 }
 
@@ -135,7 +135,7 @@ fn execute_pause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractE
     Ok(Response::default().add_attribute("method", "pause"))
 }
 
-fn nft_rx(
+fn receive_nft(
     deps: DepsMut,
     info: MessageInfo,
     token_id: TokenId,
@@ -177,9 +177,11 @@ fn nft_rx(
         class_id: class_id.clone(),
         class_uri,
         class_data: None, // TODO: check for values we need to forward from a source chain.
-        token_data: None,
+
         token_ids: vec![token_id.clone()],
         token_uris: token_uri.map(|uri| vec![uri]),
+        token_data: None,
+
         sender: sender.into_string(),
         receiver: msg.receiver,
     };
@@ -439,7 +441,7 @@ mod tests {
         })
         .unwrap();
 
-        let res = nft_rx(deps.as_mut(), info, token_id.clone(), sender.clone(), msg).unwrap();
+        let res = receive_nft(deps.as_mut(), info, token_id.clone(), sender.clone(), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
 
         assert_eq!(
@@ -480,7 +482,7 @@ mod tests {
         })
         .unwrap();
 
-        nft_rx(deps.as_mut(), info, token_id, sender, msg).unwrap();
+        receive_nft(deps.as_mut(), info, token_id, sender, msg).unwrap();
 
         let class_uri = CLASS_ID_TO_CLASS_URI
             .load(deps.as_ref().storage, ClassId::new(NFT_ADDR))
