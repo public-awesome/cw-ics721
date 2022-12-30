@@ -180,11 +180,11 @@ fn receive_nft(
     let ibc_message = NonFungibleTokenPacketData {
         class_id: class.id.clone(),
         class_uri: class.uri,
-        class_data: class.data, // TODO: check for values we need to forward from a source chain.
+        class_data: class.data,
 
         token_ids: vec![token_id.clone()],
         token_uris: token_uri.map(|uri| vec![uri]),
-        token_data: None, // we set it to None for local NFT for now.
+        token_data: None, // Like class_uri and class_data, token_data is none for local NFTs.
 
         sender: sender.into_string(),
         receiver: msg.receiver,
@@ -221,7 +221,6 @@ fn callback_mint(
     let mint = tokens
         .into_iter()
         .map(|Token { id, uri, data }| {
-            // We save the metadata here.
             CLASS_TOKEN_ID_TO_TOKEN_METADATA.save(
                 deps.storage,
                 (class_id.clone(), id.clone()),
@@ -350,7 +349,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-fn query_class_id_for_nft_contract(deps: Deps, contract: String) -> StdResult<Option<Class>> {
+fn query_class_for_nft_contract(deps: Deps, contract: String) -> StdResult<Option<Class>> {
     let contract = deps.api.addr_validate(&contract)?;
     NFT_CONTRACT_TO_CLASS.may_load(deps.storage, contract)
 }
