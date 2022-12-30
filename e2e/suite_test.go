@@ -639,7 +639,7 @@ func TestCloseRejected(t *testing.T) {
 	_, _, err = wasmd.SignAndDeliver(
 		t,
 		chainA.TxConfig,
-		chainA.App.GetBaseApp(),
+		chainA.App.BaseApp,
 		chainA.GetContext().BlockHeader(),
 		[]sdk.Msg{msg},
 		chainA.ChainID,
