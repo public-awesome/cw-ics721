@@ -81,9 +81,9 @@ impl VoucherRedemption {
     /// ## Arguments
     ///
     /// - `contract` the address of the ics721-bridge contract
-    ///    vouchers are being redeemed on.
-    /// - `receiver` that address that ought to receive the NFTs
-    ///   the debt-vouchers are redeemable for.
+    ///   vouchers are being redeemed on.
+    /// - `receiver` that address that ought to receive the NFTs the
+    ///   debt-vouchers are redeemable for.
     pub(crate) fn into_wasm_msg(self, contract: Addr, receiver: String) -> StdResult<WasmMsg> {
         Ok(WasmMsg::Execute {
             contract_addr: contract.into_string(),
@@ -103,7 +103,7 @@ impl VoucherCreation {
     /// ## Arguments
     ///
     /// - `contract` the address of the ics721-bridge contract
-    ///    vouchers are being created on.
+    ///   vouchers are being created on.
     /// - `receiver` that address that ought to receive the newly
     ///   created debt-vouchers.
     pub(crate) fn into_wasm_msg(self, contract: Addr, receiver: String) -> StdResult<WasmMsg> {

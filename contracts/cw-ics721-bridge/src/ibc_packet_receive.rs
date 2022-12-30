@@ -2,7 +2,6 @@ use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, DepsMut, Empty, Env, IbcPacket, IbcReceiveResponse,
     StdResult, SubMsg, WasmMsg,
 };
-
 use zip_optional::Zippable;
 
 use crate::{
@@ -75,8 +74,10 @@ pub(crate) fn receive_ibc_packet(
     //
     // as `class_id` is fixed:
     //
-    // 1. all `create_voucher` actions will have class id `prefixed_class_id`
-    // 2. all `redeem_voucher` actions will have class id `local_class_id`
+    // 1. all `create_voucher` actions will have class id
+    //    `prefixed_class_id`
+    // 2. all `redeem_voucher` actions will have class id
+    //    `local_class_id`
     //
     // in other words:
     //
