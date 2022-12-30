@@ -314,7 +314,7 @@ fn callback_redeem_vouchers(
         token_ids
             .into_iter()
             .map(|token_id| {
-                // TODO: Remove metadata here
+                // We remove the metadata here
                 CLASS_TOKEN_ID_TO_TOKEN_METADATA
                     .remove(deps.storage, (class.id.clone(), token_id.clone()));
 
@@ -360,7 +360,7 @@ fn query_nft_contract_for_class_id(deps: Deps, class_id: String) -> StdResult<Op
 }
 
 fn query_metadata(deps: Deps, class_id: String) -> StdResult<Option<Class>> {
-    Ok(CLASS_ID_TO_CLASS.may_load(deps.storage, ClassId::new(class_id))?)
+    CLASS_ID_TO_CLASS.may_load(deps.storage, ClassId::new(class_id))
 }
 
 fn query_owner(

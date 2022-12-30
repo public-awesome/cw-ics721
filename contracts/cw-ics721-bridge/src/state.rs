@@ -1,9 +1,9 @@
-use cosmwasm_std::{Addr, Empty, Binary};
+use cosmwasm_std::{Addr, Binary, Empty};
 use cw_pause_once::PauseOrchestrator;
 use cw_storage_plus::{Item, Map};
 use serde::Deserialize;
 
-use crate::token_types::{ClassId, TokenId, Class};
+use crate::token_types::{Class, ClassId, TokenId};
 
 /// The code ID we will use for instantiating new cw721s.
 pub const CW721_CODE_ID: Item<u64> = Item::new("a");
