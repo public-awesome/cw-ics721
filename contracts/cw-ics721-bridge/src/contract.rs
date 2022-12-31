@@ -221,6 +221,7 @@ fn callback_mint(
     let mint = tokens
         .into_iter()
         .map(|Token { id, uri, data }| {
+            // We save token metadata here because it is part of the mint process
             CLASS_TOKEN_ID_TO_TOKEN_METADATA.save(
                 deps.storage,
                 (class_id.clone(), id.clone()),
@@ -313,7 +314,7 @@ fn callback_redeem_vouchers(
         token_ids
             .into_iter()
             .map(|token_id| {
-                // We remove the metadata here
+                // token metadata is set in mint, on voucher creation, and removed here on voucher redemption
                 CLASS_TOKEN_ID_TO_TOKEN_METADATA
                     .remove(deps.storage, (class.id.clone(), token_id.clone()));
 
@@ -333,9 +334,7 @@ fn callback_redeem_vouchers(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::ClassId { contract } => {
-            to_binary(&query_class_id_for_nft_contract(deps, contract)?)
-        }
+        QueryMsg::ClassId { contract } => to_binary(&query_class_for_nft_contract(deps, contract)?),
         QueryMsg::NftContract { class_id } => {
             to_binary(&query_nft_contract_for_class_id(deps, class_id)?)
         }
