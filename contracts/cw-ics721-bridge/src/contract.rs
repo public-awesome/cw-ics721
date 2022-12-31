@@ -188,6 +188,7 @@ fn receive_nft(
 
         sender: sender.into_string(),
         receiver: msg.receiver,
+        memo: msg.memo,
     };
     let ibc_message = IbcMsg::SendPacket {
         channel_id: msg.channel_id.clone(),
@@ -448,6 +449,7 @@ mod tests {
             receiver: "callum".to_string(),
             channel_id: "channel-1".to_string(),
             timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
+            memo: None,
         })
         .unwrap();
 
@@ -468,6 +470,7 @@ mod tests {
                     token_uris: Some(vec!["https://moonphase.is/image.svg".to_string()]),
                     sender,
                     receiver: "callum".to_string(),
+                    memo: None,
                 })
                 .unwrap()
             }))
@@ -489,6 +492,7 @@ mod tests {
             receiver: "ekez".to_string(),
             channel_id: "channel-1".to_string(),
             timeout: IbcTimeout::with_timestamp(Timestamp::from_nanos(42)),
+            memo: None,
         })
         .unwrap();
 

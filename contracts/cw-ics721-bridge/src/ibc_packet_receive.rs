@@ -160,7 +160,13 @@ pub(crate) fn receive_ibc_packet(
         )
         .into_submessage(env.contract.address, receiver)?;
 
-    Ok(IbcReceiveResponse::default()
+    let mut response = IbcReceiveResponse::default();
+
+    if data.memo.is_some() {
+        response = response.add_attribute("ics721_memo", data.memo.unwrap());
+    }
+    
+    Ok(response
         .add_submessage(submessage)
         .add_attribute("method", "receive_ibc_packet")
         .add_attribute("class_id", data.class_id)

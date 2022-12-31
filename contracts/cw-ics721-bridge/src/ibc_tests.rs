@@ -108,6 +108,7 @@ fn build_ics_packet(
         token_uris: token_uris.map(|t| t.into_iter().map(|s| s.to_string()).collect()),
         sender: sender.to_string(),
         receiver: receiver.to_string(),
+        memo: None,
     }
 }
 

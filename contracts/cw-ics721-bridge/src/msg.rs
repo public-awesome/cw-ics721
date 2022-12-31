@@ -90,6 +90,8 @@ pub struct IbcOutgoingMsg {
     pub channel_id: String,
     /// Timeout for the IBC message.
     pub timeout: IbcTimeout,
+    /// Memo to add custom string to the msg
+    pub memo: Option<String>,
 }
 
 #[cw_serde]

@@ -63,6 +63,8 @@ pub struct NonFungibleTokenPacketData {
     /// The address that should receive the tokens on the receiving
     /// chain.
     pub receiver: String,
+    /// Memo to add custom string to the msg
+    pub memo: Option<String>,
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
