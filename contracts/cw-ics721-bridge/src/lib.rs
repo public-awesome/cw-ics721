@@ -8,8 +8,6 @@ pub mod state;
 pub mod token_types;
 
 #[cfg(test)]
-mod ibc_tests;
-#[cfg(test)]
-mod integration_tests;
+pub mod testing;
 
 pub use crate::error::ContractError;
