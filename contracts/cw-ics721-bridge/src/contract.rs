@@ -145,9 +145,7 @@ fn receive_nft(
 ) -> Result<Response, ContractError> {
     let sender = deps.api.addr_validate(&sender)?;
     let msg: IbcOutgoingMsg = from_binary(&msg)?;
-    let class = NFT_CONTRACT_TO_CLASS.may_load(deps.storage, info.sender.clone())?;
-
-    let class = match class {
+    let class = match NFT_CONTRACT_TO_CLASS.may_load(deps.storage, info.sender.clone())? {
         Some(class) => class,
         None => {
             // If we do not yet have a class ID for this contract, it is a
