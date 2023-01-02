@@ -12,7 +12,7 @@ use crate::{
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     state::{
         UniversalNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
-        CLASS_TOKEN_ID_TO_TOKEN_METADATA, CW721_CODE_ID, NFT_CONTRACT_TO_CLASS,
+        CLASS_TOKEN_ID_TO_TOKEN_METADATA, CW721_CODE_ID, NFT_CONTRACT_TO_CLASS_ID,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY,
     },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
@@ -145,8 +145,10 @@ fn receive_nft(
 ) -> Result<Response, ContractError> {
     let sender = deps.api.addr_validate(&sender)?;
     let msg: IbcOutgoingMsg = from_binary(&msg)?;
-    let class = match NFT_CONTRACT_TO_CLASS.may_load(deps.storage, info.sender.clone())? {
-        Some(class) => class,
+    let class = NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, info.sender.clone())?;
+
+    let class = match class {
+        Some(class_id) => CLASS_ID_TO_CLASS.load(deps.storage, class_id)?,
         None => {
             // If we do not yet have a class ID for this contract, it is a
             // local NFT and its class ID is its conract address.
@@ -158,7 +160,7 @@ fn receive_nft(
                 data: None,
             };
 
-            NFT_CONTRACT_TO_CLASS.save(deps.storage, info.sender.clone(), &class)?;
+            NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, info.sender.clone(), &class.id)?;
             CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class.id.clone(), &info.sender)?;
 
             // Merging and usage of this PR may change that:
@@ -333,7 +335,9 @@ fn callback_redeem_vouchers(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::ClassId { contract } => to_binary(&query_class_for_nft_contract(deps, contract)?),
+        QueryMsg::ClassId { contract } => {
+            to_binary(&query_class_id_for_nft_contract(deps, contract)?)
+        }
         QueryMsg::NftContract { class_id } => {
             to_binary(&query_nft_contract_for_class_id(deps, class_id)?)
         }
@@ -347,9 +351,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-fn query_class_for_nft_contract(deps: Deps, contract: String) -> StdResult<Option<Class>> {
+fn query_class_id_for_nft_contract(deps: Deps, contract: String) -> StdResult<Option<ClassId>> {
     let contract = deps.api.addr_validate(&contract)?;
-    NFT_CONTRACT_TO_CLASS.may_load(deps.storage, contract)
+    NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, contract)
 }
 
 fn query_nft_contract_for_class_id(deps: Deps, class_id: String) -> StdResult<Option<Addr>> {

@@ -16,7 +16,7 @@ pub const PO: PauseOrchestrator = PauseOrchestrator::new("c", "d");
 /// contract we have instantiated for that classID.
 pub const CLASS_ID_TO_NFT_CONTRACT: Map<ClassId, Addr> = Map::new("e");
 /// Maps cw721 contracts to the classID they were instantiated for.
-pub const NFT_CONTRACT_TO_CLASS: Map<Addr, Class> = Map::new("f");
+pub const NFT_CONTRACT_TO_CLASS_ID: Map<Addr, ClassId> = Map::new("f");
 
 /// Maps between classIDs and classs. We need to keep this state
 /// ourselves as cw721 contracts do not have class-level metadata.

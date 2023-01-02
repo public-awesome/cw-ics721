@@ -14,7 +14,7 @@ use crate::{
     },
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{InstantiateMsg, QueryMsg},
-    state::{CLASS_ID_TO_NFT_CONTRACT, NFT_CONTRACT_TO_CLASS, PO},
+    state::{CLASS_ID_TO_NFT_CONTRACT, NFT_CONTRACT_TO_CLASS_ID, PO},
     token_types::{ClassId, TokenId},
     ContractError,
 };
@@ -160,15 +160,15 @@ fn test_reply_cw721() {
         ]
     );
 
-    let class = NFT_CONTRACT_TO_CLASS
+    let class_id = NFT_CONTRACT_TO_CLASS_ID
         .load(deps.as_ref().storage, Addr::unchecked("cosmos2contract"))
         .unwrap();
     let nft = CLASS_ID_TO_NFT_CONTRACT
-        .load(deps.as_ref().storage, class.id.clone())
+        .load(deps.as_ref().storage, class_id.clone())
         .unwrap();
 
     assert_eq!(nft, Addr::unchecked("cosmos2contract"));
-    assert_eq!(class.id.to_string(), "wasm.address1/channel-10/address2");
+    assert_eq!(class_id.to_string(), "wasm.address1/channel-10/address2");
 }
 
 #[test]

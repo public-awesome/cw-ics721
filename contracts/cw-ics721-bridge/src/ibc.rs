@@ -14,10 +14,10 @@ use crate::{
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error, validate_order_and_version},
     ibc_packet_receive::receive_ibc_packet,
     state::{
-        CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS,
+        CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, PROXY,
     },
-    token_types::{Class, ClassId, TokenId},
+    token_types::{ClassId, TokenId},
     ContractError,
 };
 
@@ -254,19 +254,15 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
             let cw721::ContractInfoResponse { name, .. } = deps
                 .querier
                 .query_wasm_smart(cw721_addr.clone(), &cw721::Cw721QueryMsg::ContractInfo {})?;
-            let class = Class {
-                id: ClassId::new(name),
-                uri: None,
-                data: None,
-            };
+            let class_id = ClassId::new(name);
 
             // Save classId <-> contract mappings.
-            CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class.id.clone(), &cw721_addr)?;
-            NFT_CONTRACT_TO_CLASS.save(deps.storage, cw721_addr.clone(), &class)?;
+            CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class_id.clone(), &cw721_addr)?;
+            NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, cw721_addr.clone(), &class_id)?;
 
             Ok(Response::default()
                 .add_attribute("method", "instantiate_cw721_reply")
-                .add_attribute("class_id", class.id)
+                .add_attribute("class_id", class_id)
                 .add_attribute("cw721_addr", cw721_addr))
         }
         INSTANTIATE_PROXY_REPLY_ID => {
