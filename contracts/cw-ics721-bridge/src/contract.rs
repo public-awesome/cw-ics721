@@ -14,11 +14,7 @@ use crate::{
         UniversalNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
         CLASS_TOKEN_ID_TO_TOKEN_METADATA, CW721_CODE_ID, NFT_CONTRACT_TO_CLASS_ID,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY,
-        UniversalNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
-        CLASS_TOKEN_ID_TO_TOKEN_METADATA, CW721_CODE_ID, NFT_CONTRACT_TO_CLASS_ID,
-        OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY,
     },
-    token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
 };
 
@@ -325,7 +321,7 @@ fn callback_redeem_vouchers(
     redeem: VoucherRedemption,
 ) -> Result<Response, ContractError> {
     let VoucherRedemption { class, token_ids } = redeem;
-    let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class.id.clone())?;
+    let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class.id)?;
     let receiver = deps.api.addr_validate(&receiver)?;
     Ok(Response::default()
         .add_attribute("method", "callback_redeem_vouchers")

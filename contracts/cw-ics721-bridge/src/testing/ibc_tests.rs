@@ -91,6 +91,7 @@ fn do_instantiate(deps: DepsMut, env: Env, sender: &str) -> Result<Response, Con
     instantiate(deps, env, mock_info(sender, &[]), msg)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_ics_packet(
     class_id: &str,
     class_uri: Option<&str>,
@@ -415,10 +416,6 @@ fn test_ibc_packet_receive_invalid_packet_data() {
     // constructs a valud JSON blob that is not a valid ICS-721
     // packet.
     let data = to_binary(&QueryMsg::ClassMetadata {
-    // the actual message used here is unimportant. this just
-    // constructs a valud JSON blob that is not a valid ICS-721
-    // packet.
-    let data = to_binary(&QueryMsg::ClassMetadata {
         class_id: "foobar".to_string(),
     })
     .unwrap();
@@ -476,7 +473,6 @@ fn test_ibc_packet_receive_missmatched_lengths() {
         None,
         None,
         vec!["kid A"],
-        
         Some(vec!["a", "b"]),
         None,
         "ekez",
@@ -500,7 +496,10 @@ fn test_ibc_packet_receive_missmatched_lengths() {
     );
 
     // More token data are provided than tokens.
-    let token_data = Some(vec![to_binary("some_data_1").unwrap(), to_binary("some_data_2").unwrap()]);
+    let token_data = Some(vec![
+        to_binary("some_data_1").unwrap(),
+        to_binary("some_data_2").unwrap(),
+    ]);
     let data = build_ics_packet(
         "bad kids",
         None,
@@ -532,7 +531,8 @@ fn test_ibc_packet_receive_missmatched_lengths() {
 #[test]
 fn test_packet_json() {
     let class_data = to_binary("some_class_data").unwrap(); // InNvbWVfY2xhc3NfZGF0YSI=
-    let token_data = vec![ // ["InNvbWVfdG9rZW5fZGF0YV8xIg==","InNvbWVfdG9rZW5fZGF0YV8yIg==","InNvbWVfdG9rZW5fZGF0YV8zIg=="]
+    let token_data = vec![
+        // ["InNvbWVfdG9rZW5fZGF0YV8xIg==","InNvbWVfdG9rZW5fZGF0YV8yIg==","InNvbWVfdG9rZW5fZGF0YV8zIg=="]
         to_binary("some_token_data_1").unwrap(),
         to_binary("some_token_data_2").unwrap(),
         to_binary("some_token_data_3").unwrap(),
@@ -554,7 +554,7 @@ fn test_packet_json() {
     );
     // Example message generated from the SDK
     // TODO: test with non-null tokenData and classData.
-    let expected = r#"{"classId":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","classUri":"https://metadata-url.com/my-metadata","classData":"InNvbWVfY2xhc3NfZGF0YSI=","tokenIds":["1","2","3"],"tokenUris":["https://metadata-url.com/my-metadata1","https://metadata-url.com/my-metadata2","https://metadata-url.com/my-metadata3"],"tokenData":["InNvbWVfdG9rZW5fZGF0YV8xIg==","InNvbWVfdG9rZW5fZGF0YV8yIg==","InNvbWVfdG9rZW5fZGF0YV8zIg=="],"sender":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","receiver":"wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc","memo":"some_memo"}"#;
+    let expected = r#"{"classId":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","classUri":"https://metadata-url.com/my-metadata","classData":null,"tokenIds":["1","2","3"],"tokenUris":["https://metadata-url.com/my-metadata1","https://metadata-url.com/my-metadata2","https://metadata-url.com/my-metadata3"],"tokenData":null,"sender":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","receiver":"wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc"}"#;
 
     let encdoded = String::from_utf8(to_vec(&packet).unwrap()).unwrap();
     assert_eq!(expected, encdoded.as_str());
@@ -562,9 +562,6 @@ fn test_packet_json() {
 
 #[test]
 fn test_no_receive_when_paused() {
-    // Valid JSON, invalid ICS-721 packet. Tests that we check for
-    // pause status before attempting validation.
-    let data = to_binary(&QueryMsg::ClassMetadata {
     // Valid JSON, invalid ICS-721 packet. Tests that we check for
     // pause status before attempting validation.
     let data = to_binary(&QueryMsg::ClassMetadata {
