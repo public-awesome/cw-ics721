@@ -150,7 +150,7 @@ pub(crate) fn receive_nft(
         Some(class_id) => CLASS_ID_TO_CLASS.load(deps.storage, class_id)?,
         None => {
             // If we do not yet have a class ID for this contract, it is a
-            // local NFT and its class ID is its conract address.
+            // local NFT and its class ID is its contract address.
 
             // We set class level metadata and URI to None for local NFTs.
             let class = Class {
