@@ -407,7 +407,10 @@ fn test_ibc_channel_connect_invalid_version_counterparty() {
 
 #[test]
 fn test_ibc_packet_receive_invalid_packet_data() {
-    let data = to_binary(&QueryMsg::Metadata {
+    // the actual message used here is unimportant. this just
+    // constructs a valud JSON blob that is not a valid ICS-721
+    // packet.
+    let data = to_binary(&QueryMsg::ClassMetadata {
         class_id: "foobar".to_string(),
     })
     .unwrap();
@@ -484,7 +487,9 @@ fn test_packet_json() {
 
 #[test]
 fn test_no_receive_when_paused() {
-    let data = to_binary(&QueryMsg::Metadata {
+    // Valid JSON, invalid ICS-721 packet. Tests that we check for
+    // pause status before attempting validation.
+    let data = to_binary(&QueryMsg::ClassMetadata {
         class_id: "foobar".to_string(),
     })
     .unwrap();

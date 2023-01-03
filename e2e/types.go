@@ -1,5 +1,21 @@
 package e2e_test
 
+// The `Class` type as defined in `token_types.rs` and returned by the
+// `class_metadata { class_id }` query.
+type Class struct {
+	ID   string  `json:"id"`
+	URI  *string `json:"uri"`
+	Data *string `json:"data"`
+}
+
+// The `Token` type as defined in `token_types.rs` and returned by the
+// `token_metadata { class_id, token_id }` query.
+type Token struct {
+	ID   string  `json:"id"`
+	URI  *string `json:"uri"`
+	Data *string `json:"data"`
+}
+
 type ModuleInstantiateInfo struct {
 	CodeID uint64 `json:"code_id"`
 	Msg    string `json:"msg"`
@@ -55,11 +71,20 @@ type ClassIdQuery struct {
 }
 
 // Query for getting metadata for a class ID from the bridge.
-type MetadataQueryData struct {
+type ClassMetadataQueryData struct {
 	ClassId string `json:"class_id"`
 }
-type MetadataQuery struct {
-	Metadata MetadataQueryData `json:"metadata"`
+type ClassMetadataQuery struct {
+	Metadata ClassMetadataQueryData `json:"class_metadata"`
+}
+
+// Query for getting token metadata.
+type TokenMetadataQueryData struct {
+	ClassId string `json:"class_id"`
+	TokenId string `json:"token_id"`
+}
+type TokenMetadataQuery struct {
+	Metadata TokenMetadataQueryData `json:"token_metadata"`
 }
 
 // Owner query for cw721 contract.
@@ -84,4 +109,15 @@ type ContractInfoResponse struct {
 type LastAckQueryData struct{}
 type LastAckQuery struct {
 	LastAck LastAckQueryData `json:"last_ack"`
+}
+
+// cw721 token info query
+type NftInfoQueryData struct {
+	TokenID string `json:"token_id"`
+}
+type NftInfoQuery struct {
+	Nftinfo NftInfoQueryData `json:"nft_info"`
+}
+type NftInfoQueryResponse struct {
+	TokenURI *string `json:"token_uri"`
 }

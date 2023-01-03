@@ -14,8 +14,9 @@ use crate::{
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error, validate_order_and_version},
     ibc_packet_receive::receive_ibc_packet,
     state::{
-        CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID,
-        OUTGOING_CLASS_TOKEN_TO_CHANNEL, PROXY,
+        CLASS_ID_TO_NFT_CONTRACT, CLASS_TOKEN_ID_TO_TOKEN_METADATA,
+        INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+        PROXY,
     },
     token_types::{ClassId, TokenId},
     ContractError,
@@ -165,6 +166,9 @@ pub fn ibc_packet_ack(
                 if returning_to_source {
                     // This token's journey is complete, for now.
                     INCOMING_CLASS_TOKEN_TO_CHANNEL.remove(deps.storage, key);
+                    CLASS_TOKEN_ID_TO_TOKEN_METADATA
+                        .remove(deps.storage, (msg.class_id.clone(), token.clone()));
+
                     messages.push(WasmMsg::Execute {
                         contract_addr: nft_contract.to_string(),
                         msg: to_binary(&cw721::Cw721ExecuteMsg::Burn {

@@ -176,6 +176,10 @@ pub(crate) fn receive_nft(
             token_id: token_id.clone().into(),
         },
     )?;
+    // Get and forward metadata for this token.
+    let token_metadata = CLASS_TOKEN_ID_TO_TOKEN_METADATA
+        .may_load(deps.storage, (class.id.clone(), token_id.clone()))?
+        .flatten();
 
     let ibc_message = NonFungibleTokenPacketData {
         class_id: class.id.clone(),
@@ -184,7 +188,7 @@ pub(crate) fn receive_nft(
 
         token_ids: vec![token_id.clone()],
         token_uris: token_uri.map(|uri| vec![uri]),
-        token_data: None, // Like class_uri and class_data, token_data is none for local NFTs.
+        token_data: token_metadata.map(|metadata| vec![metadata]),
 
         sender: sender.into_string(),
         receiver: msg.receiver,
@@ -222,7 +226,10 @@ fn callback_mint(
     let mint = tokens
         .into_iter()
         .map(|Token { id, uri, data }| {
-            // We save token metadata here because it is part of the mint process
+            // We save token metadata here as, ideally, once cw721
+            // supports on-chain metadata, this is where we will set
+            // that value on the debt-voucher token. Note that this is
+            // set for every token, regardless of if data is None.
             CLASS_TOKEN_ID_TO_TOKEN_METADATA.save(
                 deps.storage,
                 (class_id.clone(), id.clone()),
@@ -315,10 +322,6 @@ fn callback_redeem_vouchers(
         token_ids
             .into_iter()
             .map(|token_id| {
-                // token metadata is set in mint, on voucher creation, and removed here on voucher redemption
-                CLASS_TOKEN_ID_TO_TOKEN_METADATA
-                    .remove(deps.storage, (class.id.clone(), token_id.clone()));
-
                 Ok(WasmMsg::Execute {
                     contract_addr: nft_contract.to_string(),
                     msg: to_binary(&cw721::Cw721ExecuteMsg::TransferNft {
@@ -341,7 +344,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::NftContract { class_id } => {
             to_binary(&query_nft_contract_for_class_id(deps, class_id)?)
         }
-        QueryMsg::Metadata { class_id } => to_binary(&query_metadata(deps, class_id)?),
+        QueryMsg::ClassMetadata { class_id } => to_binary(&query_class_metadata(deps, class_id)?),
+        QueryMsg::TokenMetadata { class_id, token_id } => {
+            to_binary(&query_token_metadata(deps, class_id, token_id)?)
+        }
         QueryMsg::Owner { class_id, token_id } => {
             to_binary(&query_owner(deps, class_id, token_id)?)
         }
@@ -360,8 +366,44 @@ fn query_nft_contract_for_class_id(deps: Deps, class_id: String) -> StdResult<Op
     CLASS_ID_TO_NFT_CONTRACT.may_load(deps.storage, ClassId::new(class_id))
 }
 
-fn query_metadata(deps: Deps, class_id: String) -> StdResult<Option<Class>> {
+fn query_class_metadata(deps: Deps, class_id: String) -> StdResult<Option<Class>> {
     CLASS_ID_TO_CLASS.may_load(deps.storage, ClassId::new(class_id))
+}
+
+fn query_token_metadata(
+    deps: Deps,
+    class_id: String,
+    token_id: String,
+) -> StdResult<Option<Token>> {
+    let token_id = TokenId::new(token_id);
+    let class_id = ClassId::new(class_id);
+
+    let Some(token_metadata) = CLASS_TOKEN_ID_TO_TOKEN_METADATA.may_load(
+        deps.storage,
+        (class_id.clone(), token_id.clone()),
+    )? else {
+	// Token metadata is set unconditionaly on mint. If we have no
+	// metadata entry, we have no entry for this token at all.
+	return Ok(None)
+    };
+    let Some(token_contract) = CLASS_ID_TO_NFT_CONTRACT.may_load(
+	deps.storage,
+	class_id
+    )? else {
+	debug_assert!(false, "token_metadata != None => token_contract != None");
+	return Ok(None)
+    };
+    let UniversalNftInfoResponse { token_uri, .. } = deps.querier.query_wasm_smart(
+        token_contract,
+        &cw721::Cw721QueryMsg::NftInfo {
+            token_id: token_id.clone().into(),
+        },
+    )?;
+    Ok(Some(Token {
+        id: token_id,
+        uri: token_uri,
+        data: token_metadata,
+    }))
 }
 
 fn query_owner(

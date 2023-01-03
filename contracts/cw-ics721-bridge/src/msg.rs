@@ -100,7 +100,7 @@ pub enum QueryMsg {
     /// Gets the classID this contract has stored for a given NFT
     /// contract. If there is no class ID for the provided contract,
     /// returns None.
-    #[returns(Option<ClassId>)]
+    #[returns(Option<crate::token_types::ClassId>)]
     ClassId { contract: String },
 
     /// Gets the NFT contract associated wtih the provided class
@@ -111,9 +111,12 @@ pub enum QueryMsg {
 
     /// Gets the class level metadata URI for the provided
     /// class_id. If there is no metadata, returns None. Returns
-    /// `Option<String>`.
-    #[returns(Option<String>)]
-    Metadata { class_id: String },
+    /// `Option<Class>`.
+    #[returns(Option<crate::token_types::Class>)]
+    ClassMetadata { class_id: String },
+
+    #[returns(Option<crate::token_types::Token>)]
+    TokenMetadata { class_id: String, token_id: String },
 
     /// Gets the owner of the NFT identified by CLASS_ID and
     /// TOKEN_ID. Errors if no such NFT exists. Returns
