@@ -145,17 +145,17 @@ pub(crate) fn receive_nft(
 ) -> Result<Response, ContractError> {
     let sender = deps.api.addr_validate(&sender)?;
     let msg: IbcOutgoingMsg = from_binary(&msg)?;
-    let class = NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, info.sender.clone())?;
 
-    let class = match class {
+    let class = match NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, info.sender.clone())? {
         Some(class_id) => CLASS_ID_TO_CLASS.load(deps.storage, class_id)?,
+        // No class ID being present means that this is a local NFT
+        // that has never been sent out of this contract.
         None => {
-            // If we do not yet have a class ID for this contract, it is a
-            // local NFT and its class ID is its conract address.
-
-            // We set class level metadata and URI to None for local NFTs.
             let class = Class {
                 id: ClassId::new(info.sender.to_string()),
+                // There is no collection-level uri nor data in the
+                // cw721 specification so we set those values to
+                // `None` for local, cw721 NFTs.
                 uri: None,
                 data: None,
             };
@@ -176,7 +176,7 @@ pub(crate) fn receive_nft(
             token_id: token_id.clone().into(),
         },
     )?;
-    // Get and forward metadata for this token.
+
     let token_metadata = CLASS_TOKEN_ID_TO_TOKEN_METADATA
         .may_load(deps.storage, (class.id.clone(), token_id.clone()))?
         .flatten();
@@ -255,6 +255,9 @@ fn callback_mint(
         .add_messages(mint))
 }
 
+/// Creates the specified debt vouchers by minting cw721 debt-voucher
+/// tokens for the receiver. If no debt-voucher collection yet exists
+/// a new collection is instantiated before minting the vouchers.
 fn callback_create_vouchers(
     deps: DepsMut,
     env: Env,
@@ -278,9 +281,9 @@ fn callback_create_vouchers(
                 })?,
                 funds: vec![],
                 // Attempting to fit the class ID in the label field
-                // can make this field too long which causes weird
-                // data errors in the SDK.
-                label: "ICS771 backing CW721".to_string(),
+                // can make this field too long which causes data
+                // errors in the SDK.
+                label: "ics-721 debt-voucher cw-721".to_string(),
             },
             INSTANTIATE_CW721_REPLY_ID,
         );
@@ -310,6 +313,8 @@ fn callback_create_vouchers(
         .add_message(mint))
 }
 
+/// Performs a recemption of debt vouchers returning the corresponding
+/// tokens to the receiver.
 fn callback_redeem_vouchers(
     deps: DepsMut,
     receiver: String,

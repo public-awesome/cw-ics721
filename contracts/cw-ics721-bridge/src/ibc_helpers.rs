@@ -166,9 +166,8 @@ impl NonFungibleTokenPacketData {
 
 #[cfg(test)]
 mod tests {
-    use crate::token_types::{ClassId, TokenId};
-
     use super::*;
+    use crate::token_types::{ClassId, TokenId};
 
     #[test]
     fn test_pop_source_simple() {
