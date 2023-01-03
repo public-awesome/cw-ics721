@@ -106,7 +106,6 @@ fn build_ics_packet(
     NonFungibleTokenPacketData {
         class_id: ClassId::new(class_id),
         class_uri: class_uri.map(|s| s.to_string()),
-        // TODO: test me.
         class_data,
         token_ids: token_ids.into_iter().map(TokenId::new).collect(),
         token_uris: token_uris.map(|t| t.into_iter().map(|s| s.to_string()).collect()),
