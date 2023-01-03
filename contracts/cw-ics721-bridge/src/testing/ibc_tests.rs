@@ -1,9 +1,10 @@
 use cosmwasm_std::{
     attr,
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier},
-    to_binary, to_vec, Addr, Binary, ContractResult, DepsMut, Env, IbcAcknowledgement, IbcChannel,
-    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder, IbcPacket, IbcPacketReceiveMsg,
-    IbcTimeout, QuerierResult, Reply, Response, SubMsgResponse, SubMsgResult, Timestamp, WasmQuery,
+    to_binary, to_vec, Addr, Attribute, Binary, ContractResult, DepsMut, Env, IbcAcknowledgement,
+    IbcChannel, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder, IbcPacket,
+    IbcPacketReceiveMsg, IbcTimeout, QuerierResult, Reply, Response, SubMsgResponse, SubMsgResult,
+    Timestamp, WasmQuery,
 };
 
 use crate::{
@@ -414,6 +415,10 @@ fn test_ibc_packet_receive_invalid_packet_data() {
     // constructs a valud JSON blob that is not a valid ICS-721
     // packet.
     let data = to_binary(&QueryMsg::ClassMetadata {
+    // the actual message used here is unimportant. this just
+    // constructs a valud JSON blob that is not a valid ICS-721
+    // packet.
+    let data = to_binary(&QueryMsg::ClassMetadata {
         class_id: "foobar".to_string(),
     })
     .unwrap();
@@ -432,6 +437,31 @@ fn test_ibc_packet_receive_invalid_packet_data() {
     assert!(error
         .unwrap()
         .starts_with("Error parsing into type cw_ics721_bridge::ibc::NonFungibleTokenPacketData"))
+}
+
+#[test]
+fn test_ibc_packet_receive_emits_memo() {
+    let data = to_binary(&NonFungibleTokenPacketData {
+        class_id: ClassId::new("id"),
+        class_uri: None,
+        class_data: None,
+        token_ids: vec![TokenId::new("1")],
+        token_uris: None,
+        token_data: None,
+        sender: "violet".to_string(),
+        receiver: "blue".to_string(),
+        memo: Some("memo".to_string()),
+    })
+    .unwrap();
+    let packet = IbcPacketReceiveMsg::new(mock_packet(data), Addr::unchecked(RELAYER_ADDR));
+    let mut deps = mock_dependencies();
+    let env = mock_env();
+    PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
+    let res = ibc_packet_receive(deps.as_mut(), env, packet).unwrap();
+    assert!(res.attributes.contains(&Attribute {
+        key: "ics721_memo".to_string(),
+        value: "memo".to_string()
+    }))
 }
 
 #[test]
@@ -532,6 +562,9 @@ fn test_packet_json() {
 
 #[test]
 fn test_no_receive_when_paused() {
+    // Valid JSON, invalid ICS-721 packet. Tests that we check for
+    // pause status before attempting validation.
+    let data = to_binary(&QueryMsg::ClassMetadata {
     // Valid JSON, invalid ICS-721 packet. Tests that we check for
     // pause status before attempting validation.
     let data = to_binary(&QueryMsg::ClassMetadata {

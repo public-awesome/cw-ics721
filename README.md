@@ -16,34 +16,41 @@ This implementation
 
 ## From a thousand feet up
 
-The complete process for an ICS-721 NFT transfer is described in this
-flowchart:
+This contract deals in debt-vouchers.
 
-![image](https://user-images.githubusercontent.com/30676292/195717720-8d0629c1-dcdb-4f99-8ffd-b828dc1a216d.png)
+![debt-vouchers](https://user-images.githubusercontent.com/30676292/210026430-ab673969-23b7-4ffd-964c-d22453e5adeb.png)
 
-At a high level, to transfer a NFT to another blockchain:
+To sent a NFT from chain A to chan B:
 
-1. The NFT is locked on the source chain.
+1. The NFT is locked on chain A.
 2. A message is delivered over IBC to the destination chain describing
    the NFT that has been locked.
-3. A duplicate version of the locked NFT is instantiated and minted on
-   the destination chain.
+3. A debt-voucher, which is convienently an exact replica of the NFT
+   locked on chain A, is minted on chain B.
 
 The duplicate NFT on the receiving chain is a debt-voucher. Possession
 of that debt-voucher on the receiving chain gives the holder the right
-to redeem it for the original NFT on the source chain.
+to redeem it for the original NFT on chain A.
 
 To return the transferred NFT:
 
-1. The debt voucher is returned to the bridge.
+1. The debt-voucher is returned to the bridge.
 2. A message is sent to the source chain informing it that the debt
    voucher has been returned.
 3. The original NFT is unlocked and sent to the receiver of the NFT.
+4. The debt-voucher is burned on chain B.
 
 The failure handling logic for this contract is also reasonably simple
 to explain: if the receiver does not process the packet correctly, the
 NFT sent to the bridge is returned to the sender as if the transfer
 had never happened.
+
+## From closer to the ground
+
+The complete process for an ICS-721 NFT transfer is described in this
+flowchart:
+
+![ics721-flowchart](https://user-images.githubusercontent.com/30676292/195717720-8d0629c1-dcdb-4f99-8ffd-b828dc1a216d.png)
 
 ## Quick pauses and filtering
 

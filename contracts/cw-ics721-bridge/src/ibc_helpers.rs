@@ -129,7 +129,6 @@ macro_rules! non_empty_optional {
 }
 
 impl NonFungibleTokenPacketData {
-    // TODO: many, many, many countless unit tests for this function.
     pub fn validate(&self) -> Result<(), ContractError> {
         if self.class_id.is_empty() {
             return Err(ContractError::EmptyClassId {});
@@ -168,6 +167,7 @@ impl NonFungibleTokenPacketData {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::token_types::{ClassId, TokenId};
 
     #[test]
     fn test_pop_source_simple() {
@@ -220,5 +220,76 @@ mod tests {
             ),
             None
         );
+    }
+
+    #[test]
+    fn test_packet_validation() {
+        let default_token = NonFungibleTokenPacketData {
+            class_id: ClassId::new("id"),
+            class_uri: None,
+            class_data: None,
+            token_ids: vec![TokenId::new("1")],
+            token_uris: None,
+            token_data: None,
+            sender: "violet".to_string(),
+            receiver: "blue".to_string(),
+            memo: None,
+        };
+
+        let empty_class_id = NonFungibleTokenPacketData {
+            class_id: ClassId::new(""),
+            ..default_token.clone()
+        };
+        let err = empty_class_id.validate().unwrap_err();
+        assert_eq!(err, ContractError::EmptyClassId {});
+
+        let empty_class_uri = NonFungibleTokenPacketData {
+            class_uri: Some("".to_string()),
+            ..default_token.clone()
+        };
+        let err = empty_class_uri.validate().unwrap_err();
+        assert_eq!(err, ContractError::EmptyOptional {});
+
+        let empty_class_data = NonFungibleTokenPacketData {
+            class_data: Some(Binary::default()),
+            ..default_token.clone()
+        };
+        let err = empty_class_data.validate().unwrap_err();
+        assert_eq!(err, ContractError::EmptyOptional {});
+
+        let no_tokens = NonFungibleTokenPacketData {
+            token_ids: vec![],
+            ..default_token.clone()
+        };
+        let err = no_tokens.validate().unwrap_err();
+        assert_eq!(err, ContractError::NoTokens {});
+
+        let uri_imbalance_empty = NonFungibleTokenPacketData {
+            token_uris: Some(vec![]),
+            ..default_token.clone()
+        };
+        let err = uri_imbalance_empty.validate().unwrap_err();
+        assert_eq!(err, ContractError::TokenInfoLenMissmatch {});
+
+        let uri_imbalance = NonFungibleTokenPacketData {
+            token_uris: Some(vec!["a".to_string(), "b".to_string()]),
+            ..default_token.clone()
+        };
+        let err = uri_imbalance.validate().unwrap_err();
+        assert_eq!(err, ContractError::TokenInfoLenMissmatch {});
+
+        let data_imbalance_empty = NonFungibleTokenPacketData {
+            token_data: Some(vec![]),
+            ..default_token.clone()
+        };
+        let err = data_imbalance_empty.validate().unwrap_err();
+        assert_eq!(err, ContractError::TokenInfoLenMissmatch {});
+
+        let data_imbalance = NonFungibleTokenPacketData {
+            token_data: Some(vec![Binary::default(), Binary::default()]),
+            ..default_token
+        };
+        let err = data_imbalance.validate().unwrap_err();
+        assert_eq!(err, ContractError::TokenInfoLenMissmatch {});
     }
 }
