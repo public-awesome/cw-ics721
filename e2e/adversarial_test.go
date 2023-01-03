@@ -208,7 +208,7 @@ func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
 	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
 		Contract: suite.bridgeC.String(),
-		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"%s","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s"],"tokenUris":["https://metadata-url.com/my-metadata1"],"sender":"%s","receiver":"%s"} }}`, suite.pathAC.Invert().EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), chainBClassId, suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())),
+		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"%s","classUri":"https://metadata-url.com/my-metadata","classData":"e30K","tokenIds":["%s"],"tokenUris":["https://metadata-url.com/my-metadata1"],"sender":"%s","receiver":"%s"} }}`, suite.pathAC.Invert().EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), chainBClassId, suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())),
 		Funds:    []sdk.Coin{},
 	})
 	require.NoError(suite.T(), err)
@@ -226,14 +226,17 @@ func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
 
 	// Metadata should be set.
-	var metadata string
-	err = suite.chainA.SmartQuery(suite.bridgeA.String(), MetadataQuery{
-		Metadata: MetadataQueryData{
+	var metadata Class
+	err = suite.chainA.SmartQuery(suite.bridgeA.String(), ClassMetadataQuery{
+		Metadata: ClassMetadataQueryData{
 			ClassId: chainAClassId,
 		},
 	}, &metadata)
 	require.NoError(suite.T(), err)
-	require.Equal(suite.T(), "https://metadata-url.com/my-metadata", metadata)
+	require.NotNil(suite.T(), metadata.URI)
+	require.NotNil(suite.T(), metadata.Data)
+	require.Equal(suite.T(), "https://metadata-url.com/my-metadata", *metadata.URI)
+	require.Equal(suite.T(), "e30K", *metadata.Data)
 
 	// The newly minted NFT should be returnable to the source
 	// chain and cause a burn when returned.
@@ -255,13 +258,17 @@ func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
 	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
 
 	// Metadata should be set to the most up to date value.
-	err = suite.chainA.SmartQuery(suite.bridgeA.String(), MetadataQuery{
-		Metadata: MetadataQueryData{
+	err = suite.chainA.SmartQuery(suite.bridgeA.String(), ClassMetadataQuery{
+		Metadata: ClassMetadataQueryData{
 			ClassId: chainAClassId,
 		},
 	}, &metadata)
 	require.NoError(suite.T(), err)
-	require.Equal(suite.T(), "https://moonphase.is", metadata)
+	// The new packet new classURI and data fields. Data was
+	// omitted and thus should be set to nil.
+	require.NotNil(suite.T(), metadata.URI)
+	require.Nil(suite.T(), metadata.Data)
+	require.Equal(suite.T(), "https://moonphase.is", *metadata.URI)
 }
 
 // How does the ics721-bridge contract respond if the other side sends
@@ -298,6 +305,181 @@ func (suite *AdversarialTestSuite) TestEmptyClassId() {
 	chainAClassId := fmt.Sprintf("%s/%s/%s", suite.pathAC.EndpointA.ChannelConfig.PortID, suite.pathAC.EndpointA.ChannelID, "")
 	chainACw721 := queryGetNftForClass(suite.T(), suite.chainA, suite.bridgeA.String(), chainAClassId)
 	require.Equal(suite.T(), "", chainACw721)
+}
+
+// The ICS-721 standard adds the following metadata fields which are
+// not present in the CW-721 standard:
+//
+//  1. `class_uri`  - pointer of off-chain metadata
+//  2. `class_data` - on-chain, base64 encoded metadata
+//  3. `token_data` - on-chain, base64 encoded metadata
+//
+// How does the ics721-bridge contract respond if the other side sends
+// metadata not present in the CW-721 specification?
+//
+// It should:
+//   - Accept the transfer request.
+//   - Make the additional metadata fields queryable from the bridge.
+//   - Forward the data when debt-vouchers for NFTs with additional
+//     metadata are sent to other chains.
+//   - Clear metadata for redeemed debt vouchers.
+func (suite *AdversarialTestSuite) TestMetadataForwarding() {
+	// Send two NFTs with additional metadata to the bridge.
+	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
+		Contract: suite.bridgeC.String(),
+		Funds:    []sdk.Coin{},
+		Msg: []byte(fmt.Sprintf(
+			`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": { "classId":"bad kids","classUri":"https://metadata-url.com/my-metadata","classData":"e30K","tokenIds":["bad kid 1","bad kid 2"],"tokenUris":["https://metadata-url.com/my-metadata1","https://metadata-url.com/my-metadata2"],"tokenData":["e30K","e30K"],"sender":"%s","receiver":"%s"} }}`,
+			suite.pathAC.Invert().EndpointA.ChannelID,
+			suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(),
+			suite.chainC.SenderAccount.GetAddress().String(),
+			suite.chainA.SenderAccount.GetAddress().String(),
+		),
+		),
+	})
+	require.NoError(suite.T(), err)
+	suite.coordinator.UpdateTime()
+	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
+
+	// Check that class level metadata was set.
+	chainAClassId := fmt.Sprintf(
+		"%s/%s/%s",
+		suite.pathAC.EndpointA.ChannelConfig.PortID,
+		suite.pathAC.EndpointA.ChannelID,
+		"bad kids",
+	)
+	var class_metadata Class
+	err = suite.chainA.SmartQuery(suite.bridgeA.String(), ClassMetadataQuery{
+		Metadata: ClassMetadataQueryData{
+			ClassId: chainAClassId,
+		},
+	}, &class_metadata)
+	require.NoError(suite.T(), err)
+	suite.T().Log("class:", class_metadata)
+	require.NotNil(suite.T(), class_metadata.URI)
+	require.NotNil(suite.T(), class_metadata.Data)
+	require.Equal(suite.T(), "https://metadata-url.com/my-metadata", *class_metadata.URI)
+	require.Equal(suite.T(), "e30K", *class_metadata.Data)
+
+	// Check that token metadata was set.
+	var token_metadata Token
+	err = suite.chainA.SmartQuery(suite.bridgeA.String(), TokenMetadataQuery{
+		Metadata: TokenMetadataQueryData{
+			ClassId: chainAClassId,
+			TokenId: "bad kid 2",
+		},
+	}, &token_metadata)
+	require.NoError(suite.T(), err)
+	suite.T().Log("token:", token_metadata)
+	require.NotNil(suite.T(), token_metadata.URI)
+	require.NotNil(suite.T(), token_metadata.Data)
+	require.Equal(suite.T(), "https://metadata-url.com/my-metadata2", *token_metadata.URI)
+	require.Equal(suite.T(), "e30K", *token_metadata.Data)
+
+	// Send bad kid 1 to chain B.
+	var chainAAddress string
+	err = suite.chainA.SmartQuery(suite.bridgeA.String(), NftContractQuery{
+		NftContractForClassId: NftContractQueryData{
+			ClassID: chainAClassId,
+		},
+	}, &chainAAddress)
+	require.NoError(suite.T(), err)
+	ics721Nft(
+		suite.T(),
+		suite.chainA,
+		suite.pathAB,
+		suite.coordinator,
+		chainAAddress,
+		suite.bridgeA,
+		suite.chainA.SenderAccount.GetAddress(),
+		suite.chainB.SenderAccount.GetAddress(),
+	)
+
+	// Check that class metadata has been forwarded.
+	chainBClassId := fmt.Sprintf(
+		"%s/%s/%s",
+		suite.pathAB.EndpointB.ChannelConfig.PortID,
+		suite.pathAB.EndpointB.ChannelID,
+		chainAClassId,
+	)
+	err = suite.chainB.SmartQuery(suite.bridgeB.String(), ClassMetadataQuery{
+		Metadata: ClassMetadataQueryData{
+			ClassId: chainBClassId,
+		},
+	}, &class_metadata)
+	require.NoError(suite.T(), err)
+	suite.T().Log("class:", class_metadata)
+	require.NotNil(suite.T(), class_metadata.URI)
+	require.NotNil(suite.T(), class_metadata.Data)
+	require.Equal(suite.T(), "https://metadata-url.com/my-metadata", *class_metadata.URI)
+	require.Equal(suite.T(), "e30K", *class_metadata.Data)
+
+	// Check that token metadata has been forwarded.
+	token_metadata = Token{}
+	err = suite.chainB.SmartQuery(suite.bridgeB.String(), TokenMetadataQuery{
+		Metadata: TokenMetadataQueryData{
+			ClassId: chainBClassId,
+			TokenId: "bad kid 1",
+		},
+	}, &token_metadata)
+	require.NoError(suite.T(), err)
+	suite.T().Log("token:", token_metadata)
+	require.NotNil(suite.T(), token_metadata.URI)
+	require.NotNil(suite.T(), token_metadata.Data)
+	require.Equal(suite.T(), "https://metadata-url.com/my-metadata1", *token_metadata.URI)
+	require.Equal(suite.T(), "e30K", *token_metadata.Data)
+
+	// Return the token to chain A.
+	//
+	// The bridge should remove the token's metadata from storage
+	// and burn the token.
+	var chainBAddress string
+	err = suite.chainB.SmartQuery(suite.bridgeB.String(), NftContractQuery{
+		NftContractForClassId: NftContractQueryData{
+			ClassID: chainBClassId,
+		},
+	}, &chainBAddress)
+	require.NoError(suite.T(), err)
+	ics721Nft(suite.T(),
+		suite.chainB,
+		suite.pathAB.Invert(),
+		suite.coordinator,
+		chainBAddress,
+		suite.bridgeB,
+		suite.chainB.SenderAccount.GetAddress(),
+		suite.chainA.SenderAccount.GetAddress(),
+	)
+	suite.coordinator.UpdateTime()
+
+	// Check that the returned token was burned.
+	var info NftInfoQueryResponse
+	err = suite.chainB.SmartQuery(
+		chainBAddress,
+		NftInfoQuery{
+			Nftinfo: NftInfoQueryData{
+				TokenID: "bad kid 1",
+			},
+		},
+		&info,
+	)
+	require.ErrorContains(
+		suite.T(),
+		err,
+		"cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>> not found",
+	)
+
+	// Check that token metadata was cleared.
+	token_metadata = Token{}
+	err = suite.chainB.SmartQuery(suite.bridgeB.String(), TokenMetadataQuery{
+		Metadata: TokenMetadataQueryData{
+			ClassId: chainBClassId,
+			TokenId: "bad kid 1",
+		},
+	}, &token_metadata)
+	require.NoError(suite.T(), err)
+	require.Nil(suite.T(), token_metadata.Data)
+	require.Nil(suite.T(), token_metadata.URI)
 }
 
 // Are ACK fails returned by this contract parseable?

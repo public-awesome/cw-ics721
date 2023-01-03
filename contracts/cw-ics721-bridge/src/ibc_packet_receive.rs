@@ -51,56 +51,6 @@ pub(crate) fn receive_ibc_packet(
     let data: NonFungibleTokenPacketData = from_binary(&packet.data)?;
     data.validate()?;
 
-    // below is a functional implementation of this imperative psudocode:
-    //
-    // ```
-    // def select_actions(class_id, token, ibc_channel):
-    //     (local_class_id, could_be_local) = pop_src_prefix(class_id)
-    //     actions = []
-    //
-    //     for token in tokens:
-    //         if could_be_local:
-    //             returning_to_source = outgoing_tokens.has(token)
-    //             if returning_to_source:
-    //                 outgoing_tokens.remove(token)
-    //                 actions.push(redeem_voucher, token, local_class_id)
-    //                 continue
-    //         incoming_tokens.save(token)
-    //         prefixed_class_id = prefix(class_id, ibc_channel)
-    //         actions.push(create_voucher, token, prefixed_class_id)
-    //
-    //     return actions
-    // ```
-    //
-    // as `class_id` is fixed:
-    //
-    // 1. all `create_voucher` actions will have class id
-    //    `prefixed_class_id`
-    // 2. all `redeem_voucher` actions will have class id
-    //    `local_class_id`
-    //
-    // in other words:
-    //
-    // 1. `create_voucher` actions will all have the same `class_id`
-    // 2. `redeem_voucher` actions will all have the same `class_id`
-    //
-    // this property is made use of in the `VoucherRedemption` and
-    // `VoucherCreation` types which aggregate redemption and creation
-    // actions.
-    //
-    // notably:
-    //
-    // 3. not all create and redeem actions will have the same
-    //    `class_id`.
-    //
-    // by counterexample: two identical tokens are sent by a malicious
-    // counterparty, the first removes the token from the
-    // outgoing_tokens map, the second then creates a create_voucher
-    // action.
-    //
-    // see `TestDoubleSendInSingleMessage` in `/e2e/adversarial_test.go`
-    // for a test demonstrating this.
-
     let local_class_id = try_pop_source_prefix(&packet.src, &data.class_id);
     let receiver = deps.api.addr_validate(&data.receiver)?;
     let token_count = data.token_ids.len();
@@ -160,7 +110,13 @@ pub(crate) fn receive_ibc_packet(
         )
         .into_submessage(env.contract.address, receiver)?;
 
-    Ok(IbcReceiveResponse::default()
+    let response = if let Some(memo) = data.memo {
+        IbcReceiveResponse::default().add_attribute("memo", memo)
+    } else {
+        IbcReceiveResponse::default()
+    };
+
+    Ok(response
         .add_submessage(submessage)
         .add_attribute("method", "receive_ibc_packet")
         .add_attribute("class_id", data.class_id)
@@ -178,6 +134,57 @@ impl ActionAggregator {
         }
     }
 
+    // the ics-721 rx logic is a functional implementation of this
+    // imperative psudocode:
+    //
+    // ```
+    // def select_actions(class_id, token, ibc_channel):
+    //     (local_class_id, could_be_local) = pop_src_prefix(class_id)
+    //     actions = []
+    //
+    //     for token in tokens:
+    //         if could_be_local:
+    //             returning_to_source = outgoing_tokens.has(token)
+    //             if returning_to_source:
+    //                 outgoing_tokens.remove(token)
+    //                 actions.push(redeem_voucher, token, local_class_id)
+    //                 continue
+    //         incoming_tokens.save(token)
+    //         prefixed_class_id = prefix(class_id, ibc_channel)
+    //         actions.push(create_voucher, token, prefixed_class_id)
+    //
+    //     return actions
+    // ```
+    //
+    // as `class_id` is fixed:
+    //
+    // 1. all `create_voucher` actions will have class id
+    //    `prefixed_class_id`
+    // 2. all `redeem_voucher` actions will have class id
+    //    `local_class_id`
+    //
+    // in other words:
+    //
+    // 1. `create_voucher` actions will all have the same `class_id`
+    // 2. `redeem_voucher` actions will all have the same `class_id`
+    //
+    // we make use of these properties here in that we only store one
+    // copy of class information per voucher action.
+    //
+    // ---
+    //
+    // tangental but nonetheless important aside:
+    //
+    // 3. not all create and redeem actions will have the same
+    //    `class_id`.
+    //
+    // by counterexample: two identical tokens are sent by a malicious
+    // counterparty, the first removes the token from the
+    // outgoing_tokens map, the second then creates a create_voucher
+    // action.
+    //
+    // see `TestDoubleSendInSingleMessage` in `/e2e/adversarial_test.go`
+    // for a test demonstrating this.
     pub fn add_action(mut self, action: Action) -> Self {
         match action {
             Action::Redemption { class_id, token_id } => {

@@ -108,6 +108,7 @@ fn build_ics_packet(
         token_uris: token_uris.map(|t| t.into_iter().map(|s| s.to_string()).collect()),
         sender: sender.to_string(),
         receiver: receiver.to_string(),
+        memo: None,
     }
 }
 
@@ -406,7 +407,10 @@ fn test_ibc_channel_connect_invalid_version_counterparty() {
 
 #[test]
 fn test_ibc_packet_receive_invalid_packet_data() {
-    let data = to_binary(&QueryMsg::Metadata {
+    // the actual message used here is unimportant. this just
+    // constructs a valud JSON blob that is not a valid ICS-721
+    // packet.
+    let data = to_binary(&QueryMsg::ClassMetadata {
         class_id: "foobar".to_string(),
     })
     .unwrap();
@@ -475,7 +479,7 @@ fn test_packet_json() {
     );
     // Example message generated from the SDK
     // TODO: test with non-null tokenData and classData.
-    let expected = r#"{"classId":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","classUri":"https://metadata-url.com/my-metadata","classData":null,"tokenIds":["1","2","3"],"tokenUris":["https://metadata-url.com/my-metadata1","https://metadata-url.com/my-metadata2","https://metadata-url.com/my-metadata3"],"tokenData":null,"sender":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","receiver":"wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc"}"#;
+    let expected = r#"{"classId":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","classUri":"https://metadata-url.com/my-metadata","classData":null,"tokenIds":["1","2","3"],"tokenUris":["https://metadata-url.com/my-metadata1","https://metadata-url.com/my-metadata2","https://metadata-url.com/my-metadata3"],"tokenData":null,"sender":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","receiver":"wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc","memo":null}"#;
 
     let encdoded = String::from_utf8(to_vec(&packet).unwrap()).unwrap();
     assert_eq!(expected, encdoded.as_str());
@@ -483,7 +487,9 @@ fn test_packet_json() {
 
 #[test]
 fn test_no_receive_when_paused() {
-    let data = to_binary(&QueryMsg::Metadata {
+    // Valid JSON, invalid ICS-721 packet. Tests that we check for
+    // pause status before attempting validation.
+    let data = to_binary(&QueryMsg::ClassMetadata {
         class_id: "foobar".to_string(),
     })
     .unwrap();

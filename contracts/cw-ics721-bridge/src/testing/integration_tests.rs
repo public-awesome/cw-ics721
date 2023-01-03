@@ -507,6 +507,7 @@ fn test_proxy_authorized() {
                         revision: 0,
                         height: 10,
                     }),
+                    memo: None,
                 })
                 .unwrap(),
             },
@@ -552,6 +553,7 @@ fn test_no_receive_with_proxy() {
                         revision: 0,
                         height: 10,
                     }),
+                    memo: None,
                 })
                 .unwrap(),
             }),
