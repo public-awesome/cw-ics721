@@ -111,7 +111,7 @@ pub(crate) fn receive_ibc_packet(
         .into_submessage(env.contract.address, receiver)?;
 
     let response = if let Some(memo) = data.memo {
-        IbcReceiveResponse::default().add_attribute("memo", memo)
+        IbcReceiveResponse::default().add_attribute("ics721_memo", memo)
     } else {
         IbcReceiveResponse::default()
     };

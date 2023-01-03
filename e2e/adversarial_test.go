@@ -555,6 +555,36 @@ func (suite *AdversarialTestSuite) TestDifferentUriAndIdLengths() {
 	require.Equal(suite.T(), "error", lastAck)
 }
 
+// How does the ics721-bridge contract respond if a token is sent for
+// which the uri and data fields are empty strings?
+//
+// It should:
+//   - Work fine and absolutely nothing remarkable should happen.
+func (suite *AdversarialTestSuite) TestZeroLengthUriAndData() {
+	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
+		Contract: suite.bridgeC.String(),
+		Msg: []byte(fmt.Sprintf(
+			`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"%s","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s"],"tokenUris":[""],"tokenData":[""],"sender":"%s","receiver":"%s"} }}`,
+			suite.pathAC.Invert().EndpointA.ChannelID,
+			suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(),
+			"classID",
+			suite.tokenIdA,
+			suite.chainC.SenderAccount.GetAddress().String(),
+			suite.chainA.SenderAccount.GetAddress().String(),
+		)),
+		Funds: []sdk.Coin{},
+	})
+	require.NoError(suite.T(), err)
+	suite.coordinator.UpdateTime()
+	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
+
+	var lastAck string
+	err = suite.chainC.SmartQuery(suite.bridgeC.String(), LastAckQuery{LastAck: LastAckQueryData{}}, &lastAck)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), "success", lastAck)
+}
+
 // How does the ics721-bridge contract respond if two identical
 // transfer messages are sent to the source chain?
 //
