@@ -27,8 +27,12 @@ pub const CLASS_ID_TO_CLASS: Map<ClassId, Class> = Map::new("g");
 pub const OUTGOING_CLASS_TOKEN_TO_CHANNEL: Map<(ClassId, TokenId), String> = Map::new("h");
 /// Same as above, but for NFTs arriving at this contract.
 pub const INCOMING_CLASS_TOKEN_TO_CHANNEL: Map<(ClassId, TokenId), String> = Map::new("i");
-/// metadata of a token (class id, token id) -> metadata
-pub const CLASS_TOKEN_ID_TO_TOKEN_METADATA: Map<(ClassId, TokenId), Option<Binary>> = Map::new("j");
+/// Maps (class ID, token ID) -> token metadata. Used to store
+/// on-chain metadata for tokens that have arrived from other
+/// chains. When a token arrives, it's metadata (regardless of if it
+/// is `None`) is stored in this map. When the token is returned to
+/// it's source chain, the metadata is removed from the map.
+pub const TOKEN_METADATA: Map<(ClassId, TokenId), Option<Binary>> = Map::new("j");
 
 #[derive(Deserialize)]
 pub struct UniversalNftInfoResponse {

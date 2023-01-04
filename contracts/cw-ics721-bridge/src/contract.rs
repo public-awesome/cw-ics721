@@ -11,9 +11,8 @@ use crate::{
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     state::{
-        UniversalNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
-        CLASS_TOKEN_ID_TO_TOKEN_METADATA, CW721_CODE_ID, NFT_CONTRACT_TO_CLASS_ID,
-        OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY,
+        UniversalNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
+        NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY, TOKEN_METADATA,
     },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
 };
@@ -177,7 +176,7 @@ pub(crate) fn receive_nft(
         },
     )?;
 
-    let token_metadata = CLASS_TOKEN_ID_TO_TOKEN_METADATA
+    let token_metadata = TOKEN_METADATA
         .may_load(deps.storage, (class.id.clone(), token_id.clone()))?
         .flatten();
 
@@ -230,11 +229,7 @@ fn callback_mint(
             // supports on-chain metadata, this is where we will set
             // that value on the debt-voucher token. Note that this is
             // set for every token, regardless of if data is None.
-            CLASS_TOKEN_ID_TO_TOKEN_METADATA.save(
-                deps.storage,
-                (class_id.clone(), id.clone()),
-                &data,
-            )?;
+            TOKEN_METADATA.save(deps.storage, (class_id.clone(), id.clone()), &data)?;
 
             let msg = cw721_base::msg::ExecuteMsg::<Empty, Empty>::Mint(cw721_base::MintMsg {
                 token_id: id.into(),
@@ -385,7 +380,7 @@ fn query_token_metadata(
     let token_id = TokenId::new(token_id);
     let class_id = ClassId::new(class_id);
 
-    let Some(token_metadata) = CLASS_TOKEN_ID_TO_TOKEN_METADATA.may_load(
+    let Some(token_metadata) = TOKEN_METADATA.may_load(
         deps.storage,
         (class_id.clone(), token_id.clone()),
     )? else {
