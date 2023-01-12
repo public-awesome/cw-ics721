@@ -135,7 +135,7 @@ impl ActionAggregator {
     }
 
     // the ics-721 rx logic is a functional implementation of this
-    // imperative psudocode:
+    // imperative pseudocode:
     //
     // ```
     // def select_actions(class_id, token, ibc_channel):
