@@ -25,18 +25,16 @@ func CreateAndFundAccount(t *testing.T, chain *wasmibctesting.TestChain, account
 	pubkey := privkey.PubKey()
 	addr := sdk.AccAddress(pubkey.Address())
 
-	testSupport := chain.GetTestSupport()
-
-	bondDenom := testSupport.StakingKeeper().BondDenom(chain.GetContext())
+	bondDenom := chain.App.StakingKeeper.BondDenom(chain.GetContext())
 	coins := sdk.NewCoins(sdk.NewCoin(bondDenom, sdk.NewInt(1000000)))
 
 	// Unclear to me exactly why we need to mint coins into this
 	// "mint" module and then transfer. Why can't we just mint
 	// directly to an address?
-	err := testSupport.BankKeeper().MintCoins(chain.GetContext(), minttypes.ModuleName, coins)
+	err := chain.App.BankKeeper.MintCoins(chain.GetContext(), minttypes.ModuleName, coins)
 	require.NoError(t, err)
 
-	err = testSupport.BankKeeper().SendCoinsFromModuleToAccount(chain.GetContext(), minttypes.ModuleName, addr, coins)
+	err = chain.App.BankKeeper.SendCoinsFromModuleToAccount(chain.GetContext(), minttypes.ModuleName, addr, coins)
 	require.NoError(t, err)
 
 	baseAcc := authtypes.NewBaseAccount(addr, pubkey, accountNumber, 0)
@@ -52,7 +50,7 @@ func SendMsgsFromAccount(t *testing.T, chain *wasmibctesting.TestChain, account 
 	_, r, err := wasmd.SignAndDeliver(
 		t,
 		chain.TxConfig,
-		chain.App.GetBaseApp(),
+		chain.App.BaseApp,
 		chain.GetContext().BlockHeader(),
 		msgs,
 		chain.ChainID,

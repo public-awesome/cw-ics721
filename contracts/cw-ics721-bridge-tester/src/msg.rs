@@ -15,6 +15,8 @@ pub struct InstantiateMsg {
 }
 
 #[cw_serde]
+#[allow(clippy::large_enum_variant)] // `data` field is a bit large
+                                     // for clippy's taste.
 pub enum ExecuteMsg {
     CloseChannel {
         channel_id: String,

@@ -29,6 +29,15 @@ pub enum ContractError {
     #[error("class ID already exists")]
     ClassIdAlreadyExists {},
 
+    #[error("empty class ID")]
+    EmptyClassId {},
+
+    #[error("must transfer at least one token")]
+    NoTokens {},
+
+    #[error("optional fields may not be empty if provided")]
+    EmptyOptional {},
+
     #[error("unrecognised reply ID")]
     UnrecognisedReplyId {},
 
@@ -45,7 +54,7 @@ pub enum ContractError {
         actual: Option<String>,
     },
 
-    #[error("tokenId list has different length than tokenUri list")]
+    #[error("tokenIds, tokenUris, and tokenData must have the same length")]
     TokenInfoLenMissmatch {},
 }
 

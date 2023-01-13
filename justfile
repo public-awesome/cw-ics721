@@ -2,7 +2,14 @@ optimize:
     docker run --rm -v "$(pwd)":/code --platform linux/amd64 \
       --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
       --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-      cosmwasm/workspace-optimizer:0.12.8
+      cosmwasm/workspace-optimizer:0.12.11
+
+# Version of optimize that will run significantly faster on macbooks.
+optimize-arm:
+    docker run --rm -v "$(pwd)":/code --platform linux/arm64 \
+      --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+      --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+      cosmwasm/workspace-optimizer-arm:0.12.11
 
 unit-test:
     cargo test
@@ -23,3 +30,6 @@ integration-test:
     npm i --prefix ts-relayer-tests && npm run full-test --prefix ts-relayer-tests
 
 test: unit-test simulation-test integration-test
+
+lint:
+	cargo +nightly clippy --all-targets -- -D warnings

@@ -2,20 +2,22 @@ use cosmwasm_schema::cw_serde;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg,
-    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacket, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, Reply, Response, StdResult, SubMsgResult, WasmMsg,
+    from_binary, to_binary, Binary, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg,
+    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacket, IbcPacketAckMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, Reply, Response, StdResult,
+    SubMsgResult, WasmMsg,
 };
 use cw_utils::parse_reply_instantiate_data;
 
 use crate::{
     error::Never,
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error, validate_order_and_version},
-    ibc_packet_receive::do_ibc_packet_receive,
+    ibc_packet_receive::receive_ibc_packet,
     state::{
         CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID,
-        OUTGOING_CLASS_TOKEN_TO_CHANNEL, PROXY,
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL, PROXY, TOKEN_METADATA,
     },
+    token_types::{ClassId, TokenId},
     ContractError,
 };
 
@@ -34,23 +36,35 @@ pub const IBC_VERSION: &str = "ics721-1";
 #[serde(rename_all = "camelCase")]
 pub struct NonFungibleTokenPacketData {
     /// Uniquely identifies the collection which the tokens being
-    /// transfered belong to on the sending chain.
-    pub class_id: String,
-    /// URL that points to metadata about the collection. This is not
-    /// validated.
+    /// transfered belong to on the sending chain. Must be non-empty.
+    pub class_id: ClassId,
+    /// Optional URL that points to metadata about the
+    /// collection. Must be non-empty if provided.
     pub class_uri: Option<String>,
+    /// Optional base64 encoded field which contains on-chain metadata
+    /// about the NFT class. Must be non-empty if provided.
+    pub class_data: Option<Binary>,
     /// Uniquely identifies the tokens in the NFT collection being
-    /// transfered.
-    pub token_ids: Vec<String>,
-    /// URL that points to metadata for each token being
+    /// transfered. This MUST be non-empty.
+    pub token_ids: Vec<TokenId>,
+    /// Optional URL that points to metadata for each token being
     /// transfered. `tokenUris[N]` should hold the metadata for
-    /// `tokenIds[N]` and both lists should have the same length.
-    pub token_uris: Vec<String>,
+    /// `tokenIds[N]` and both lists should have the same if
+    /// provided. Must be non-empty if provided.
+    pub token_uris: Option<Vec<String>>,
+    /// Optional base64 encoded metadata for the tokens being
+    /// transfered. `tokenData[N]` should hold metadata for
+    /// `tokenIds[N]` and both lists should have the same length if
+    /// provided. Must be non-empty if provided.
+    pub token_data: Option<Vec<Binary>>,
+
     /// The address sending the tokens on the sending chain.
     pub sender: String,
     /// The address that should receive the tokens on the receiving
     /// chain.
     pub receiver: String,
+    /// Memo to add custom string to the msg
+    pub memo: Option<String>,
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -58,8 +72,9 @@ pub fn ibc_channel_open(
     _deps: DepsMut,
     _env: Env,
     msg: IbcChannelOpenMsg,
-) -> Result<(), ContractError> {
-    validate_order_and_version(msg.channel(), msg.counterparty_version())
+) -> Result<IbcChannelOpenResponse, ContractError> {
+    validate_order_and_version(msg.channel(), msg.counterparty_version())?;
+    Ok(None)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -103,7 +118,6 @@ pub fn ibc_channel_close(
         // closing (bad because the channel is, for all intents and
         // purposes, closed) so we must allow the transaction through.
         IbcChannelCloseMsg::CloseConfirm { channel: _ } => Ok(IbcBasicResponse::default()),
-        _ => unreachable!("https://github.com/CosmWasm/cosmwasm/pull/1449"),
     }
 }
 
@@ -116,7 +130,7 @@ pub fn ibc_packet_receive(
     // Regardless of if our processing of this packet works we need to
     // commit an ACK to the chain. As such, we wrap all handling logic
     // in a seprate function and on error write out an error ack.
-    match do_ibc_packet_receive(deps, env, msg.packet) {
+    match receive_ibc_packet(deps, env, msg.packet) {
         Ok(response) => Ok(response),
         Err(error) => Ok(IbcReceiveResponse::new()
             .add_attribute("method", "ibc_packet_receive")
@@ -151,9 +165,13 @@ pub fn ibc_packet_ack(
                 if returning_to_source {
                     // This token's journey is complete, for now.
                     INCOMING_CLASS_TOKEN_TO_CHANNEL.remove(deps.storage, key);
+                    TOKEN_METADATA.remove(deps.storage, (msg.class_id.clone(), token.clone()));
+
                     messages.push(WasmMsg::Execute {
                         contract_addr: nft_contract.to_string(),
-                        msg: to_binary(&cw721::Cw721ExecuteMsg::Burn { token_id: token })?,
+                        msg: to_binary(&cw721::Cw721ExecuteMsg::Burn {
+                            token_id: token.into(),
+                        })?,
                         funds: vec![],
                     })
                 }
@@ -180,12 +198,12 @@ pub fn ibc_packet_timeout(
     handle_packet_fail(deps, msg.packet, "timeout")
 }
 
+/// Return the NFT locked in the bridge to sender; roll back.
 fn handle_packet_fail(
     deps: DepsMut,
     packet: IbcPacket,
     error: &str,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // Return to sender!
     let message: NonFungibleTokenPacketData = from_binary(&packet.data)?;
     let nft_address = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, message.class_id.clone())?;
     let sender = deps.api.addr_validate(&message.sender)?;
@@ -201,7 +219,7 @@ fn handle_packet_fail(
                 contract_addr: nft_address.to_string(),
                 msg: to_binary(&cw721::Cw721ExecuteMsg::TransferNft {
                     recipient: sender.to_string(),
-                    token_id,
+                    token_id: token_id.into(),
                 })?,
                 funds: vec![],
             })
@@ -235,9 +253,10 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
             // We need to map this address back to a class
             // ID. Fourtunately, we set the name of the new NFT
             // contract to the class ID.
-            let cw721::ContractInfoResponse { name: class_id, .. } = deps
+            let cw721::ContractInfoResponse { name, .. } = deps
                 .querier
                 .query_wasm_smart(cw721_addr.clone(), &cw721::Cw721QueryMsg::ContractInfo {})?;
+            let class_id = ClassId::new(name);
 
             // Save classId <-> contract mappings.
             CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class_id.clone(), &cw721_addr)?;
