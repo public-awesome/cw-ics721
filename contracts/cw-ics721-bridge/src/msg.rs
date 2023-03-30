@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{IbcTimeout, WasmMsg, Addr};
+use cosmwasm_std::{Addr, IbcTimeout, WasmMsg};
 use cw721_proxy_derive::cw721_proxy;
 use cw_cii::ContractInstantiateInfo;
 
@@ -137,16 +137,16 @@ pub enum QueryMsg {
     Proxy {},
 
     #[returns(u64)]
-    Cw721CodeId{},
+    Cw721CodeId {},
 
     #[returns(Vec<ClassIdToNftContractResponse>)]
     ClassIdToNftContract {},
 
     #[returns(Vec<ClassTokenToChannelResponse>)]
-    OutgoingClassTokenToChannel{},
+    OutgoingClassTokenToChannel {},
 
     #[returns(Vec<ClassTokenToChannelResponse>)]
-    IncomingClassTokenToChannel{},
+    IncomingClassTokenToChannel {},
 }
 
 #[cw_serde]

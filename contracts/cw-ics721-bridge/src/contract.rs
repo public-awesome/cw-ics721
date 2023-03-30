@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcMsg, MessageInfo, Response,
-    StdResult, SubMsg, WasmMsg, Order,
+    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcMsg, MessageInfo, Order,
+    Response, StdResult, SubMsg, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Map;
@@ -10,10 +10,14 @@ use cw_storage_plus::Map;
 use crate::{
     error::ContractError,
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
-    msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg, ClassIdToNftContractResponse, ClassTokenToChannelResponse},
+    msg::{
+        CallbackMsg, ClassIdToNftContractResponse, ClassTokenToChannelResponse, ExecuteMsg,
+        IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+    },
     state::{
         UniversalNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
-        NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY, TOKEN_METADATA, INCOMING_CLASS_TOKEN_TO_CHANNEL,
+        INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+        PO, PROXY, TOKEN_METADATA,
     },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
 };
@@ -359,8 +363,14 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Proxy {} => to_binary(&PROXY.load(deps.storage)?),
         QueryMsg::Cw721CodeId {} => to_binary(&query_cw721_code_id(deps)?),
         QueryMsg::ClassIdToNftContract {} => to_binary(&query_class_id_to_nft_contract(deps)?),
-        QueryMsg::OutgoingClassTokenToChannel {} => to_binary(&query_class_token_to_channel(deps, OUTGOING_CLASS_TOKEN_TO_CHANNEL)?),
-        QueryMsg::IncomingClassTokenToChannel {} => to_binary(&query_class_token_to_channel(deps, INCOMING_CLASS_TOKEN_TO_CHANNEL)?),
+        QueryMsg::OutgoingClassTokenToChannel {} => to_binary(&query_class_token_to_channel(
+            deps,
+            OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+        )?),
+        QueryMsg::IncomingClassTokenToChannel {} => to_binary(&query_class_token_to_channel(
+            deps,
+            INCOMING_CLASS_TOKEN_TO_CHANNEL,
+        )?),
     }
 }
 
@@ -373,17 +383,27 @@ fn query_class_id_to_nft_contract(deps: Deps) -> StdResult<Vec<ClassIdToNftContr
         .range(deps.storage, None, None, Order::Ascending)
         .map(|p| {
             let (class_id, nft_contract) = p?;
-            Ok(ClassIdToNftContractResponse { class_id, nft_contract })
+            Ok(ClassIdToNftContractResponse {
+                class_id,
+                nft_contract,
+            })
         })
         .collect::<StdResult<Vec<ClassIdToNftContractResponse>>>()
 }
 
-fn query_class_token_to_channel(deps: Deps, class_token_to_channel: Map<(ClassId, TokenId), String>) -> StdResult<Vec<ClassTokenToChannelResponse>> {
+fn query_class_token_to_channel(
+    deps: Deps,
+    class_token_to_channel: Map<(ClassId, TokenId), String>,
+) -> StdResult<Vec<ClassTokenToChannelResponse>> {
     class_token_to_channel
         .range(deps.storage, None, None, Order::Ascending)
         .map(|p| {
             let ((class_id, token_id), channel) = p?;
-            Ok(ClassTokenToChannelResponse { class_id, token_id, channel })
+            Ok(ClassTokenToChannelResponse {
+                class_id,
+                token_id,
+                channel,
+            })
         })
         .collect::<StdResult<Vec<ClassTokenToChannelResponse>>>()
 }
