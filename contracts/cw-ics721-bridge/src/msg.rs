@@ -136,15 +136,22 @@ pub enum QueryMsg {
     #[returns(Option<::cosmwasm_std::Addr>)]
     Proxy {},
 
+    /// Gets the code used for instantiating new cw721s.
     #[returns(u64)]
     Cw721CodeId {},
 
+    /// Gets a list of classID (from NonFungibleTokenPacketData) and cw721
+    /// contract we have instantiated for that classID.
     #[returns(Vec<ClassIdToNftContractResponse>)]
     ClassIdToNftContract {},
 
+    /// Gets a list of class ID, token ID, and local channel ID. Used to determine
+    /// the local channel that NFTs have been sent out on.
     #[returns(Vec<ClassTokenToChannelResponse>)]
     OutgoingClassTokenToChannel {},
 
+    /// Gets a list of class ID, token ID, and local channel ID. Used to determine
+    /// the local channel that NFTs have arrived at this contract.
     #[returns(Vec<ClassTokenToChannelResponse>)]
     IncomingClassTokenToChannel {},
 }
