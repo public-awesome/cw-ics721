@@ -91,25 +91,28 @@ fn do_instantiate(deps: DepsMut, env: Env, sender: &str) -> Result<Response, Con
     instantiate(deps, env, mock_info(sender, &[]), msg)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_ics_packet(
     class_id: &str,
     class_uri: Option<&str>,
+    class_data: Option<Binary>,
     token_ids: Vec<&str>,
     token_uris: Option<Vec<&str>>,
+    token_data: Option<Vec<Binary>>,
     sender: &str,
     receiver: &str,
+    memo: Option<&str>,
 ) -> NonFungibleTokenPacketData {
     NonFungibleTokenPacketData {
         class_id: ClassId::new(class_id),
         class_uri: class_uri.map(|s| s.to_string()),
-        // TODO: test me.
-        class_data: None,
-        token_data: None,
+        class_data,
         token_ids: token_ids.into_iter().map(TokenId::new).collect(),
         token_uris: token_uris.map(|t| t.into_iter().map(|s| s.to_string()).collect()),
+        token_data,
         sender: sender.to_string(),
         receiver: receiver.to_string(),
-        memo: None,
+        memo: memo.map(|t| t.to_string()),
     }
 }
 
@@ -459,26 +462,61 @@ fn test_ibc_packet_receive_emits_memo() {
 
 #[test]
 fn test_ibc_packet_receive_missmatched_lengths() {
+    let mut deps = mock_dependencies();
+
+    PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
+
+    // More URIs are provided than tokens.
     let data = build_ics_packet(
         "bad kids",
         None,
+        None,
         vec!["kid A"],
-        // More URIs are provided than tokens.
         Some(vec!["a", "b"]),
+        None,
         "ekez",
         "callum",
+        None,
     );
 
     let packet = IbcPacketReceiveMsg::new(
         mock_packet(to_binary(&data).unwrap()),
         Addr::unchecked(RELAYER_ADDR),
     );
-    let mut deps = mock_dependencies();
-    let env = mock_env();
 
-    PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
+    let res = ibc_packet_receive(deps.as_mut(), mock_env(), packet);
 
-    let res = ibc_packet_receive(deps.as_mut(), env, packet);
+    assert!(res.is_ok());
+    let error = try_get_ack_error(&IbcAcknowledgement::new(res.unwrap().acknowledgement));
+
+    assert_eq!(
+        error,
+        Some(ContractError::TokenInfoLenMissmatch {}.to_string())
+    );
+
+    // More token data are provided than tokens.
+    let token_data = Some(vec![
+        to_binary("some_data_1").unwrap(),
+        to_binary("some_data_2").unwrap(),
+    ]);
+    let data = build_ics_packet(
+        "bad kids",
+        None,
+        None,
+        vec!["kid A"],
+        Some(vec!["a"]),
+        token_data,
+        "ekez",
+        "callum",
+        None,
+    );
+
+    let packet = IbcPacketReceiveMsg::new(
+        mock_packet(to_binary(&data).unwrap()),
+        Addr::unchecked(RELAYER_ADDR),
+    );
+
+    let res = ibc_packet_receive(deps.as_mut(), mock_env(), packet);
 
     assert!(res.is_ok());
     let error = try_get_ack_error(&IbcAcknowledgement::new(res.unwrap().acknowledgement));
@@ -491,21 +529,32 @@ fn test_ibc_packet_receive_missmatched_lengths() {
 
 #[test]
 fn test_packet_json() {
+    let class_data = to_binary("some_class_data").unwrap(); // InNvbWVfY2xhc3NfZGF0YSI=
+    let token_data = vec![
+        // ["InNvbWVfdG9rZW5fZGF0YV8xIg==","InNvbWVfdG9rZW5fZGF0YV8yIg==","
+        // InNvbWVfdG9rZW5fZGF0YV8zIg=="]
+        to_binary("some_token_data_1").unwrap(),
+        to_binary("some_token_data_2").unwrap(),
+        to_binary("some_token_data_3").unwrap(),
+    ];
     let packet = build_ics_packet(
         "stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n",
         Some("https://metadata-url.com/my-metadata"),
+        Some(class_data),
         vec!["1", "2", "3"],
         Some(vec![
             "https://metadata-url.com/my-metadata1",
             "https://metadata-url.com/my-metadata2",
             "https://metadata-url.com/my-metadata3",
         ]),
+        Some(token_data),
         "stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n",
         "wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc",
+        Some("some_memo"),
     );
     // Example message generated from the SDK
     // TODO: test with non-null tokenData and classData.
-    let expected = r#"{"classId":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","classUri":"https://metadata-url.com/my-metadata","classData":null,"tokenIds":["1","2","3"],"tokenUris":["https://metadata-url.com/my-metadata1","https://metadata-url.com/my-metadata2","https://metadata-url.com/my-metadata3"],"tokenData":null,"sender":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","receiver":"wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc","memo":null}"#;
+    let expected = r#"{"classId":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","classUri":"https://metadata-url.com/my-metadata","classData":"InNvbWVfY2xhc3NfZGF0YSI=","tokenIds":["1","2","3"],"tokenUris":["https://metadata-url.com/my-metadata1","https://metadata-url.com/my-metadata2","https://metadata-url.com/my-metadata3"],"tokenData":["InNvbWVfdG9rZW5fZGF0YV8xIg==","InNvbWVfdG9rZW5fZGF0YV8yIg==","InNvbWVfdG9rZW5fZGF0YV8zIg=="],"sender":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","receiver":"wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc","memo":"some_memo"}"#;
 
     let encdoded = String::from_utf8(to_vec(&packet).unwrap()).unwrap();
     assert_eq!(expected, encdoded.as_str());
