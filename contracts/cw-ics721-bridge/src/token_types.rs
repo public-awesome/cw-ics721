@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{to_binary, Addr, Binary, StdResult, WasmMsg};
-use cw_storage_plus::{Key, KeyDeserialize, Prefixer, PrimaryKey};
+use cw_storage_plus::{Bound, Bounder, Key, KeyDeserialize, Prefixer, PrimaryKey};
 
 use crate::msg::{CallbackMsg, ExecuteMsg};
 
@@ -71,6 +71,16 @@ impl ClassId {
         T: Into<String>,
     {
         Self(class_id.into())
+    }
+}
+
+impl<'a> Bounder<'a> for ClassId {
+    fn inclusive_bound(self) -> Option<cw_storage_plus::Bound<'a, Self>> {
+        Some(Bound::inclusive(self))
+    }
+
+    fn exclusive_bound(self) -> Option<cw_storage_plus::Bound<'a, Self>> {
+        Some(Bound::exclusive(self))
     }
 }
 
