@@ -35,6 +35,12 @@ pub const INCOMING_CLASS_TOKEN_TO_CHANNEL: Map<(ClassId, TokenId), String> = Map
 pub const TOKEN_METADATA: Map<(ClassId, TokenId), Option<Binary>> = Map::new("j");
 
 #[derive(Deserialize)]
+pub struct UniversalAllNftInfoResponse {
+    pub access: UniversalOwnerOfResponse,
+    pub info: UniversalNftInfoResponse,
+}
+
+#[derive(Deserialize)]
 pub struct UniversalNftInfoResponse {
     pub token_uri: Option<String>,
 
@@ -43,21 +49,38 @@ pub struct UniversalNftInfoResponse {
     extension: Empty,
 }
 
+#[derive(Deserialize)]
+pub struct UniversalOwnerOfResponse {
+    pub owner: String,
+
+    #[serde(skip_deserializing)]
+    #[allow(dead_code)]
+    pub approvals: Vec<Empty>,
+}
+
 #[cfg(test)]
 mod tests {
     use cosmwasm_std::{from_binary, to_binary, Coin, Empty};
 
-    use super::UniversalNftInfoResponse;
+    use super::UniversalAllNftInfoResponse;
 
     #[test]
     fn test_universal_deserialize() {
-        let start = cw721::NftInfoResponse::<Coin> {
-            token_uri: None,
-            extension: Coin::new(100, "ujuno"),
+        let start = cw721::AllNftInfoResponse::<Coin> {
+            access: cw721::OwnerOfResponse {
+                owner: "foo".to_string(),
+                approvals: vec![],
+            },
+            info: cw721::NftInfoResponse {
+                token_uri: None,
+                extension: Coin::new(100, "ujuno"),
+            },
         };
         let start = to_binary(&start).unwrap();
-        let end: UniversalNftInfoResponse = from_binary(&start).unwrap();
-        assert_eq!(end.token_uri, None);
-        assert_eq!(end.extension, Empty::default())
+        let end: UniversalAllNftInfoResponse = from_binary(&start).unwrap();
+        assert_eq!(end.access.owner, "foo".to_string());
+        assert_eq!(end.access.approvals, vec![]);
+        assert_eq!(end.info.token_uri, None);
+        assert_eq!(end.info.extension, Empty::default())
     }
 }
