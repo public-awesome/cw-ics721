@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     testing::{mock_dependencies, mock_info, MockQuerier},
-    to_binary, ContractResult, CosmosMsg, Empty, IbcMsg, IbcTimeout, QuerierResult, SubMsg,
-    Timestamp, WasmQuery,
+    to_binary, ContractResult, CosmosMsg, Empty, IbcMsg, IbcTimeout, Order, QuerierResult,
+    StdResult, SubMsg, Timestamp, WasmQuery,
 };
 use cw721::NftInfoResponse;
 
@@ -9,7 +9,7 @@ use crate::{
     contract::receive_nft,
     ibc::NonFungibleTokenPacketData,
     msg::IbcOutgoingMsg,
-    state::CLASS_ID_TO_CLASS,
+    state::{CLASS_ID_TO_CLASS, OUTGOING_CLASS_TOKEN_TO_CHANNEL},
     token_types::{ClassId, TokenId},
 };
 
@@ -51,7 +51,7 @@ fn test_receive_nft() {
     deps.querier = querier;
 
     let info = mock_info(NFT_ADDR, &[]);
-    let token_id = TokenId::new("1");
+    let token_id = "1";
     let sender = "ekez".to_string();
     let msg = to_binary(&IbcOutgoingMsg {
         receiver: "callum".to_string(),
@@ -61,20 +61,28 @@ fn test_receive_nft() {
     })
     .unwrap();
 
-    let res = receive_nft(deps.as_mut(), info, token_id.clone(), sender.clone(), msg).unwrap();
+    let res = receive_nft(
+        deps.as_mut(),
+        info,
+        TokenId::new(token_id),
+        sender.clone(),
+        msg,
+    )
+    .unwrap();
     assert_eq!(res.messages.len(), 1);
 
+    let channel_id = "channel-1".to_string();
     assert_eq!(
         res.messages[0],
         SubMsg::new(CosmosMsg::Ibc(IbcMsg::SendPacket {
-            channel_id: "channel-1".to_string(),
+            channel_id: channel_id.clone(),
             timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
             data: to_binary(&NonFungibleTokenPacketData {
                 class_id: ClassId::new(NFT_ADDR),
                 class_uri: None,
                 class_data: None,
                 token_data: None,
-                token_ids: vec![token_id],
+                token_ids: vec![TokenId::new(token_id)],
                 token_uris: Some(vec!["https://moonphase.is/image.svg".to_string()]),
                 sender,
                 receiver: "callum".to_string(),
@@ -82,6 +90,26 @@ fn test_receive_nft() {
             })
             .unwrap()
         }))
+    );
+
+    // check outgoing classID and tokenID
+    let keys = OUTGOING_CLASS_TOKEN_TO_CHANNEL
+        .keys(deps.as_mut().storage, None, None, Order::Ascending)
+        .into_iter()
+        .collect::<StdResult<Vec<(String, String)>>>()
+        .unwrap();
+    assert_eq!(keys, [(NFT_ADDR.to_string(), token_id.to_string())]);
+
+    // check channel
+    let key = (
+        ClassId::new(keys[0].clone().0),
+        TokenId::new(keys[0].clone().1),
+    );
+    assert_eq!(
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL
+            .load(deps.as_mut().storage, key)
+            .unwrap(),
+        channel_id
     )
 }
 
