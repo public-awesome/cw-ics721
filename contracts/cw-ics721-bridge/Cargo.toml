@@ -30,5 +30,6 @@ cw-cii = { path = "../../packages/cw-cii" }
 zip-optional = { path = "../../packages/zip-optional" }
 
 [dev-dependencies]
+anyhow = "1.0"
 cw-multi-test = "0.16.2"
 cw721-rate-limited-proxy = { git = "https://github.com/0xekez/cw721-proxy.git" }

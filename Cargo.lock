@@ -216,6 +216,7 @@ dependencies = [
 name = "cw-ics721-bridge"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-cii",
