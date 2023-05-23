@@ -1,5 +1,8 @@
 use crate::{
-    msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
+    msg::{
+        CallbackMsg, ClassIdToNftContractResponse, ClassTokenToChannelResponse, ExecuteMsg,
+        IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+    },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
     ContractError,
 };
@@ -105,6 +108,52 @@ impl Test {
             .unwrap();
         (paused, pauser)
     }
+
+    pub fn query_cw721_id(&mut self) -> u64 {
+        self.app
+            .wrap()
+            .query_wasm_smart(self.bridge.clone(), &QueryMsg::Cw721CodeId {})
+            .unwrap()
+    }
+
+    pub fn query_class_id_to_nft_contract(&mut self) -> Vec<ClassIdToNftContractResponse> {
+        self.app
+            .wrap()
+            .query_wasm_smart(
+                self.bridge.clone(),
+                &QueryMsg::ClassIdToNftContract {
+                    start_after: None,
+                    limit: None,
+                },
+            )
+            .unwrap()
+    }
+
+    pub fn query_outgoing_class_token_to_channel(&mut self) -> Vec<ClassTokenToChannelResponse> {
+        self.app
+            .wrap()
+            .query_wasm_smart(
+                self.bridge.clone(),
+                &QueryMsg::OutgoingClassTokenToChannel(crate::msg::ClassTokenToChannelQuery {
+                    start_after: None,
+                    limit: None,
+                }),
+            )
+            .unwrap()
+    }
+
+    pub fn query_incoming_class_token_to_channel(&mut self) -> Vec<ClassTokenToChannelResponse> {
+        self.app
+            .wrap()
+            .query_wasm_smart(
+                self.bridge.clone(),
+                &QueryMsg::OutgoingClassTokenToChannel(crate::msg::ClassTokenToChannelQuery {
+                    start_after: None,
+                    limit: None,
+                }),
+            )
+            .unwrap()
+    }
 }
 
 fn cw721_contract() -> Box<dyn Contract<Empty>> {
@@ -138,7 +187,17 @@ fn proxy_contract() -> Box<dyn Contract<Empty>> {
 
 #[test]
 fn test_instantiate() {
-    Test::instantiate_bridge(false, None);
+    let mut test = Test::instantiate_bridge(false, None);
+
+    // check stores are properly initialized
+    let cw721_id = test.query_cw721_id();
+    assert_eq!(cw721_id, test.cw721_id);
+    let class_id_to_nft_contract = test.query_class_id_to_nft_contract();
+    assert_eq!(class_id_to_nft_contract, []);
+    let outgoing_class_token_to_channel = test.query_outgoing_class_token_to_channel();
+    assert_eq!(outgoing_class_token_to_channel, []);
+    let incoming_class_token_to_channel = test.query_incoming_class_token_to_channel();
+    assert_eq!(incoming_class_token_to_channel, []);
 }
 
 #[test]
@@ -203,7 +262,10 @@ fn test_do_instantiate_and_mint() {
             &[],
         )
         .unwrap();
-
+    // Check entry added in CLASS_ID_TO_NFT_CONTRACT
+    let class_id_to_nft_contract = test.query_class_id_to_nft_contract();
+    assert_eq!(class_id_to_nft_contract.len(), 1);
+    assert_eq!(class_id_to_nft_contract[0].class_id, "bad kids");
     // Get the address of the instantiated NFT.
     let nft: Addr = test
         .app
@@ -321,6 +383,11 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         )
         .unwrap();
 
+    // Check entry added in CLASS_ID_TO_NFT_CONTRACT
+    let class_id_to_nft_contract = test.query_class_id_to_nft_contract();
+    assert_eq!(class_id_to_nft_contract.len(), 1);
+    assert_eq!(class_id_to_nft_contract[0].class_id, "bad kids");
+
     // This will only do a mint as the contract for the class ID has
     // already been instantiated.
     test.app
@@ -345,6 +412,10 @@ fn test_do_instantiate_and_mint_no_instantiate() {
             &[],
         )
         .unwrap();
+
+    // Check no additional entry added in CLASS_ID_TO_NFT_CONTRACT
+    let class_id_to_nft_contract = test.query_class_id_to_nft_contract();
+    assert_eq!(class_id_to_nft_contract.len(), 1);
 
     // Get the address of the instantiated NFT.
     let nft: Addr = test
