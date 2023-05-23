@@ -11,8 +11,7 @@ use crate::{
     error::ContractError,
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
     msg::{
-        CallbackMsg, ClassTokenToChannelQuery, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg,
-        MigrateMsg, QueryMsg,
+        CallbackMsg, ClassToken, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg,
     },
     state::{
         UniversalNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
@@ -365,15 +364,17 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::NftContracts { start_after, limit } => {
             to_binary(&query_nft_contracts(deps, start_after, limit)?)
         }
-        QueryMsg::OutgoingChannels(query) => to_binary(&query_channels(
+        QueryMsg::OutgoingChannels { start_after, limit } => to_binary(&query_channels(
             deps,
             OUTGOING_CLASS_TOKEN_TO_CHANNEL,
-            query,
+            start_after,
+            limit,
         )?),
-        QueryMsg::IncomingChannels(query) => to_binary(&query_channels(
+        QueryMsg::IncomingChannels { start_after, limit } => to_binary(&query_channels(
             deps,
             INCOMING_CLASS_TOKEN_TO_CHANNEL,
-            query,
+            start_after,
+            limit,
         )?),
     }
 }
@@ -399,9 +400,10 @@ fn query_nft_contracts(
 fn query_channels(
     deps: Deps,
     class_token_to_channel: Map<(ClassId, TokenId), String>,
-    query: ClassTokenToChannelQuery,
+    start_after: Option<ClassToken>,
+    limit: Option<u32>,
 ) -> StdResult<Vec<((String, String), String)>> {
-    let start_after = query.start_after.map(|class_token| {
+    let start_after = start_after.map(|class_token| {
         (
             ClassId::new(class_token.class_id),
             TokenId::new(class_token.token_id),
@@ -411,7 +413,7 @@ fn query_channels(
         deps,
         &class_token_to_channel,
         start_after,
-        query.limit,
+        limit,
         Order::Ascending,
     )
 }

@@ -152,19 +152,19 @@ pub enum QueryMsg {
     /// to determine the local channel that NFTs have been sent
     /// out on.
     #[returns(Vec<((ClassId, TokenId), String)>)]
-    OutgoingChannels(ClassTokenToChannelQuery),
+    OutgoingChannels {
+        start_after: Option<ClassToken>,
+        limit: Option<u32>,
+    },
 
     /// Gets a list of classID, tokenID, and local channel ID. Used
     /// to determine the local channel that NFTs have arrived at
     /// this contract.
     #[returns(Vec<((ClassId, TokenId), String)>)]
-    IncomingChannels(ClassTokenToChannelQuery),
-}
-
-#[cw_serde]
-pub struct ClassTokenToChannelQuery {
-    pub start_after: Option<ClassToken>,
-    pub limit: Option<u32>,
+    IncomingChannels {
+        start_after: Option<ClassToken>,
+        limit: Option<u32>,
+    },
 }
 
 #[cw_serde]

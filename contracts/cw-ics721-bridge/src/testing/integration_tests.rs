@@ -131,10 +131,10 @@ impl Test {
             .wrap()
             .query_wasm_smart(
                 self.bridge.clone(),
-                &QueryMsg::OutgoingChannels(crate::msg::ClassTokenToChannelQuery {
+                &QueryMsg::OutgoingChannels {
                     start_after: None,
                     limit: None,
-                }),
+                },
             )
             .unwrap()
     }
@@ -144,10 +144,10 @@ impl Test {
             .wrap()
             .query_wasm_smart(
                 self.bridge.clone(),
-                &QueryMsg::OutgoingChannels(crate::msg::ClassTokenToChannelQuery {
+                &QueryMsg::OutgoingChannels {
                     start_after: None,
                     limit: None,
-                }),
+                },
             )
             .unwrap()
     }
