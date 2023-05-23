@@ -121,7 +121,7 @@ impl Test {
             .wrap()
             .query_wasm_smart(
                 self.bridge.clone(),
-                &QueryMsg::ClassIdToNftContract {
+                &QueryMsg::NftContracts {
                     start_after: None,
                     limit: None,
                 },
@@ -134,7 +134,7 @@ impl Test {
             .wrap()
             .query_wasm_smart(
                 self.bridge.clone(),
-                &QueryMsg::OutgoingClassTokenToChannel(crate::msg::ClassTokenToChannelQuery {
+                &QueryMsg::OutgoingChannels(crate::msg::ClassTokenToChannelQuery {
                     start_after: None,
                     limit: None,
                 }),
@@ -147,7 +147,7 @@ impl Test {
             .wrap()
             .query_wasm_smart(
                 self.bridge.clone(),
-                &QueryMsg::OutgoingClassTokenToChannel(crate::msg::ClassTokenToChannelQuery {
+                &QueryMsg::OutgoingChannels(crate::msg::ClassTokenToChannelQuery {
                     start_after: None,
                     limit: None,
                 }),

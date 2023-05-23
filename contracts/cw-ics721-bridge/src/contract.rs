@@ -363,15 +363,15 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Paused {} => to_binary(&PO.query_paused(deps.storage)?),
         QueryMsg::Proxy {} => to_binary(&PROXY.load(deps.storage)?),
         QueryMsg::Cw721CodeId {} => to_binary(&query_cw721_code_id(deps)?),
-        QueryMsg::ClassIdToNftContract { start_after, limit } => {
-            to_binary(&query_class_id_to_nft_contract(deps, start_after, limit)?)
+        QueryMsg::NftContracts { start_after, limit } => {
+            to_binary(&query_nft_contracts(deps, start_after, limit)?)
         }
-        QueryMsg::OutgoingClassTokenToChannel(query) => to_binary(&query_class_token_to_channel(
+        QueryMsg::OutgoingChannels(query) => to_binary(&query_channels(
             deps,
             OUTGOING_CLASS_TOKEN_TO_CHANNEL,
             query,
         )?),
-        QueryMsg::IncomingClassTokenToChannel(query) => to_binary(&query_class_token_to_channel(
+        QueryMsg::IncomingChannels(query) => to_binary(&query_channels(
             deps,
             INCOMING_CLASS_TOKEN_TO_CHANNEL,
             query,
@@ -383,7 +383,7 @@ fn query_cw721_code_id(deps: Deps) -> StdResult<u64> {
     CW721_CODE_ID.load(deps.storage)
 }
 
-fn query_class_id_to_nft_contract(
+fn query_nft_contracts(
     deps: Deps,
     start_after: Option<ClassId>,
     limit: Option<u32>,
@@ -406,7 +406,7 @@ fn query_class_id_to_nft_contract(
     .collect::<StdResult<Vec<ClassIdToNftContractResponse>>>()
 }
 
-fn query_class_token_to_channel(
+fn query_channels(
     deps: Deps,
     class_token_to_channel: Map<(ClassId, TokenId), String>,
     query: ClassTokenToChannelQuery,
