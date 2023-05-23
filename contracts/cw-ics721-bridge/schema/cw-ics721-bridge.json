@@ -843,13 +843,13 @@
         "additionalProperties": false
       },
       {
-        "description": "Gets a list of classID (from NonFungibleTokenPacketData) and cw721 contract we have instantiated for that classID.",
+        "description": "Gets a list of classID as key (from NonFungibleTokenPacketData) and cw721 contract as value (instantiated for that classID).",
         "type": "object",
         "required": [
-          "class_id_to_nft_contract"
+          "nft_contracts"
         ],
         "properties": {
-          "class_id_to_nft_contract": {
+          "nft_contracts": {
             "type": "object",
             "properties": {
               "limit": {
@@ -877,26 +877,26 @@
         "additionalProperties": false
       },
       {
-        "description": "Gets a list of class ID, token ID, and local channel ID. Used to determine the local channel that NFTs have been sent out on.",
+        "description": "Gets a list of classID, tokenID, and local channelID. Used to determine the local channel that NFTs have been sent out on.",
         "type": "object",
         "required": [
-          "outgoing_class_token_to_channel"
+          "outgoing_channels"
         ],
         "properties": {
-          "outgoing_class_token_to_channel": {
+          "outgoing_channels": {
             "$ref": "#/definitions/ClassTokenToChannelQuery"
           }
         },
         "additionalProperties": false
       },
       {
-        "description": "Gets a list of class ID, token ID, and local channel ID. Used to determine the local channel that NFTs have arrived at this contract.",
+        "description": "Gets a list of classID, tokenID, and local channel ID. Used to determine the local channel that NFTs have arrived at this contract.",
         "type": "object",
         "required": [
-          "incoming_class_token_to_channel"
+          "incoming_channels"
         ],
         "properties": {
-          "incoming_class_token_to_channel": {
+          "incoming_channels": {
             "$ref": "#/definitions/ClassTokenToChannelQuery"
           }
         },
@@ -975,36 +975,6 @@
         }
       }
     },
-    "class_id_to_nft_contract": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Array_of_ClassIdToNftContractResponse",
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/ClassIdToNftContractResponse"
-      },
-      "definitions": {
-        "Addr": {
-          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
-          "type": "string"
-        },
-        "ClassIdToNftContractResponse": {
-          "type": "object",
-          "required": [
-            "class_id",
-            "nft_contract"
-          ],
-          "properties": {
-            "class_id": {
-              "type": "string"
-            },
-            "nft_contract": {
-              "$ref": "#/definitions/Addr"
-            }
-          },
-          "additionalProperties": false
-        }
-      }
-    },
     "class_metadata": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Nullable_Class",
@@ -1069,33 +1039,41 @@
       "format": "uint64",
       "minimum": 0.0
     },
-    "incoming_class_token_to_channel": {
+    "incoming_channels": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Array_of_ClassTokenToChannelResponse",
+      "title": "Array_of_Tuple_of_Tuple_of_ClassId_and_TokenId_and_String",
       "type": "array",
       "items": {
-        "$ref": "#/definitions/ClassTokenToChannelResponse"
+        "type": "array",
+        "items": [
+          {
+            "type": "array",
+            "items": [
+              {
+                "$ref": "#/definitions/ClassId"
+              },
+              {
+                "$ref": "#/definitions/TokenId"
+              }
+            ],
+            "maxItems": 2,
+            "minItems": 2
+          },
+          {
+            "type": "string"
+          }
+        ],
+        "maxItems": 2,
+        "minItems": 2
       },
       "definitions": {
-        "ClassTokenToChannelResponse": {
-          "type": "object",
-          "required": [
-            "channel",
-            "class_id",
-            "token_id"
-          ],
-          "properties": {
-            "channel": {
-              "type": "string"
-            },
-            "class_id": {
-              "type": "string"
-            },
-            "token_id": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
+        "ClassId": {
+          "description": "A class ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+          "type": "string"
+        },
+        "TokenId": {
+          "description": "A token ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+          "type": "string"
         }
       }
     },
@@ -1117,33 +1095,69 @@
         }
       }
     },
-    "outgoing_class_token_to_channel": {
+    "nft_contracts": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Array_of_ClassTokenToChannelResponse",
+      "title": "Array_of_Tuple_of_ClassId_and_Addr",
       "type": "array",
       "items": {
-        "$ref": "#/definitions/ClassTokenToChannelResponse"
+        "type": "array",
+        "items": [
+          {
+            "$ref": "#/definitions/ClassId"
+          },
+          {
+            "$ref": "#/definitions/Addr"
+          }
+        ],
+        "maxItems": 2,
+        "minItems": 2
       },
       "definitions": {
-        "ClassTokenToChannelResponse": {
-          "type": "object",
-          "required": [
-            "channel",
-            "class_id",
-            "token_id"
-          ],
-          "properties": {
-            "channel": {
-              "type": "string"
-            },
-            "class_id": {
-              "type": "string"
-            },
-            "token_id": {
-              "type": "string"
-            }
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+          "type": "string"
+        },
+        "ClassId": {
+          "description": "A class ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+          "type": "string"
+        }
+      }
+    },
+    "outgoing_channels": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Array_of_Tuple_of_Tuple_of_ClassId_and_TokenId_and_String",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": [
+          {
+            "type": "array",
+            "items": [
+              {
+                "$ref": "#/definitions/ClassId"
+              },
+              {
+                "$ref": "#/definitions/TokenId"
+              }
+            ],
+            "maxItems": 2,
+            "minItems": 2
           },
-          "additionalProperties": false
+          {
+            "type": "string"
+          }
+        ],
+        "maxItems": 2,
+        "minItems": 2
+      },
+      "definitions": {
+        "ClassId": {
+          "description": "A class ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+          "type": "string"
+        },
+        "TokenId": {
+          "description": "A token ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+          "type": "string"
         }
       }
     },

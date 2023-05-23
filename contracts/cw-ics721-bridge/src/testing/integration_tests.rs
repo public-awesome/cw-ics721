@@ -191,10 +191,10 @@ fn test_instantiate() {
     assert_eq!(cw721_id, test.cw721_id);
     let nft_contracts: Vec<(String, Addr)> = test.query_nft_contracts();
     assert_eq!(nft_contracts, Vec::<(String, Addr)>::new());
-    let outgoing_class_token_to_channel = test.query_outgoing_channels();
-    assert_eq!(outgoing_class_token_to_channel, []);
-    let incoming_class_token_to_channel = test.query_incoming_channels();
-    assert_eq!(incoming_class_token_to_channel, []);
+    let outgoing_channels = test.query_outgoing_channels();
+    assert_eq!(outgoing_channels, []);
+    let incoming_channels = test.query_incoming_channels();
+    assert_eq!(incoming_channels, []);
 }
 
 #[test]
