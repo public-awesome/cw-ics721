@@ -1,8 +1,5 @@
 use crate::{
-    msg::{
-        CallbackMsg, ClassIdToNftContractResponse, ClassTokenToChannelResponse, ExecuteMsg,
-        IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg,
-    },
+    msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
     ContractError,
 };
@@ -116,7 +113,7 @@ impl Test {
             .unwrap()
     }
 
-    pub fn query_class_id_to_nft_contract(&mut self) -> Vec<ClassIdToNftContractResponse> {
+    pub fn query_nft_contracts(&mut self) -> Vec<(String, Addr)> {
         self.app
             .wrap()
             .query_wasm_smart(
@@ -129,7 +126,7 @@ impl Test {
             .unwrap()
     }
 
-    pub fn query_outgoing_class_token_to_channel(&mut self) -> Vec<ClassTokenToChannelResponse> {
+    pub fn query_outgoing_channels(&mut self) -> Vec<((String, String), String)> {
         self.app
             .wrap()
             .query_wasm_smart(
@@ -142,7 +139,7 @@ impl Test {
             .unwrap()
     }
 
-    pub fn query_incoming_class_token_to_channel(&mut self) -> Vec<ClassTokenToChannelResponse> {
+    pub fn query_incoming_channels(&mut self) -> Vec<((String, String), String)> {
         self.app
             .wrap()
             .query_wasm_smart(
@@ -192,11 +189,11 @@ fn test_instantiate() {
     // check stores are properly initialized
     let cw721_id = test.query_cw721_id();
     assert_eq!(cw721_id, test.cw721_id);
-    let class_id_to_nft_contract = test.query_class_id_to_nft_contract();
-    assert_eq!(class_id_to_nft_contract, []);
-    let outgoing_class_token_to_channel = test.query_outgoing_class_token_to_channel();
+    let nft_contracts: Vec<(String, Addr)> = test.query_nft_contracts();
+    assert_eq!(nft_contracts, Vec::<(String, Addr)>::new());
+    let outgoing_class_token_to_channel = test.query_outgoing_channels();
     assert_eq!(outgoing_class_token_to_channel, []);
-    let incoming_class_token_to_channel = test.query_incoming_class_token_to_channel();
+    let incoming_class_token_to_channel = test.query_incoming_channels();
     assert_eq!(incoming_class_token_to_channel, []);
 }
 
@@ -263,9 +260,9 @@ fn test_do_instantiate_and_mint() {
         )
         .unwrap();
     // Check entry added in CLASS_ID_TO_NFT_CONTRACT
-    let class_id_to_nft_contract = test.query_class_id_to_nft_contract();
-    assert_eq!(class_id_to_nft_contract.len(), 1);
-    assert_eq!(class_id_to_nft_contract[0].class_id, "bad kids");
+    let nft_contracts = test.query_nft_contracts();
+    assert_eq!(nft_contracts.len(), 1);
+    assert_eq!(nft_contracts[0].0, "bad kids");
     // Get the address of the instantiated NFT.
     let nft: Addr = test
         .app
@@ -384,9 +381,9 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         .unwrap();
 
     // Check entry added in CLASS_ID_TO_NFT_CONTRACT
-    let class_id_to_nft_contract = test.query_class_id_to_nft_contract();
+    let class_id_to_nft_contract = test.query_nft_contracts();
     assert_eq!(class_id_to_nft_contract.len(), 1);
-    assert_eq!(class_id_to_nft_contract[0].class_id, "bad kids");
+    assert_eq!(class_id_to_nft_contract[0].0, "bad kids");
 
     // This will only do a mint as the contract for the class ID has
     // already been instantiated.
@@ -414,7 +411,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         .unwrap();
 
     // Check no additional entry added in CLASS_ID_TO_NFT_CONTRACT
-    let class_id_to_nft_contract = test.query_class_id_to_nft_contract();
+    let class_id_to_nft_contract = test.query_nft_contracts();
     assert_eq!(class_id_to_nft_contract.len(), 1);
 
     // Get the address of the instantiated NFT.

@@ -142,7 +142,7 @@ pub enum QueryMsg {
 
     /// Gets a list of classID (from NonFungibleTokenPacketData) and
     /// cw721 contract we have instantiated for that classID.
-    #[returns(Vec<ClassIdToNftContractResponse>)]
+    #[returns(Vec<(ClassId, Addr)>)]
     NftContracts {
         start_after: Option<ClassId>,
         limit: Option<u32>,
@@ -151,13 +151,13 @@ pub enum QueryMsg {
     /// Gets a list of class ID, token ID, and local channel ID. Used
     /// to determine the local channel that NFTs have been sent
     /// out on.
-    #[returns(Vec<ClassTokenToChannelResponse>)]
+    #[returns(Vec<((ClassId, TokenId), String)>)]
     OutgoingChannels(ClassTokenToChannelQuery),
 
     /// Gets a list of class ID, token ID, and local channel ID. Used
     /// to determine the local channel that NFTs have arrived at
     /// this contract.
-    #[returns(Vec<ClassTokenToChannelResponse>)]
+    #[returns(Vec<((ClassId, TokenId), String)>)]
     IncomingChannels(ClassTokenToChannelQuery),
 }
 
@@ -171,19 +171,6 @@ pub struct ClassTokenToChannelQuery {
 pub struct ClassToken {
     pub class_id: ClassId,
     pub token_id: TokenId,
-}
-
-#[cw_serde]
-pub struct ClassIdToNftContractResponse {
-    pub class_id: String,
-    pub nft_contract: Addr,
-}
-
-#[cw_serde]
-pub struct ClassTokenToChannelResponse {
-    pub class_id: String,
-    pub token_id: String,
-    pub channel: String,
 }
 
 #[cw_serde]

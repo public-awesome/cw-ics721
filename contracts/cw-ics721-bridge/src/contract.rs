@@ -11,9 +11,8 @@ use crate::{
     error::ContractError,
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
     msg::{
-        CallbackMsg, ClassIdToNftContractResponse, ClassTokenToChannelQuery,
-        ClassTokenToChannelResponse, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg,
-        QueryMsg,
+        CallbackMsg, ClassTokenToChannelQuery, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg,
+        MigrateMsg, QueryMsg,
     },
     state::{
         UniversalNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
@@ -387,30 +386,21 @@ fn query_nft_contracts(
     deps: Deps,
     start_after: Option<ClassId>,
     limit: Option<u32>,
-) -> StdResult<Vec<ClassIdToNftContractResponse>> {
+) -> StdResult<Vec<(String, Addr)>> {
     cw_paginate::paginate_map(
         deps,
         &CLASS_ID_TO_NFT_CONTRACT,
         start_after,
         limit,
         Order::Ascending,
-    )?
-    .into_iter()
-    .map(|p| {
-        let (class_id, nft_contract) = p;
-        Ok(ClassIdToNftContractResponse {
-            class_id,
-            nft_contract,
-        })
-    })
-    .collect::<StdResult<Vec<ClassIdToNftContractResponse>>>()
+    )
 }
 
 fn query_channels(
     deps: Deps,
     class_token_to_channel: Map<(ClassId, TokenId), String>,
     query: ClassTokenToChannelQuery,
-) -> StdResult<Vec<ClassTokenToChannelResponse>> {
+) -> StdResult<Vec<((String, String), String)>> {
     let start_after = query.start_after.map(|class_token| {
         (
             ClassId::new(class_token.class_id),
@@ -423,17 +413,7 @@ fn query_channels(
         start_after,
         query.limit,
         Order::Ascending,
-    )?
-    .into_iter()
-    .map(|p| {
-        let ((class_id, token_id), channel) = p;
-        Ok(ClassTokenToChannelResponse {
-            class_id,
-            token_id,
-            channel,
-        })
-    })
-    .collect::<StdResult<Vec<ClassTokenToChannelResponse>>>()
+    )
 }
 
 fn query_class_id_for_nft_contract(deps: Deps, contract: String) -> StdResult<Option<ClassId>> {
