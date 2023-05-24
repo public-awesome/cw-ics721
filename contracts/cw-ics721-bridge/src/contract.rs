@@ -1,18 +1,22 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcMsg, MessageInfo, Response,
-    StdResult, SubMsg, WasmMsg,
+    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcMsg, MessageInfo, Order,
+    Response, StdResult, SubMsg, WasmMsg,
 };
 use cw2::set_contract_version;
+use cw_storage_plus::Map;
 
 use crate::{
     error::ContractError,
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
-    msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
+    msg::{
+        CallbackMsg, ClassToken, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+    },
     state::{
         UniversalNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
-        NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY, TOKEN_METADATA,
+        INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+        PO, PROXY, TOKEN_METADATA,
     },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
 };
@@ -356,7 +360,62 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Pauser {} => to_binary(&PO.query_pauser(deps.storage)?),
         QueryMsg::Paused {} => to_binary(&PO.query_paused(deps.storage)?),
         QueryMsg::Proxy {} => to_binary(&PROXY.load(deps.storage)?),
+        QueryMsg::Cw721CodeId {} => to_binary(&query_cw721_code_id(deps)?),
+        QueryMsg::NftContracts { start_after, limit } => {
+            to_binary(&query_nft_contracts(deps, start_after, limit)?)
+        }
+        QueryMsg::OutgoingChannels { start_after, limit } => to_binary(&query_channels(
+            deps,
+            OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+            start_after,
+            limit,
+        )?),
+        QueryMsg::IncomingChannels { start_after, limit } => to_binary(&query_channels(
+            deps,
+            INCOMING_CLASS_TOKEN_TO_CHANNEL,
+            start_after,
+            limit,
+        )?),
     }
+}
+
+fn query_cw721_code_id(deps: Deps) -> StdResult<u64> {
+    CW721_CODE_ID.load(deps.storage)
+}
+
+fn query_nft_contracts(
+    deps: Deps,
+    start_after: Option<ClassId>,
+    limit: Option<u32>,
+) -> StdResult<Vec<(String, Addr)>> {
+    cw_paginate::paginate_map(
+        deps,
+        &CLASS_ID_TO_NFT_CONTRACT,
+        start_after,
+        limit,
+        Order::Ascending,
+    )
+}
+
+fn query_channels(
+    deps: Deps,
+    class_token_to_channel: Map<(ClassId, TokenId), String>,
+    start_after: Option<ClassToken>,
+    limit: Option<u32>,
+) -> StdResult<Vec<((String, String), String)>> {
+    let start_after = start_after.map(|class_token| {
+        (
+            ClassId::new(class_token.class_id),
+            TokenId::new(class_token.token_id),
+        )
+    });
+    cw_paginate::paginate_map(
+        deps,
+        &class_token_to_channel,
+        start_after,
+        limit,
+        Order::Ascending,
+    )
 }
 
 fn query_class_id_for_nft_contract(deps: Deps, contract: String) -> StdResult<Option<ClassId>> {

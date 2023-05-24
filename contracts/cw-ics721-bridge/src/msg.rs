@@ -1,9 +1,9 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{IbcTimeout, WasmMsg};
+use cosmwasm_std::{Addr, IbcTimeout, WasmMsg};
 use cw721_proxy_derive::cw721_proxy;
 use cw_cii::ContractInstantiateInfo;
 
-use crate::token_types::{ClassId, Token, VoucherCreation, VoucherRedemption};
+use crate::token_types::{ClassId, Token, TokenId, VoucherCreation, VoucherRedemption};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -135,6 +135,42 @@ pub enum QueryMsg {
     /// Gets this contract's cw721-proxy if one is set.
     #[returns(Option<::cosmwasm_std::Addr>)]
     Proxy {},
+
+    /// Gets the code used for instantiating new cw721s.
+    #[returns(u64)]
+    Cw721CodeId {},
+
+    /// Gets a list of classID as key (from NonFungibleTokenPacketData) and
+    /// cw721 contract as value (instantiated for that classID).
+    #[returns(Vec<(ClassId, Addr)>)]
+    NftContracts {
+        start_after: Option<ClassId>,
+        limit: Option<u32>,
+    },
+
+    /// Gets a list of classID, tokenID, and local channelID. Used
+    /// to determine the local channel that NFTs have been sent
+    /// out on.
+    #[returns(Vec<((ClassId, TokenId), String)>)]
+    OutgoingChannels {
+        start_after: Option<ClassToken>,
+        limit: Option<u32>,
+    },
+
+    /// Gets a list of classID, tokenID, and local channel ID. Used
+    /// to determine the local channel that NFTs have arrived at
+    /// this contract.
+    #[returns(Vec<((ClassId, TokenId), String)>)]
+    IncomingChannels {
+        start_after: Option<ClassToken>,
+        limit: Option<u32>,
+    },
+}
+
+#[cw_serde]
+pub struct ClassToken {
+    pub class_id: ClassId,
+    pub token_id: TokenId,
 }
 
 #[cw_serde]

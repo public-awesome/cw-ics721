@@ -216,13 +216,14 @@ dependencies = [
 name = "cw-ics721-bridge"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-cii",
  "cw-multi-test",
  "cw-paginate",
  "cw-pause-once",
- "cw-storage-plus 1.0.1",
+ "cw-storage-plus 1.0.1 (git+https://github.com/CosmWasm/cw-storage-plus?rev=6db957ce730a95141a3ab4dc5ab76fb38e8c0c42)",
  "cw-utils 1.0.1",
  "cw2 1.0.1",
  "cw721 0.16.0",
@@ -255,7 +256,7 @@ checksum = "c2eb84554bbfa6b66736abcd6a9bfdf237ee0ecb83910f746dff7f799093c80a"
 dependencies = [
  "anyhow",
  "cosmwasm-std",
- "cw-storage-plus 1.0.1",
+ "cw-storage-plus 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cw-utils 1.0.1",
  "derivative",
  "itertools",
@@ -268,12 +269,12 @@ dependencies = [
 
 [[package]]
 name = "cw-paginate"
-version = "2.0.0-beta"
-source = "git+https://github.com/DA0-DA0/dao-contracts.git?tag=v2.0.0-beta#74bd3881fdd86829e5e8b132b9952dd64f2d0737"
+version = "2.1.0"
+source = "git+https://github.com/DA0-DA0/dao-contracts.git?tag=v2.1.0#b09db5a672204229fdd4722c9294b9dd25f4ed03"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
- "cw-storage-plus 0.16.0",
+ "cw-storage-plus 1.0.1 (git+https://github.com/CosmWasm/cw-storage-plus?rev=6db957ce730a95141a3ab4dc5ab76fb38e8c0c42)",
  "serde",
 ]
 
@@ -328,6 +329,16 @@ name = "cw-storage-plus"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "053a5083c258acd68386734f428a5a171b29f7d733151ae83090c6fcc9417ffa"
+dependencies = [
+ "cosmwasm-std",
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "cw-storage-plus"
+version = "1.0.1"
+source = "git+https://github.com/CosmWasm/cw-storage-plus?rev=6db957ce730a95141a3ab4dc5ab76fb38e8c0c42#6db957ce730a95141a3ab4dc5ab76fb38e8c0c42"
 dependencies = [
  "cosmwasm-std",
  "schemars",
@@ -413,7 +424,7 @@ checksum = "8fb70cee2cf0b4a8ff7253e6bc6647107905e8eb37208f87d54f67810faa62f8"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
- "cw-storage-plus 1.0.1",
+ "cw-storage-plus 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "schemars",
  "serde",
 ]

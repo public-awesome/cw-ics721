@@ -3,8 +3,8 @@ use cosmwasm_std::{
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier},
     to_binary, to_vec, Addr, Attribute, Binary, ContractResult, DepsMut, Env, IbcAcknowledgement,
     IbcChannel, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder, IbcPacket,
-    IbcPacketReceiveMsg, IbcTimeout, QuerierResult, Reply, Response, SubMsgResponse, SubMsgResult,
-    Timestamp, WasmQuery,
+    IbcPacketReceiveMsg, IbcTimeout, Order, QuerierResult, Reply, Response, StdResult,
+    SubMsgResponse, SubMsgResult, Timestamp, WasmQuery,
 };
 
 use crate::{
@@ -15,7 +15,9 @@ use crate::{
     },
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{InstantiateMsg, QueryMsg},
-    state::{CLASS_ID_TO_NFT_CONTRACT, NFT_CONTRACT_TO_CLASS_ID, PO},
+    state::{
+        CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, PO,
+    },
     token_types::{ClassId, TokenId},
     ContractError,
 };
@@ -407,6 +409,52 @@ fn test_ibc_channel_connect_invalid_version_counterparty() {
         counterparty_version: "invalid_version".to_string(),
     };
     ibc_channel_connect(deps.as_mut(), env, msg).unwrap();
+}
+
+#[test]
+fn test_ibc_packet_receive() {
+    let data = to_binary(&NonFungibleTokenPacketData {
+        class_id: ClassId::new("id"),
+        class_uri: None,
+        class_data: None,
+        token_ids: vec![TokenId::new("1")],
+        token_uris: None,
+        token_data: None,
+        sender: "violet".to_string(),
+        receiver: "blue".to_string(),
+        memo: None,
+    })
+    .unwrap();
+    let ibc_packet = mock_packet(data);
+    let packet = IbcPacketReceiveMsg::new(ibc_packet.clone(), Addr::unchecked(RELAYER_ADDR));
+    let mut deps = mock_dependencies();
+    let env = mock_env();
+    PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
+    ibc_packet_receive(deps.as_mut(), env, packet).unwrap();
+
+    // check incoming classID and tokenID
+    let keys = INCOMING_CLASS_TOKEN_TO_CHANNEL
+        .keys(deps.as_mut().storage, None, None, Order::Ascending)
+        .into_iter()
+        .collect::<StdResult<Vec<(String, String)>>>()
+        .unwrap();
+    let class_id = format!(
+        "{}/{}/{}",
+        ibc_packet.dest.port_id, ibc_packet.dest.channel_id, "id"
+    );
+    assert_eq!(keys, [(class_id, "1".to_string())]);
+
+    // check channel
+    let key = (
+        ClassId::new(keys[0].clone().0),
+        TokenId::new(keys[0].clone().1),
+    );
+    assert_eq!(
+        INCOMING_CLASS_TOKEN_TO_CHANNEL
+            .load(deps.as_mut().storage, key)
+            .unwrap(),
+        ibc_packet.dest.channel_id,
+    )
 }
 
 #[test]
