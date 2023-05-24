@@ -1,9 +1,9 @@
 use cosmwasm_std::{
-    testing::{mock_dependencies, mock_info, MockQuerier},
+    testing::{mock_dependencies, mock_env, mock_info, MockQuerier, MOCK_CONTRACT_ADDR},
     to_binary, ContractResult, CosmosMsg, Empty, IbcMsg, IbcTimeout, Order, QuerierResult,
     StdResult, SubMsg, Timestamp, WasmQuery,
 };
-use cw721::NftInfoResponse;
+use cw721::{AllNftInfoResponse, NftInfoResponse};
 
 use crate::{
     contract::receive_nft,
@@ -23,9 +23,15 @@ fn nft_info_response_mock_querier(query: &WasmQuery) -> QuerierResult {
         } => {
             if *contract_addr == NFT_ADDR {
                 QuerierResult::Ok(ContractResult::Ok(
-                    to_binary(&NftInfoResponse::<Option<Empty>> {
-                        token_uri: Some("https://moonphase.is/image.svg".to_string()),
-                        extension: None,
+                    to_binary(&AllNftInfoResponse::<Option<Empty>> {
+                        access: cw721::OwnerOfResponse {
+                            owner: MOCK_CONTRACT_ADDR.to_string(),
+                            approvals: vec![],
+                        },
+                        info: NftInfoResponse {
+                            token_uri: Some("https://moonphase.is/image.svg".to_string()),
+                            extension: None,
+                        },
                     })
                     .unwrap(),
                 ))
@@ -49,6 +55,7 @@ fn test_receive_nft() {
 
     let mut deps = mock_dependencies();
     deps.querier = querier;
+    let env = mock_env();
 
     let info = mock_info(NFT_ADDR, &[]);
     let token_id = "1";
@@ -63,6 +70,7 @@ fn test_receive_nft() {
 
     let res = receive_nft(
         deps.as_mut(),
+        env,
         info,
         TokenId::new(token_id),
         sender.clone(),
@@ -120,6 +128,7 @@ fn test_receive_sets_uri() {
 
     let mut deps = mock_dependencies();
     deps.querier = querier;
+    let env = mock_env();
 
     let info = mock_info(NFT_ADDR, &[]);
     let token_id = TokenId::new("1");
@@ -132,7 +141,7 @@ fn test_receive_sets_uri() {
     })
     .unwrap();
 
-    receive_nft(deps.as_mut(), info, token_id, sender, msg).unwrap();
+    receive_nft(deps.as_mut(), env, info, token_id, sender, msg).unwrap();
 
     let class = CLASS_ID_TO_CLASS
         .load(deps.as_ref().storage, ClassId::new(NFT_ADDR))

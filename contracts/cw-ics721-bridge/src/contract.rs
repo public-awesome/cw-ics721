@@ -14,7 +14,7 @@ use crate::{
         CallbackMsg, ClassToken, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg,
     },
     state::{
-        UniversalNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
+        UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
         INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
         PO, PROXY, TOKEN_METADATA,
     },
@@ -62,9 +62,9 @@ pub fn execute(
             sender,
             token_id,
             msg,
-        }) => execute_receive_nft(deps, info, token_id, sender, msg),
+        }) => execute_receive_nft(deps, env, info, token_id, sender, msg),
         ExecuteMsg::ReceiveProxyNft { eyeball, msg } => {
-            execute_receive_proxy_nft(deps, info, eyeball, msg)
+            execute_receive_proxy_nft(deps, env, info, eyeball, msg)
         }
         ExecuteMsg::Pause {} => execute_pause(deps, info),
         ExecuteMsg::Callback(msg) => execute_callback(deps, env, info, msg),
@@ -100,6 +100,7 @@ fn execute_callback(
 
 fn execute_receive_proxy_nft(
     deps: DepsMut,
+    env: Env,
     info: MessageInfo,
     eyeball: String,
     msg: cw721::Cw721ReceiveMsg,
@@ -117,11 +118,12 @@ fn execute_receive_proxy_nft(
         sender,
         msg,
     } = msg;
-    receive_nft(deps, info, TokenId::new(token_id), sender, msg)
+    receive_nft(deps, env, info, TokenId::new(token_id), sender, msg)
 }
 
 fn execute_receive_nft(
     deps: DepsMut,
+    env: Env,
     info: MessageInfo,
     token_id: String,
     sender: String,
@@ -130,7 +132,7 @@ fn execute_receive_nft(
     if PROXY.load(deps.storage)?.is_some() {
         Err(ContractError::Unauthorized {})
     } else {
-        receive_nft(deps, info, TokenId::new(token_id), sender, msg)
+        receive_nft(deps, env, info, TokenId::new(token_id), sender, msg)
     }
 }
 
@@ -141,6 +143,7 @@ fn execute_pause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractE
 
 pub(crate) fn receive_nft(
     deps: DepsMut,
+    env: Env,
     info: MessageInfo,
     token_id: TokenId,
     sender: String,
@@ -173,12 +176,17 @@ pub(crate) fn receive_nft(
         }
     };
 
-    let UniversalNftInfoResponse { token_uri, .. } = deps.querier.query_wasm_smart(
+    let UniversalAllNftInfoResponse { access, info } = deps.querier.query_wasm_smart(
         info.sender,
-        &cw721::Cw721QueryMsg::NftInfo {
+        &cw721::Cw721QueryMsg::AllNftInfo {
             token_id: token_id.clone().into(),
+            include_expired: None,
         },
     )?;
+    // make sure NFT is escrowed by ics721
+    if access.owner != env.contract.address {
+        return Err(ContractError::Unauthorized {});
+    }
 
     let token_metadata = TOKEN_METADATA
         .may_load(deps.storage, (class.id.clone(), token_id.clone()))?
@@ -190,7 +198,7 @@ pub(crate) fn receive_nft(
         class_data: class.data,
 
         token_ids: vec![token_id.clone()],
-        token_uris: token_uri.map(|uri| vec![uri]),
+        token_uris: info.token_uri.map(|uri| vec![uri]),
         token_data: token_metadata.map(|metadata| vec![metadata]),
 
         sender: sender.into_string(),
@@ -454,15 +462,16 @@ fn query_token_metadata(
 	debug_assert!(false, "token_metadata != None => token_contract != None");
 	return Ok(None)
     };
-    let UniversalNftInfoResponse { token_uri, .. } = deps.querier.query_wasm_smart(
+    let UniversalAllNftInfoResponse { info, .. } = deps.querier.query_wasm_smart(
         token_contract,
-        &cw721::Cw721QueryMsg::NftInfo {
+        &cw721::Cw721QueryMsg::AllNftInfo {
             token_id: token_id.clone().into(),
+            include_expired: None,
         },
     )?;
     Ok(Some(Token {
         id: token_id,
-        uri: token_uri,
+        uri: info.token_uri,
         data: token_metadata,
     }))
 }

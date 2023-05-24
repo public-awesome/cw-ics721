@@ -544,7 +544,7 @@ fn test_proxy_authorized() {
             cw721.clone(),
             &cw721_base::ExecuteMsg::<Empty, Empty>::Mint(cw721_base::MintMsg {
                 token_id: "1".to_string(),
-                owner: "ekez".to_string(),
+                owner: test.bridge.to_string(),
                 token_uri: None,
                 extension: Empty::default(),
             }),
