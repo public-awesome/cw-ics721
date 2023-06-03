@@ -117,11 +117,7 @@ pub(crate) fn receive_ibc_packet(
         IbcReceiveResponse::default()
     };
 
-    let callback = match receive_callback_msg(
-        deps.as_ref(),
-        data.memo,
-        data.receiver.clone(),
-    ) {
+    let callback = match receive_callback_msg(deps.as_ref(), data.memo, data.receiver.clone()) {
         Some(msg) => vec![msg],
         None => vec![],
     };

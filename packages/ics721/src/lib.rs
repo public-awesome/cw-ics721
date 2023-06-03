@@ -1,7 +1,7 @@
 use cosmwasm_schema::{
     cw_serde,
     schemars::JsonSchema,
-    serde::{Deserialize, Serialize}
+    serde::{Deserialize, Serialize},
 };
 use cosmwasm_std::Binary;
 

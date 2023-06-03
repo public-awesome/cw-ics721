@@ -663,7 +663,7 @@ fn test_ibc_packet_receive_callback() {
     })
     .unwrap();
     let ibc_packet = mock_packet(data);
-    let packet = IbcPacketReceiveMsg::new(ibc_packet.clone(), Addr::unchecked(RELAYER_ADDR));
+    let packet = IbcPacketReceiveMsg::new(ibc_packet, Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
     PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
@@ -712,7 +712,7 @@ fn test_extended_memo_not_ignored() {
     })
     .unwrap();
     let ibc_packet = mock_packet(data);
-    let packet = IbcPacketReceiveMsg::new(ibc_packet.clone(), Addr::unchecked(RELAYER_ADDR));
+    let packet = IbcPacketReceiveMsg::new(ibc_packet, Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
     PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
@@ -750,7 +750,7 @@ fn test_different_memo_ignored() {
         receiver: "blue".to_string(),
         memo: Some(
             to_binary(&DifferentMemo {
-              different: Some(Ics721Callbacks {
+                different: Some(Ics721Callbacks {
                     src_callback_msg: Some(to_binary("some_random").unwrap()),
                     dest_callback_msg: Some(dest_callback.clone()),
                 }),
@@ -762,7 +762,7 @@ fn test_different_memo_ignored() {
     })
     .unwrap();
     let ibc_packet = mock_packet(data);
-    let packet = IbcPacketReceiveMsg::new(ibc_packet.clone(), Addr::unchecked(RELAYER_ADDR));
+    let packet = IbcPacketReceiveMsg::new(ibc_packet, Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
     PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
