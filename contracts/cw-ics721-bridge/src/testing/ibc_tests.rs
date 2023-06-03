@@ -437,7 +437,6 @@ fn test_ibc_packet_receive() {
     // check incoming classID and tokenID
     let keys = INCOMING_CLASS_TOKEN_TO_CHANNEL
         .keys(deps.as_mut().storage, None, None, Order::Ascending)
-        .into_iter()
         .collect::<StdResult<Vec<(String, String)>>>()
         .unwrap();
     let class_id = format!(

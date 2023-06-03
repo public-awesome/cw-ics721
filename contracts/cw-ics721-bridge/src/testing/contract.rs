@@ -103,7 +103,6 @@ fn test_receive_nft() {
     // check outgoing classID and tokenID
     let keys = OUTGOING_CLASS_TOKEN_TO_CHANNEL
         .keys(deps.as_mut().storage, None, None, Order::Ascending)
-        .into_iter()
         .collect::<StdResult<Vec<(String, String)>>>()
         .unwrap();
     assert_eq!(keys, [(NFT_ADDR.to_string(), token_id.to_string())]);
