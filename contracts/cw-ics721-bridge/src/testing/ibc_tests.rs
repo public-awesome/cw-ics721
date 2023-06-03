@@ -1,11 +1,13 @@
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr,
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier},
     to_binary, to_vec, Addr, Attribute, Binary, ContractResult, DepsMut, Env, IbcAcknowledgement,
     IbcChannel, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder, IbcPacket,
-    IbcPacketReceiveMsg, IbcTimeout, Order, QuerierResult, Reply, Response, StdResult,
-    SubMsgResponse, SubMsgResult, Timestamp, WasmQuery,
+    IbcPacketReceiveMsg, IbcTimeout, Order, QuerierResult, Reply, Response, StdResult, SubMsg,
+    SubMsgResponse, SubMsgResult, Timestamp, WasmMsg, WasmQuery,
 };
+use ics721::{Ics721Callbacks, Ics721Memo, Ics721ReceiveMsg};
 
 use crate::{
     contract::instantiate,
@@ -634,4 +636,146 @@ fn test_no_receive_when_paused() {
     assert!(error
         .unwrap()
         .starts_with("contract is paused pending governance intervention"))
+}
+
+#[test]
+fn test_ibc_packet_receive_callback() {
+    let dest_callback = to_binary(&()).unwrap();
+    let data = to_binary(&NonFungibleTokenPacketData {
+        class_id: ClassId::new("id"),
+        class_uri: None,
+        class_data: None,
+        token_ids: vec![TokenId::new("1")],
+        token_uris: None,
+        token_data: None,
+        sender: "violet".to_string(),
+        receiver: "blue".to_string(),
+        memo: Some(
+            to_binary(&Ics721Memo {
+                callbacks: Some(Ics721Callbacks {
+                    src_callback_msg: Some(to_binary("some_random").unwrap()),
+                    dest_callback_msg: Some(dest_callback.clone()),
+                }),
+            })
+            .unwrap()
+            .to_string(),
+        ),
+    })
+    .unwrap();
+    let ibc_packet = mock_packet(data);
+    let packet = IbcPacketReceiveMsg::new(ibc_packet.clone(), Addr::unchecked(RELAYER_ADDR));
+    let mut deps = mock_dependencies();
+    let env = mock_env();
+    PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
+
+    let res = ibc_packet_receive(deps.as_mut(), env, packet).unwrap();
+    assert!(res.messages.contains(&SubMsg::new(WasmMsg::Execute {
+        contract_addr: "blue".to_string(),
+        msg: to_binary(&Ics721ReceiveMsg {
+            status: ics721::Ics721Status::Success,
+            msg: dest_callback
+        })
+        .unwrap(),
+        funds: vec![],
+    })))
+}
+
+#[test]
+fn test_extended_memo_not_ignored() {
+    #[cw_serde]
+    struct ExtendedMemo {
+        callbacks: Option<Ics721Callbacks>,
+        extra: Option<String>,
+    }
+
+    let dest_callback = to_binary(&()).unwrap();
+    let data = to_binary(&NonFungibleTokenPacketData {
+        class_id: ClassId::new("id"),
+        class_uri: None,
+        class_data: None,
+        token_ids: vec![TokenId::new("1")],
+        token_uris: None,
+        token_data: None,
+        sender: "violet".to_string(),
+        receiver: "blue".to_string(),
+        memo: Some(
+            to_binary(&ExtendedMemo {
+                callbacks: Some(Ics721Callbacks {
+                    src_callback_msg: Some(to_binary("some_random").unwrap()),
+                    dest_callback_msg: Some(dest_callback.clone()),
+                }),
+                extra: None,
+            })
+            .unwrap()
+            .to_string(),
+        ),
+    })
+    .unwrap();
+    let ibc_packet = mock_packet(data);
+    let packet = IbcPacketReceiveMsg::new(ibc_packet.clone(), Addr::unchecked(RELAYER_ADDR));
+    let mut deps = mock_dependencies();
+    let env = mock_env();
+    PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
+
+    // Memo is ignored here, because it's not a valid ICS721Memo
+    let res = ibc_packet_receive(deps.as_mut(), env, packet).unwrap();
+    assert!(res.messages.contains(&SubMsg::new(WasmMsg::Execute {
+        contract_addr: "blue".to_string(),
+        msg: to_binary(&Ics721ReceiveMsg {
+            status: ics721::Ics721Status::Success,
+            msg: dest_callback
+        })
+        .unwrap(),
+        funds: vec![],
+    })))
+}
+
+#[test]
+fn test_different_memo_ignored() {
+    #[cw_serde]
+    struct DifferentMemo {
+        different: Option<Ics721Callbacks>,
+        extra: Option<String>,
+    }
+
+    let dest_callback = to_binary(&()).unwrap();
+    let data = to_binary(&NonFungibleTokenPacketData {
+        class_id: ClassId::new("id"),
+        class_uri: None,
+        class_data: None,
+        token_ids: vec![TokenId::new("1")],
+        token_uris: None,
+        token_data: None,
+        sender: "violet".to_string(),
+        receiver: "blue".to_string(),
+        memo: Some(
+            to_binary(&DifferentMemo {
+              different: Some(Ics721Callbacks {
+                    src_callback_msg: Some(to_binary("some_random").unwrap()),
+                    dest_callback_msg: Some(dest_callback.clone()),
+                }),
+                extra: None,
+            })
+            .unwrap()
+            .to_string(),
+        ),
+    })
+    .unwrap();
+    let ibc_packet = mock_packet(data);
+    let packet = IbcPacketReceiveMsg::new(ibc_packet.clone(), Addr::unchecked(RELAYER_ADDR));
+    let mut deps = mock_dependencies();
+    let env = mock_env();
+    PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
+
+    // Memo is ignored here, because it's not a valid ICS721Memo
+    let res = ibc_packet_receive(deps.as_mut(), env, packet).unwrap();
+    assert!(!res.messages.contains(&SubMsg::new(WasmMsg::Execute {
+        contract_addr: "blue".to_string(),
+        msg: to_binary(&Ics721ReceiveMsg {
+            status: ics721::Ics721Status::Success,
+            msg: dest_callback
+        })
+        .unwrap(),
+        funds: vec![],
+    })))
 }
