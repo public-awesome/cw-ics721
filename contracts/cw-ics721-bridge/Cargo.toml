@@ -28,6 +28,7 @@ cw721-proxy-derive = { git = "https://github.com/0xekez/cw721-proxy.git" }
 cw-pause-once = { path = "../../packages/cw-pause-once" }
 cw-cii = { path = "../../packages/cw-cii" }
 zip-optional = { path = "../../packages/zip-optional" }
+ics721 = { path = "../../packages/ics721" }
 
 [dev-dependencies]
 anyhow = "1.0"

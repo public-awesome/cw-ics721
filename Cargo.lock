@@ -230,6 +230,7 @@ dependencies = [
  "cw721-base 0.16.0",
  "cw721-proxy-derive",
  "cw721-rate-limited-proxy",
+ "ics721",
  "serde",
  "thiserror",
  "zip-optional",
@@ -711,6 +712,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
 dependencies = [
  "digest 0.10.6",
+]
+
+[[package]]
+name = "ics721"
+version = "0.0.1"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
 ]
 
 [[package]]

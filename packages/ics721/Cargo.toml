@@ -1,0 +1,9 @@
+[package]
+name = "ics721"
+version = "0.0.1"
+edition = "2021"
+authors = ["Art3mix, ekez <ekez@withoutdoing.com>"]
+
+[dependencies]
+cosmwasm-std = "1.1"
+cosmwasm-schema = "1.1"

@@ -5,6 +5,7 @@ use cosmwasm_std::{
 use zip_optional::Zippable;
 
 use crate::{
+    helpers::receive_callback_msg,
     ibc::{NonFungibleTokenPacketData, ACK_AND_DO_NOTHING},
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg},
@@ -110,14 +111,24 @@ pub(crate) fn receive_ibc_packet(
         )
         .into_submessage(env.contract.address, receiver)?;
 
-    let response = if let Some(memo) = data.memo {
+    let response = if let Some(memo) = data.memo.clone() {
         IbcReceiveResponse::default().add_attribute("ics721_memo", memo)
     } else {
         IbcReceiveResponse::default()
     };
 
+    let callback = match receive_callback_msg(
+        deps.as_ref(),
+        data.memo,
+        data.receiver.clone(),
+    ) {
+        Some(msg) => vec![msg],
+        None => vec![],
+    };
+
     Ok(response
         .add_submessage(submessage)
+        .add_messages(callback)
         .add_attribute("method", "receive_ibc_packet")
         .add_attribute("class_id", data.class_id)
         .add_attribute("local_channel", packet.dest.channel_id)
