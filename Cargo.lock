@@ -247,6 +247,7 @@ dependencies = [
  "cw-ics721-bridge",
  "cw-storage-plus 0.15.1",
  "cw2 0.15.1",
+ "ics721",
  "thiserror",
 ]
 
@@ -721,6 +722,10 @@ version = "0.0.1"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cw-storage-plus 1.0.1 (git+https://github.com/CosmWasm/cw-storage-plus?rev=6db957ce730a95141a3ab4dc5ab76fb38e8c0c42)",
+ "cw721 0.16.0",
+ "cw721-proxy-derive",
+ "thiserror",
 ]
 
 [[package]]

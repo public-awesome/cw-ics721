@@ -1,9 +1,15 @@
+pub mod error;
+pub mod msg;
+pub mod packets;
+pub mod token_types;
+
 use cosmwasm_schema::{
     cw_serde,
     schemars::JsonSchema,
     serde::{Deserialize, Serialize},
 };
 use cosmwasm_std::Binary;
+pub use packets::NonFungibleTokenPacketData;
 
 // cw_serde includes: `deny_unknown_fields`
 // This means that it cw_serde expects the exect struct to be parsed
@@ -30,6 +36,7 @@ pub struct Ics721Callbacks {
 #[cw_serde]
 pub struct Ics721ReceiveMsg {
     pub status: Ics721Status,
+    pub original_packet: NonFungibleTokenPacketData,
     pub msg: Binary,
 }
 

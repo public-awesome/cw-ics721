@@ -7,3 +7,7 @@ authors = ["Art3mix, ekez <ekez@withoutdoing.com>"]
 [dependencies]
 cosmwasm-std = "1.1"
 cosmwasm-schema = "1.1"
+cw-storage-plus = { rev = "6db957ce730a95141a3ab4dc5ab76fb38e8c0c42", git = "https://github.com/CosmWasm/cw-storage-plus" }
+cw721-proxy-derive = { git = "https://github.com/0xekez/cw721-proxy.git" }
+cw721 = "0.16"
+thiserror = "1"

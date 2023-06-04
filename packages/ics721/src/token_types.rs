@@ -57,7 +57,7 @@ pub struct VoucherCreation {
 }
 
 impl TokenId {
-    pub(crate) fn new<T>(token_id: T) -> Self
+    pub fn new<T>(token_id: T) -> Self
     where
         T: Into<String>,
     {
@@ -66,7 +66,7 @@ impl TokenId {
 }
 
 impl ClassId {
-    pub(crate) fn new<T>(class_id: T) -> Self
+    pub fn new<T>(class_id: T) -> Self
     where
         T: Into<String>,
     {
@@ -94,7 +94,7 @@ impl VoucherRedemption {
     ///   vouchers are being redeemed on.
     /// - `receiver` that address that ought to receive the NFTs the
     ///   debt-vouchers are redeemable for.
-    pub(crate) fn into_wasm_msg(self, contract: Addr, receiver: String) -> StdResult<WasmMsg> {
+    pub fn into_wasm_msg(self, contract: Addr, receiver: String) -> StdResult<WasmMsg> {
         Ok(WasmMsg::Execute {
             contract_addr: contract.into_string(),
             msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::RedeemVouchers {
@@ -116,7 +116,7 @@ impl VoucherCreation {
     ///   vouchers are being created on.
     /// - `receiver` that address that ought to receive the newly
     ///   created debt-vouchers.
-    pub(crate) fn into_wasm_msg(self, contract: Addr, receiver: String) -> StdResult<WasmMsg> {
+    pub fn into_wasm_msg(self, contract: Addr, receiver: String) -> StdResult<WasmMsg> {
         Ok(WasmMsg::Execute {
             contract_addr: contract.into_string(),
             msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::CreateVouchers {

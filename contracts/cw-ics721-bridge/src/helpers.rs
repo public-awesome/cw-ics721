@@ -1,5 +1,7 @@
 use cosmwasm_std::{from_binary, to_binary, Binary, CosmosMsg, Deps, SubMsg, WasmMsg};
-use ics721::{Ics721Callbacks, Ics721Memo, Ics721ReceiveMsg, Ics721Status};
+use ics721::{
+    Ics721Callbacks, Ics721Memo, Ics721ReceiveMsg, Ics721Status, NonFungibleTokenPacketData,
+};
 use serde::Deserialize;
 
 use crate::ibc::ACK_CALLBACK_REPLY_ID;
@@ -24,12 +26,18 @@ fn parse_callback(memo: Option<String>) -> Option<Ics721Callbacks> {
 // burned
 pub(crate) fn ack_callback_msg(
     deps: Deps,
-    memo: Option<String>,
     status: Ics721Status,
-    sender: String,
+    packet: NonFungibleTokenPacketData,
 ) -> Option<SubMsg> {
     // Get the callback object
-    let callbacks = parse_callback(memo)?;
+    let callbacks = parse_callback(packet.memo.clone())?;
+
+    // Validate the address
+    let contract_addr = deps
+        .api
+        .addr_validate(packet.sender.as_str())
+        .ok()?
+        .to_string();
 
     // Create the message we send to the contract
     // The status is the status we want to send back to the contract
@@ -37,11 +45,9 @@ pub(crate) fn ack_callback_msg(
     let msg = to_binary(&Ics721ReceiveMsg {
         status,
         msg: callbacks.src_callback_msg?,
+        original_packet: packet,
     })
     .ok()?;
-
-    // Validate the address
-    let contract_addr = deps.api.addr_validate(sender.as_str()).ok()?.to_string();
 
     Some(SubMsg::reply_on_error(
         WasmMsg::Execute {
@@ -55,11 +61,17 @@ pub(crate) fn ack_callback_msg(
 
 pub(crate) fn receive_callback_msg(
     deps: Deps,
-    memo: Option<String>,
-    receiver: String,
+    packet: NonFungibleTokenPacketData,
 ) -> Option<CosmosMsg> {
     // Get the callback object
-    let callbacks = parse_callback(memo)?;
+    let callbacks = parse_callback(packet.memo.clone())?;
+
+    // Validate the address
+    let contract_addr = deps
+        .api
+        .addr_validate(packet.receiver.as_str())
+        .ok()?
+        .to_string();
 
     // Create the message we send to the contract
     // The status is the status we want to send back to the contract
@@ -67,11 +79,9 @@ pub(crate) fn receive_callback_msg(
     let msg = to_binary(&Ics721ReceiveMsg {
         status: Ics721Status::Success,
         msg: callbacks.dest_callback_msg?,
+        original_packet: packet,
     })
     .ok()?;
-
-    // Validate the address
-    let contract_addr = deps.api.addr_validate(receiver.as_str()).ok()?.to_string();
 
     Some(
         WasmMsg::Execute {

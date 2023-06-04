@@ -4,7 +4,7 @@ use cosmwasm_std::{
     to_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response, StdResult,
 };
 use cw2::set_contract_version;
-use cw_ics721_bridge::ibc::NonFungibleTokenPacketData;
+use ics721::{Ics721ReceiveMsg, NonFungibleTokenPacketData};
 
 use crate::{
     error::ContractError,
@@ -35,6 +35,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
+        ExecuteMsg::Ics721ReceiveMsg(msg) => execute_receive_callback(msg),
         ExecuteMsg::SendPacket {
             channel_id,
             timeout,
@@ -43,6 +44,10 @@ pub fn execute(
         ExecuteMsg::CloseChannel { channel_id } => Ok(execute_close_channel(channel_id)),
         ExecuteMsg::SetAckMode { ack_mode } => execute_set_ack_mode(deps, ack_mode),
     }
+}
+
+fn execute_receive_callback(_msg: Ics721ReceiveMsg) -> Result<Response, ContractError> {
+    Ok(Response::new())
 }
 
 fn execute_send_packet(

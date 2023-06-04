@@ -7,20 +7,23 @@ use cosmwasm_std::{
     IbcPacketReceiveMsg, IbcTimeout, Order, QuerierResult, Reply, Response, StdResult, SubMsg,
     SubMsgResponse, SubMsgResult, Timestamp, WasmMsg, WasmQuery,
 };
-use ics721::{Ics721Callbacks, Ics721Memo, Ics721ReceiveMsg};
+use ics721::{
+    error::Ics721Error,
+    token_types::{ClassId, TokenId},
+    Ics721Callbacks, Ics721Memo, Ics721ReceiveMsg, NonFungibleTokenPacketData,
+};
 
 use crate::{
     contract::instantiate,
     ibc::{
-        ibc_channel_connect, ibc_channel_open, ibc_packet_receive, reply,
-        NonFungibleTokenPacketData, ACK_AND_DO_NOTHING, IBC_VERSION, INSTANTIATE_CW721_REPLY_ID,
+        ibc_channel_connect, ibc_channel_open, ibc_packet_receive, reply, ACK_AND_DO_NOTHING,
+        IBC_VERSION, INSTANTIATE_CW721_REPLY_ID,
     },
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{InstantiateMsg, QueryMsg},
     state::{
         CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, PO,
     },
-    token_types::{ClassId, TokenId},
     ContractError,
 };
 
@@ -481,7 +484,7 @@ fn test_ibc_packet_receive_invalid_packet_data() {
 
     assert!(error
         .unwrap()
-        .starts_with("Error parsing into type cw_ics721_bridge::ibc::NonFungibleTokenPacketData"))
+        .starts_with("Error parsing into type ics721::packets::NonFungibleTokenPacketData"))
 }
 
 #[test]
@@ -538,10 +541,7 @@ fn test_ibc_packet_receive_missmatched_lengths() {
     assert!(res.is_ok());
     let error = try_get_ack_error(&IbcAcknowledgement::new(res.unwrap().acknowledgement));
 
-    assert_eq!(
-        error,
-        Some(ContractError::TokenInfoLenMissmatch {}.to_string())
-    );
+    assert_eq!(error, Some(Ics721Error::TokenInfoLenMissmatch.to_string()));
 
     // More token data are provided than tokens.
     let token_data = Some(vec![
@@ -570,10 +570,7 @@ fn test_ibc_packet_receive_missmatched_lengths() {
     assert!(res.is_ok());
     let error = try_get_ack_error(&IbcAcknowledgement::new(res.unwrap().acknowledgement));
 
-    assert_eq!(
-        error,
-        Some(ContractError::TokenInfoLenMissmatch {}.to_string())
-    )
+    assert_eq!(error, Some(Ics721Error::TokenInfoLenMissmatch.to_string()))
 }
 
 #[test]
@@ -640,7 +637,7 @@ fn test_no_receive_when_paused() {
 #[test]
 fn test_ibc_packet_receive_callback() {
     let dest_callback = to_binary(&()).unwrap();
-    let data = to_binary(&NonFungibleTokenPacketData {
+    let data = NonFungibleTokenPacketData {
         class_id: ClassId::new("id"),
         class_uri: None,
         class_data: None,
@@ -659,9 +656,9 @@ fn test_ibc_packet_receive_callback() {
             .unwrap()
             .to_string(),
         ),
-    })
-    .unwrap();
-    let ibc_packet = mock_packet(data);
+    };
+
+    let ibc_packet = mock_packet(to_binary(&data).unwrap());
     let packet = IbcPacketReceiveMsg::new(ibc_packet, Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
@@ -672,6 +669,7 @@ fn test_ibc_packet_receive_callback() {
         contract_addr: "blue".to_string(),
         msg: to_binary(&Ics721ReceiveMsg {
             status: ics721::Ics721Status::Success,
+            original_packet: data,
             msg: dest_callback
         })
         .unwrap(),
@@ -688,7 +686,7 @@ fn test_extended_memo_not_ignored() {
     }
 
     let dest_callback = to_binary(&()).unwrap();
-    let data = to_binary(&NonFungibleTokenPacketData {
+    let data = NonFungibleTokenPacketData {
         class_id: ClassId::new("id"),
         class_uri: None,
         class_data: None,
@@ -708,9 +706,8 @@ fn test_extended_memo_not_ignored() {
             .unwrap()
             .to_string(),
         ),
-    })
-    .unwrap();
-    let ibc_packet = mock_packet(data);
+    };
+    let ibc_packet = mock_packet(to_binary(&data).unwrap());
     let packet = IbcPacketReceiveMsg::new(ibc_packet, Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
@@ -722,7 +719,8 @@ fn test_extended_memo_not_ignored() {
         contract_addr: "blue".to_string(),
         msg: to_binary(&Ics721ReceiveMsg {
             status: ics721::Ics721Status::Success,
-            msg: dest_callback
+            msg: dest_callback,
+            original_packet: data,
         })
         .unwrap(),
         funds: vec![],
@@ -738,7 +736,7 @@ fn test_different_memo_ignored() {
     }
 
     let dest_callback = to_binary(&()).unwrap();
-    let data = to_binary(&NonFungibleTokenPacketData {
+    let data = NonFungibleTokenPacketData {
         class_id: ClassId::new("id"),
         class_uri: None,
         class_data: None,
@@ -758,9 +756,8 @@ fn test_different_memo_ignored() {
             .unwrap()
             .to_string(),
         ),
-    })
-    .unwrap();
-    let ibc_packet = mock_packet(data);
+    };
+    let ibc_packet = mock_packet(to_binary(&data).unwrap());
     let packet = IbcPacketReceiveMsg::new(ibc_packet, Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
@@ -772,7 +769,8 @@ fn test_different_memo_ignored() {
         contract_addr: "blue".to_string(),
         msg: to_binary(&Ics721ReceiveMsg {
             status: ics721::Ics721Status::Success,
-            msg: dest_callback
+            msg: dest_callback,
+            original_packet: data
         })
         .unwrap(),
         funds: vec![],

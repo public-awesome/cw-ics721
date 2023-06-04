@@ -1,6 +1,31 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::IbcTimeout;
 
+/// A struct to handle callbacks of ICS721 transfers.
+///
+/// If you have a contract that does sending and receiving
+/// you can have a simple structure of callbacks like this:
+/// ```rust
+/// pub enum Ics721Callbacks {
+///    NftSent {},
+///    NftReceived {},
+/// }
+/// ```
+/// `NftSent` is called after nft was transfered on the `sender`
+///
+/// `NftReceived` is called after nft was transfered on the `receiver`
+#[cw_serde]
+pub enum Ics721Callbacks {
+    /// We notify the sender that the NFT was sent successfuly.
+    NftSent {},
+    /// NFT was sent successfuly, but we fail the callback for tests.
+    NftSentButFailCallback {},
+    /// Do something on the receiving chain once the NFT was sent.
+    NftReceived {},
+    /// NFT was sent successfuly, but we fail the callback for tests.
+    NftReceivedButFailCallback {},
+}
+
 #[cw_serde]
 pub enum AckMode {
     // Messages should respond with an error ACK.
@@ -18,6 +43,7 @@ pub struct InstantiateMsg {
 #[allow(clippy::large_enum_variant)] // `data` field is a bit large
                                      // for clippy's taste.
 pub enum ExecuteMsg {
+    Ics721ReceiveMsg(ics721::Ics721ReceiveMsg),
     CloseChannel {
         channel_id: String,
     },
@@ -25,7 +51,7 @@ pub enum ExecuteMsg {
         channel_id: String,
         timeout: IbcTimeout,
 
-        data: cw_ics721_bridge::ibc::NonFungibleTokenPacketData,
+        data: ics721::NonFungibleTokenPacketData,
     },
     SetAckMode {
         ack_mode: AckMode,

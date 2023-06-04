@@ -20,3 +20,4 @@ cw-storage-plus = "0.15"
 cw2 = "0.15"
 thiserror = "1"
 cw-ics721-bridge = { version = "*", path = "../cw-ics721-bridge", features = ["library"] }
+ics721 = { path = "../../packages/ics721" }

@@ -2,10 +2,13 @@ use cosmwasm_std::{to_binary, Addr, Empty, IbcTimeout, IbcTimeoutBlock, WasmMsg}
 use cw_cii::{Admin, ContractInstantiateInfo};
 use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 use cw_pause_once::PauseError;
+use ics721::{
+    msg::{CallbackMsg, ExecuteMsg},
+    token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
+};
 
 use crate::{
-    msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
-    token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
+    msg::{IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     ContractError,
 };
 

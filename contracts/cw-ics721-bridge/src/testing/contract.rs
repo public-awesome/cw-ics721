@@ -4,13 +4,15 @@ use cosmwasm_std::{
     StdResult, SubMsg, Timestamp, WasmQuery,
 };
 use cw721::{AllNftInfoResponse, NftInfoResponse};
+use ics721::{
+    token_types::{ClassId, TokenId},
+    NonFungibleTokenPacketData,
+};
 
 use crate::{
     contract::receive_nft,
-    ibc::NonFungibleTokenPacketData,
     msg::IbcOutgoingMsg,
     state::{CLASS_ID_TO_CLASS, OUTGOING_CLASS_TOKEN_TO_CHANNEL},
-    token_types::{ClassId, TokenId},
 };
 
 const NFT_ADDR: &str = "nft";

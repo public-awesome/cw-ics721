@@ -2,15 +2,18 @@ use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, DepsMut, Empty, Env, IbcPacket, IbcReceiveResponse,
     StdResult, SubMsg, WasmMsg,
 };
+use ics721::{
+    msg::{CallbackMsg, ExecuteMsg},
+    token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
+    NonFungibleTokenPacketData,
+};
 use zip_optional::Zippable;
 
 use crate::{
     helpers::receive_callback_msg,
-    ibc::{NonFungibleTokenPacketData, ACK_AND_DO_NOTHING},
+    ibc::ACK_AND_DO_NOTHING,
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
-    msg::{CallbackMsg, ExecuteMsg},
     state::{INCOMING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO},
-    token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
     ContractError,
 };
 
@@ -51,6 +54,11 @@ pub(crate) fn receive_ibc_packet(
 
     let data: NonFungibleTokenPacketData = from_binary(&packet.data)?;
     data.validate()?;
+
+    let callback = match receive_callback_msg(deps.as_ref(), data.clone()) {
+        Some(msg) => vec![msg],
+        None => vec![],
+    };
 
     let local_class_id = try_pop_source_prefix(&packet.src, &data.class_id);
     let receiver = deps.api.addr_validate(&data.receiver)?;
@@ -115,11 +123,6 @@ pub(crate) fn receive_ibc_packet(
         IbcReceiveResponse::default().add_attribute("ics721_memo", memo)
     } else {
         IbcReceiveResponse::default()
-    };
-
-    let callback = match receive_callback_msg(deps.as_ref(), data.memo, data.receiver.clone()) {
-        Some(msg) => vec![msg],
-        None => vec![],
     };
 
     Ok(response
