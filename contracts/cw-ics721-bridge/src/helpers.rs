@@ -17,9 +17,11 @@ fn parse_callback(memo: Option<String>) -> Option<Ics721Callbacks> {
 }
 
 // Create a subMsg that execute the callback on the sender callback
-// we use a subMsg on error because we don't want to fail the whole tx if the callback fails
-// if we were to fail the whole tx, the NFT would have been minted on the other chain
-// while the NFT on this chain would not have been burned
+// we use a subMsg on error because we don't want to fail the whole tx
+// if the callback fails
+// if we were to fail the whole tx, the NFT would have been minted on
+// the other chain while the NFT on this chain would not have been
+// burned
 pub(crate) fn ack_callback_msg(
     deps: Deps,
     memo: Option<String>,

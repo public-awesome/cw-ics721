@@ -32,4 +32,5 @@ integration-test:
 test: unit-test simulation-test integration-test
 
 lint:
+	cargo +nightly fmt --all
 	cargo +nightly clippy --all-targets -- -D warnings
