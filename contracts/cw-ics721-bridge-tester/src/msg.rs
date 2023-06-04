@@ -18,12 +18,10 @@ use cosmwasm_std::IbcTimeout;
 pub enum Ics721Callbacks {
     /// We notify the sender that the NFT was sent successfuly.
     NftSent {},
-    /// NFT was sent successfuly, but we fail the callback for tests.
-    NftSentButFailCallback {},
     /// Do something on the receiving chain once the NFT was sent.
     NftReceived {},
     /// NFT was sent successfuly, but we fail the callback for tests.
-    NftReceivedButFailCallback {},
+    FailCallback {},
 }
 
 #[cw_serde]
@@ -37,6 +35,7 @@ pub enum AckMode {
 #[cw_serde]
 pub struct InstantiateMsg {
     pub ack_mode: AckMode,
+    pub ics721: String,
 }
 
 #[cw_serde]

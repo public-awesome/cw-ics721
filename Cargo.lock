@@ -247,6 +247,7 @@ dependencies = [
  "cw-ics721-bridge",
  "cw-storage-plus 0.15.1",
  "cw2 0.15.1",
+ "cw721 0.16.0",
  "ics721",
  "thiserror",
 ]
