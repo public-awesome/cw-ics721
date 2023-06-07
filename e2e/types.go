@@ -37,12 +37,17 @@ type InstantiateCw721 struct {
 
 type InstantiateBridgeTester struct {
 	AckMode string `json:"ack_mode"`
+	Ics721  string `json:"ics721"`
 }
 
 type OwnerOfResponse struct {
 	Owner string `json:"owner"`
 	// There is also an approvals field here but we don't care
 	// about it so we just don't unmarshal.
+}
+
+type TesterResponse struct {
+	Owner *string `json:"owner"`
 }
 
 // Owner query for bridge contract.
@@ -58,8 +63,15 @@ type OwnerQuery struct {
 type NftContractQueryData struct {
 	ClassID string `json:"class_id"`
 }
+
+type NftContractsQueryData struct{}
+
 type NftContractQuery struct {
 	NftContractForClassId NftContractQueryData `json:"nft_contract"`
+}
+
+type NftContractsQuery struct {
+	NftContracts NftContractsQueryData `json:"nft_contracts"`
 }
 
 // Query for getting class ID given NFT contract.
@@ -93,6 +105,16 @@ type OwnerOfQueryData struct {
 }
 type OwnerOfQuery struct {
 	OwnerOf OwnerOfQueryData `json:"owner_of"`
+}
+
+type EmptyData struct{}
+
+type TesterSentQuery struct {
+	GetSentCallback EmptyData `json:"get_sent_callback"`
+}
+
+type TesterReceivedQuery struct {
+	GetReceivedCallback EmptyData `json:"get_received_callback"`
 }
 
 // cw721 contract info query.

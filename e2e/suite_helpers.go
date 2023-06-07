@@ -1,6 +1,8 @@
 package e2e_test
 
 import (
+	"encoding/hex"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -17,6 +19,16 @@ import (
 	"github.com/stretchr/testify/require"
 	abci "github.com/tendermint/tendermint/abci/types"
 )
+
+func parseOptional(memo string) string {
+	r := ""
+	if memo != "" {
+		r = fmt.Sprintf("\"%s\"", memo)
+	} else {
+		r = "null"
+	}
+	return r
+}
 
 // Creates and funds a new account for CHAIN. ACCOUNT_NUMBER is the
 // number of accounts that have been previously created on CHAIN.
@@ -168,4 +180,13 @@ func parseTimeoutHeight(raw string) clienttypes.Height {
 		RevisionNumber: toUint64(chunks[0]),
 		RevisionHeight: toUint64(chunks[1]),
 	}
+}
+
+func AccAddressFromHex(address string) (addr sdk.AccAddress, err error) {
+	bz, err := addressBytesFromHexString(address)
+	return sdk.AccAddress(bz), err
+}
+
+func addressBytesFromHexString(address string) ([]byte, error) {
+	return hex.DecodeString(address)
 }

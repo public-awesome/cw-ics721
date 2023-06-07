@@ -2,7 +2,10 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::WasmMsg;
 use cw721_proxy_derive::cw721_proxy;
 
-use crate::token_types::{ClassId, Token, VoucherCreation, VoucherRedemption};
+use crate::{
+    token_types::{ClassId, Token, VoucherCreation, VoucherRedemption},
+    Ics721CallbackMsg, Ics721ReceiveMsg,
+};
 
 #[cw721_proxy]
 #[cw_serde]
@@ -18,6 +21,13 @@ pub enum ExecuteMsg {
     /// Mesages used internally by the contract. These may only be
     /// called by the contract itself.
     Callback(CallbackMsg),
+}
+
+/// Tihs is a wrapper for ics721 callbacks
+#[cw_serde]
+pub enum ReceiverExecuteMsg {
+    ReceiveNft(Ics721ReceiveMsg),
+    Ics721Callback(Ics721CallbackMsg),
 }
 
 #[cw_serde]

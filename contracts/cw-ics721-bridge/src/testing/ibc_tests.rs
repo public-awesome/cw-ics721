@@ -668,7 +668,6 @@ fn test_ibc_packet_receive_callback() {
     assert!(res.messages.contains(&SubMsg::new(WasmMsg::Execute {
         contract_addr: "blue".to_string(),
         msg: to_binary(&Ics721ReceiveMsg {
-            status: ics721::Ics721Status::Success,
             original_packet: data,
             msg: dest_callback
         })
@@ -713,12 +712,10 @@ fn test_extended_memo_not_ignored() {
     let env = mock_env();
     PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
 
-    // Memo is ignored here, because it's not a valid ICS721Memo
     let res = ibc_packet_receive(deps.as_mut(), env, packet).unwrap();
     assert!(res.messages.contains(&SubMsg::new(WasmMsg::Execute {
         contract_addr: "blue".to_string(),
         msg: to_binary(&Ics721ReceiveMsg {
-            status: ics721::Ics721Status::Success,
             msg: dest_callback,
             original_packet: data,
         })
@@ -768,11 +765,34 @@ fn test_different_memo_ignored() {
     assert!(!res.messages.contains(&SubMsg::new(WasmMsg::Execute {
         contract_addr: "blue".to_string(),
         msg: to_binary(&Ics721ReceiveMsg {
-            status: ics721::Ics721Status::Success,
             msg: dest_callback,
             original_packet: data
         })
         .unwrap(),
         funds: vec![],
     })))
+}
+
+#[test]
+fn test_ibc_packet_not_json_memo() {
+    let data = NonFungibleTokenPacketData {
+        class_id: ClassId::new("id"),
+        class_uri: None,
+        class_data: None,
+        token_ids: vec![TokenId::new("1")],
+        token_uris: None,
+        token_data: None,
+        sender: "violet".to_string(),
+        receiver: "blue".to_string(),
+        memo: None,
+    };
+
+    let ibc_packet = mock_packet(to_binary(&data).unwrap());
+    let packet = IbcPacketReceiveMsg::new(ibc_packet, Addr::unchecked(RELAYER_ADDR));
+    let mut deps = mock_dependencies();
+    let env = mock_env();
+    PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
+
+    let res = ibc_packet_receive(deps.as_mut(), env, packet).unwrap();
+    println!("{:?}", res.attributes);
 }

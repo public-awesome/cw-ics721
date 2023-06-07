@@ -9,13 +9,13 @@ use cw_storage_plus::Map;
 use ics721::{
     msg::{CallbackMsg, ExecuteMsg},
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
-    NonFungibleTokenPacketData,
+    IbcOutgoingMsg, NonFungibleTokenPacketData,
 };
 
 use crate::{
     error::ContractError,
     ibc::{INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
-    msg::{ClassToken, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
+    msg::{ClassToken, InstantiateMsg, MigrateMsg, QueryMsg},
     state::{
         UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
         INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL,

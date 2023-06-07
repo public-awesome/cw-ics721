@@ -42,7 +42,16 @@ pub struct InstantiateMsg {
 #[allow(clippy::large_enum_variant)] // `data` field is a bit large
                                      // for clippy's taste.
 pub enum ExecuteMsg {
-    Ics721ReceiveMsg(ics721::Ics721ReceiveMsg),
+    ReceiveNft(ics721::Ics721ReceiveMsg),
+    Ics721Callback(ics721::Ics721CallbackMsg),
+    SendNft {
+        cw721: String,
+        ics721: String,
+        token_id: String,
+        recipient: String,
+        channel_id: String,
+        memo: Option<String>,
+    },
     CloseChannel {
         channel_id: String,
     },
@@ -64,4 +73,6 @@ pub enum QueryMsg {
     /// Gets the mode of the last ack this contract received. Errors
     /// if no ACK has ever been received. Returns `AckMode`.
     LastAck {},
+    GetReceivedCallback {},
+    GetSentCallback {},
 }

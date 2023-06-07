@@ -9,7 +9,7 @@ use cosmwasm_schema::{
     serde::{Deserialize, Serialize},
 };
 use cosmwasm_std::Binary;
-pub use packets::NonFungibleTokenPacketData;
+pub use packets::{IbcOutgoingMsg, NonFungibleTokenPacketData};
 
 // cw_serde includes: `deny_unknown_fields`
 // This means that it cw_serde expects the exect struct to be parsed
@@ -35,6 +35,12 @@ pub struct Ics721Callbacks {
 
 #[cw_serde]
 pub struct Ics721ReceiveMsg {
+    pub original_packet: NonFungibleTokenPacketData,
+    pub msg: Binary,
+}
+
+#[cw_serde]
+pub struct Ics721CallbackMsg {
     pub status: Ics721Status,
     pub original_packet: NonFungibleTokenPacketData,
     pub msg: Binary,

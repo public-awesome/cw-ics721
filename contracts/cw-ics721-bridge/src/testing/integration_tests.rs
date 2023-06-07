@@ -5,10 +5,11 @@ use cw_pause_once::PauseError;
 use ics721::{
     msg::{CallbackMsg, ExecuteMsg},
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
+    IbcOutgoingMsg,
 };
 
 use crate::{
-    msg::{IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
+    msg::{InstantiateMsg, MigrateMsg, QueryMsg},
     ContractError,
 };
 

@@ -6,12 +6,11 @@ use cosmwasm_std::{
 use cw721::{AllNftInfoResponse, NftInfoResponse};
 use ics721::{
     token_types::{ClassId, TokenId},
-    NonFungibleTokenPacketData,
+    IbcOutgoingMsg, NonFungibleTokenPacketData,
 };
 
 use crate::{
     contract::receive_nft,
-    msg::IbcOutgoingMsg,
     state::{CLASS_ID_TO_CLASS, OUTGOING_CLASS_TOKEN_TO_CHANNEL},
 };
 

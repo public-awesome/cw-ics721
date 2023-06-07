@@ -20,4 +20,7 @@ pub enum ContractError {
 
     #[error("Just some random error")]
     RandomError,
+
+    #[error("Invalid callback")]
+    InvalidCallback,
 }

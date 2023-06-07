@@ -1,6 +1,7 @@
 use cosmwasm_std::{from_binary, to_binary, Binary, CosmosMsg, Deps, SubMsg, WasmMsg};
 use ics721::{
-    Ics721Callbacks, Ics721Memo, Ics721ReceiveMsg, Ics721Status, NonFungibleTokenPacketData,
+    Ics721CallbackMsg, Ics721Callbacks, Ics721Memo, Ics721ReceiveMsg, Ics721Status,
+    NonFungibleTokenPacketData,
 };
 use serde::Deserialize;
 
@@ -42,11 +43,13 @@ pub(crate) fn ack_callback_msg(
     // Create the message we send to the contract
     // The status is the status we want to send back to the contract
     // The msg is the msg we forward from the sender
-    let msg = to_binary(&Ics721ReceiveMsg {
-        status,
-        msg: callbacks.src_callback_msg?,
-        original_packet: packet,
-    })
+    let msg = to_binary(&ics721::msg::ReceiverExecuteMsg::Ics721Callback(
+        Ics721CallbackMsg {
+            status,
+            msg: callbacks.src_callback_msg?,
+            original_packet: packet,
+        },
+    ))
     .ok()?;
 
     Some(SubMsg::reply_on_error(
@@ -76,11 +79,12 @@ pub(crate) fn receive_callback_msg(
     // Create the message we send to the contract
     // The status is the status we want to send back to the contract
     // The msg is the msg we forward from the sender
-    let msg = to_binary(&Ics721ReceiveMsg {
-        status: Ics721Status::Success,
-        msg: callbacks.dest_callback_msg?,
-        original_packet: packet,
-    })
+    let msg = to_binary(&ics721::msg::ReceiverExecuteMsg::ReceiveNft(
+        Ics721ReceiveMsg {
+            msg: callbacks.dest_callback_msg?,
+            original_packet: packet,
+        },
+    ))
     .ok()?;
 
     Some(
@@ -91,4 +95,13 @@ pub(crate) fn receive_callback_msg(
         }
         .into(),
     )
+}
+
+mod test {
+    #[test]
+    fn test_parsing() {
+        let memo = Some("some".to_string());
+        let callbacks = super::parse_callback(memo);
+        println!("{callbacks:?}")
+    }
 }
