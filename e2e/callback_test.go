@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
 	wasmibctesting "github.com/CosmWasm/wasmd/x/wasm/ibctesting"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
@@ -160,7 +161,7 @@ func failedCb() string {
 	return b64.StdEncoding.EncodeToString([]byte(cb))
 }
 
-func sendIcsFromChainA(suite *CbTestSuite, nft string, token_id string, memo string) {
+func sendIcsFromChainA(suite *CbTestSuite, nft, token_id, memo string, relay bool) {
 	msg := fmt.Sprintf(`{ "send_nft": {"cw721": "%s", "ics721": "%s", "token_id": "%s", "recipient":"%s", "channel_id":"%s", "memo":"%s"}}`, nft, suite.bridgeA.String(), token_id, suite.testerB.String(), suite.path.EndpointA.ChannelID, memo)
 	_, err := suite.chainA.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   suite.chainA.SenderAccount.GetAddress().String(),
@@ -169,10 +170,13 @@ func sendIcsFromChainA(suite *CbTestSuite, nft string, token_id string, memo str
 		Funds:    []sdk.Coin{},
 	})
 	require.NoError(suite.T(), err)
-	relayPackets(suite, suite.path)
+
+	if relay {
+		relayPackets(suite, suite.path)
+	}
 }
 
-func sendIcsFromChainB(suite *CbTestSuite, nft string, token_id string, memo string) {
+func sendIcsFromChainB(suite *CbTestSuite, nft, token_id, memo string, relay bool) {
 	msg := fmt.Sprintf(`{ "send_nft": {"cw721": "%s", "ics721": "%s", "token_id": "%s", "recipient":"%s", "channel_id":"%s", "memo":"%s"}}`, nft, suite.bridgeB.String(), token_id, suite.testerA.String(), suite.path.EndpointB.ChannelID, memo)
 	_, err := suite.chainB.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   suite.chainB.SenderAccount.GetAddress().String(),
@@ -181,7 +185,10 @@ func sendIcsFromChainB(suite *CbTestSuite, nft string, token_id string, memo str
 		Funds:    []sdk.Coin{},
 	})
 	require.NoError(suite.T(), err)
-	relayPackets(suite, suite.path.Invert())
+
+	if relay {
+		relayPackets(suite, suite.path.Invert())
+	}
 }
 
 func relaySend(suite *CbTestSuite, path *wasmibctesting.Path) error {
@@ -200,8 +207,10 @@ func relaySend(suite *CbTestSuite, path *wasmibctesting.Path) error {
 	}
 	for _, packet := range toSend {
 		err = dest.RecvPacket(packet)
+
 		if err != nil {
-			return err
+			dest.TimeoutPacket(packet)
+			src.TimeoutPacket(packet)
 		}
 	}
 	src.Chain.PendingSendPackets = nil
@@ -232,6 +241,31 @@ func relayAck(suite *CbTestSuite, path *wasmibctesting.Path) error {
 	return nil
 }
 
+func relayTimeout(suite *CbTestSuite, path *wasmibctesting.Path) error {
+	// get all the packet to relay src->dest
+	src := path.EndpointA
+	dest := path.EndpointB
+	toSend := src.Chain.PendingSendPackets
+
+	// send this to the other side
+	suite.coordinator.IncrementTime()
+	suite.coordinator.CommitBlock(src.Chain)
+	err := dest.UpdateClient()
+	if err != nil {
+		return err
+	}
+	err = src.UpdateClient()
+	if err != nil {
+		return err
+	}
+	for _, packet := range toSend {
+		dest.TimeoutPacket(packet)
+		src.TimeoutPacket(packet)
+	}
+	src.Chain.PendingSendPackets = nil
+	return nil
+}
+
 func relayPackets(suite *CbTestSuite, path *wasmibctesting.Path) {
 	err := relaySend(suite, path)
 	require.NoError(suite.T(), err)
@@ -259,41 +293,101 @@ func queryTesterReceived(t *testing.T, chain *wasmibctesting.TestChain, tester s
 	return *resp.Owner
 }
 
-/// This we need to test
+func queryTesterReceivedErr(t *testing.T, chain *wasmibctesting.TestChain, tester string) error {
+	resp := TesterResponse{}
+	testerReceivedQuery := TesterReceivedQuery{
+		GetReceivedCallback: EmptyData{},
+	}
+	err := chain.SmartQuery(tester, testerReceivedQuery, &resp)
+	return err
+}
 
-/*
-Things we need to test for the callbacks
-
-ACK:
- 1. successful transfer
- 2. failed transfer
- 3. Failed callback does nothing (owners are still the same)
-    * both owner in the event is the owner that it should be
- 4. Transfer back from chainB to chainA if the transfer is successful then the NFT should be burned on chainB
- 5. Failed callback does nothing, the NFT should still be burned.
-
-RECEIVE:
- 1. successful transfer
- 2. failed transfer does nothing
- 3. failed callback revert the transfer
-*/
 func (suite *CbTestSuite) TestSuccessfulTransfer() {
 	memo := callbackMemo(nftSentCb(), nftReceivedCb())
-	sendIcsFromChainA(suite, suite.cw721A.String(), "2", memo)
-
-	// suite.coordinator.IncrementTimeBy(time.Second * 1001)
+	sendIcsFromChainA(suite, suite.cw721A.String(), "2", memo, true)
 
 	// Query the owner of NFT on cw721
 	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "2")
-	chainBOwner := queryGetOwnerOf(suite.T(), suite.chainB, suite.cw721B.String(), "2")
 	require.Equal(suite.T(), chainAOwner, suite.bridgeA.String())
+	chainBOwner := queryGetOwnerOf(suite.T(), suite.chainB, suite.cw721B.String(), "2")
 	require.Equal(suite.T(), chainBOwner, suite.testerB.String())
 
 	// We query the data we have on the tester contract
 	// This ensures that the callbacks are called after all the messages was completed
 	// and the transfer was successful
 	testerDataOwnerA := queryTesterSent(suite.T(), suite.chainA, suite.testerA.String())
-	testerDataOwnerB := queryTesterReceived(suite.T(), suite.chainB, suite.testerB.String())
 	require.Equal(suite.T(), testerDataOwnerA, suite.bridgeA.String())
+	testerDataOwnerB := queryTesterReceived(suite.T(), suite.chainB, suite.testerB.String())
 	require.Equal(suite.T(), testerDataOwnerB, suite.testerB.String())
+}
+
+func (suite *CbTestSuite) TestTimeoutedTransfer() {
+	memo := callbackMemo(nftSentCb(), nftReceivedCb())
+	sendIcsFromChainA(suite, suite.cw721A.String(), "2", memo, false)
+	suite.coordinator.IncrementTimeBy(time.Second * 1001)
+	suite.coordinator.UpdateTime()
+	relayTimeout(suite, suite.path)
+
+	// Query the owner of NFT on cw721
+	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "2")
+	require.Equal(suite.T(), chainAOwner, suite.testerA.String())
+	err := queryGetOwnerOfErr(suite.T(), suite.chainB, suite.cw721B.String(), "2")
+	require.Error(suite.T(), err)
+
+	// callbacks should update sender contract of the failed transfer
+	// so we query the contract to see who is the new owner
+	// if the query is working and owner is correct, we can confirm the callback was called successfully
+	testerDataOwnerA := queryTesterSent(suite.T(), suite.chainA, suite.testerA.String())
+	require.Equal(suite.T(), testerDataOwnerA, suite.testerA.String())
+
+	// Querying the receving end, should fail because we did not receive the NFT
+	// so the callback should not have been called.
+	err = queryTesterReceivedErr(suite.T(), suite.chainB, suite.testerB.String())
+	require.Error(suite.T(), err)
+}
+
+func (suite *CbTestSuite) TestFailedCallbackTransfer() {
+	memo := callbackMemo(nftSentCb(), failedCb())
+	sendIcsFromChainA(suite, suite.cw721A.String(), "2", memo, true)
+
+	// Query the owner of NFT on cw721
+	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "2")
+	require.Equal(suite.T(), chainAOwner, suite.testerA.String())
+	err := queryGetOwnerOfErr(suite.T(), suite.chainB, suite.cw721B.String(), "2")
+	require.Error(suite.T(), err)
+
+	// callbacks should update sender contract of the failed transfer
+	// so we query the contract to see who is the new owner
+	// if the query is working and owner is correct, we can confirm the callback was called successfully
+	testerDataOwnerA := queryTesterSent(suite.T(), suite.chainA, suite.testerA.String())
+	require.Equal(suite.T(), testerDataOwnerA, suite.testerA.String())
+
+	// Querying the receving end, should fail because we did not receive the NFT
+	// so the callback should not have been called.
+	err = queryTesterReceivedErr(suite.T(), suite.chainB, suite.testerB.String())
+	require.Error(suite.T(), err)
+}
+
+func (suite *CbTestSuite) TestFailedCallbackOnAck() {
+	// Transfre to chain B
+	memo := callbackMemo("", "")
+	sendIcsFromChainA(suite, suite.cw721A.String(), "2", memo, true)
+
+	// Transfer from B to chain A,
+	// We fail the ack callback and see if the NFT was burned or not
+	// Because the transfer should be successful even if the ack callback is failing
+	// we make sure that the NFT was burned on chain B, and that the owner is correct on chain A
+	memo = callbackMemo(failedCb(), "")
+	sendIcsFromChainB(suite, suite.cw721B.String(), "2", memo, true)
+
+	// Transfer was successful, so the owner on chain A should be the testerA
+	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "2")
+	require.Equal(suite.T(), chainAOwner, suite.testerA.String())
+
+	// Transfer was successful, so nft "2" should be burned and fail the query
+	err := queryGetOwnerOfErr(suite.T(), suite.chainB, suite.cw721B.String(), "2")
+	require.Error(suite.T(), err)
+
+	// We don't do any query on tester, because we don't have receive callback set
+	// and the ack callback should fail, so no data to show.
 }

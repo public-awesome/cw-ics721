@@ -51,3 +51,10 @@ pub enum Ics721Status {
     Success,
     Failed,
 }
+
+/// Tihs is a wrapper for ics721 callbacks
+#[cw_serde]
+pub enum ReceiverExecuteMsg {
+    ReceiveNft(Ics721ReceiveMsg),
+    Ics721Callback(Ics721CallbackMsg),
+}

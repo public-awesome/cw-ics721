@@ -667,10 +667,10 @@ fn test_ibc_packet_receive_callback() {
     let res = ibc_packet_receive(deps.as_mut(), env, packet).unwrap();
     assert!(res.messages.contains(&SubMsg::new(WasmMsg::Execute {
         contract_addr: "blue".to_string(),
-        msg: to_binary(&Ics721ReceiveMsg {
+        msg: to_binary(&ics721::ReceiverExecuteMsg::ReceiveNft(Ics721ReceiveMsg {
+            msg: dest_callback,
             original_packet: data,
-            msg: dest_callback
-        })
+        }))
         .unwrap(),
         funds: vec![],
     })))
@@ -715,10 +715,10 @@ fn test_extended_memo_not_ignored() {
     let res = ibc_packet_receive(deps.as_mut(), env, packet).unwrap();
     assert!(res.messages.contains(&SubMsg::new(WasmMsg::Execute {
         contract_addr: "blue".to_string(),
-        msg: to_binary(&Ics721ReceiveMsg {
+        msg: to_binary(&ics721::ReceiverExecuteMsg::ReceiveNft(Ics721ReceiveMsg {
             msg: dest_callback,
             original_packet: data,
-        })
+        }))
         .unwrap(),
         funds: vec![],
     })))

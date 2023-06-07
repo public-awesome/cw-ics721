@@ -361,6 +361,17 @@ func queryGetOwnerOf(t *testing.T, chain *wasmibctesting.TestChain, nft string, 
 	return resp.Owner
 }
 
+func queryGetOwnerOfErr(t *testing.T, chain *wasmibctesting.TestChain, nft string, token_id string) error {
+	resp := OwnerOfResponse{}
+	ownerOfQuery := OwnerOfQuery{
+		OwnerOf: OwnerOfQueryData{
+			TokenID: token_id,
+		},
+	}
+	err := chain.SmartQuery(nft, ownerOfQuery, &resp)
+	return err
+}
+
 // Builds three identical chains A, B, and C then sends along the path
 // A -> B -> C -> A -> C -> B -> A. If this works, likely most other
 // things do too. :)
