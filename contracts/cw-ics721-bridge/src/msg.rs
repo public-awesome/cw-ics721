@@ -140,8 +140,9 @@ pub enum QueryMsg {
     #[returns(u64)]
     Cw721CodeId {},
 
-    /// Gets a list of classID as key (from NonFungibleTokenPacketData) and
-    /// cw721 contract as value (instantiated for that classID).
+    /// Gets a list of classID as key (from
+    /// NonFungibleTokenPacketData) and cw721 contract as value
+    /// (instantiated for that classID).
     #[returns(Vec<(ClassId, Addr)>)]
     NftContracts {
         start_after: Option<ClassId>,

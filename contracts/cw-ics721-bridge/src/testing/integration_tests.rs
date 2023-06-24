@@ -1,12 +1,13 @@
+use cosmwasm_std::{to_binary, Addr, Empty, IbcTimeout, IbcTimeoutBlock, WasmMsg};
+use cw_cii::{Admin, ContractInstantiateInfo};
+use cw_multi_test::{App, Contract, ContractWrapper, Executor};
+use cw_pause_once::PauseError;
+
 use crate::{
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
     ContractError,
 };
-use cosmwasm_std::{to_binary, Addr, Empty, IbcTimeout, IbcTimeoutBlock, WasmMsg};
-use cw_cii::{Admin, ContractInstantiateInfo};
-use cw_multi_test::{App, Contract, ContractWrapper, Executor};
-use cw_pause_once::PauseError;
 
 const COMMUNITY_POOL: &str = "community_pool";
 
