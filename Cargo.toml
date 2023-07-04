@@ -2,6 +2,27 @@
 members = ["contracts/*", "packages/*"]
 resolver = "2"
 
+[workspace.package]
+edition    = "2021"
+
+[workspace.dependencies]
+cosmwasm-std = "1.1"
+cosmwasm-schema = "1.1"
+cosmwasm-storage = "1.1"
+cw-storage-plus = "0.15"
+cw2 = "1.0.1"
+cw721 = "0.16"
+cw721-base = "0.16"
+cw-utils = "1.0.1"
+thiserror = "1"
+serde = "1.0"
+cw-paginate = { git = "https://github.com/DA0-DA0/dao-contracts.git", tag = "v2.1.0" }
+cw721-proxy-derive = { git = "https://github.com/0xekez/cw721-proxy.git" }
+cw-pause-once = { path = "./packages/cw-pause-once" }
+cw-cii = { path = "./packages/cw-cii" }
+zip-optional = { path = "./packages/zip-optional" }
+cw-ics721-bridge = { path = "./contracts/cw-ics721-bridge"}
+
 [profile.release]
 codegen-units = 1
 opt-level = 3

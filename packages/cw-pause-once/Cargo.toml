@@ -6,8 +6,8 @@ authors = ["ekez <ekez@withoutdoing.com>"]
 description = "a package to allow an address to pause a single time for a prespecified duration"
 
 [dependencies]
-cosmwasm-std = "1.1"
-cosmwasm-schema = "1.1"
-cw-utils = "0.15"
-cw-storage-plus = "0.15"
-thiserror = "1"
+cosmwasm-std = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cw-utils = { workspace = true }
+cw-storage-plus = { workspace = true }
+thiserror = { workspace = true }

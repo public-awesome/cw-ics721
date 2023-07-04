@@ -5,5 +5,5 @@ edition = "2021"
 authors = ["ekez <ekez@withoutdoing.com>"]
 
 [dependencies]
-cosmwasm-std = "1.1"
-cosmwasm-schema = "1.1"
+cosmwasm-std = { workspace = true }
+cosmwasm-schema = { workspace = true }
