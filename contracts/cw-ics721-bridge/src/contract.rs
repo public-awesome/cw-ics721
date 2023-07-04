@@ -243,12 +243,12 @@ fn callback_mint(
             // set for every token, regardless of if data is None.
             TOKEN_METADATA.save(deps.storage, (class_id.clone(), id.clone()), &data)?;
 
-            let msg = cw721_base::msg::ExecuteMsg::<Empty, Empty>::Mint(cw721_base::MintMsg {
+            let msg = cw721_base::msg::ExecuteMsg::<Empty, Empty>::Mint {
                 token_id: id.into(),
                 token_uri: uri,
                 owner: receiver.to_string(),
                 extension: Empty::default(),
-            });
+            };
             Ok(WasmMsg::Execute {
                 contract_addr: cw721_addr.to_string(),
                 msg: to_binary(&msg)?,
