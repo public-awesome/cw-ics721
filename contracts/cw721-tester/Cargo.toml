@@ -12,9 +12,9 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-cosmwasm-std = "1.1"
-cosmwasm-schema = "1.1"
-cw-storage-plus = "0.15.0"
-cw2 = "0.15.0"
-thiserror = "1"
-cw721-base = { version = "0.15", features = [ "library" ] }
+cosmwasm-std = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cw-storage-plus = { workspace = true }
+cw2 = { workspace = true }
+thiserror = { workspace = true }
+cw721-base = { workspace = true, features = [ "library" ] }

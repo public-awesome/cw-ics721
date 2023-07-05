@@ -34,7 +34,7 @@ interface TestContext {
 
 const test = anyTest as TestFn<TestContext>;
 
-const WASM_FILE_CW721 = "./internal/cw721_base_v0.15.0.wasm";
+const WASM_FILE_CW721 = "./internal/cw721_base_v0.18.0.wasm";
 const WASM_FILE_CW_ICS721_BRIDGE = "./internal/cw_ics721_bridge.wasm";
 const MALICIOUS_CW721 = "./internal/cw721_tester.wasm";
 

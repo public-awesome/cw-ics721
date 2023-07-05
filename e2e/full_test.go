@@ -99,7 +99,7 @@ func StoreICS721Bridge(t *testing.T, creator sdk.AccAddress, ctx sdk.Context, ap
 }
 
 func StoreCw721Base(t *testing.T, creator sdk.AccAddress, ctx sdk.Context, app *app.App) uint64 {
-	return storeWasmFile(t, "../external-wasms/cw721_base_v0.15.0.wasm", creator, ctx, app)
+	return storeWasmFile(t, "../external-wasms/cw721_base_v0.18.0.wasm", creator, ctx, app)
 }
 
 func TestLoadChain(t *testing.T) {

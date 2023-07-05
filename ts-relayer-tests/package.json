@@ -1,11 +1,11 @@
 {
   "name": "ibc-tests-simple-ica",
   "version": "0.1.0",
-  "description": "Simple repo showing how to use ts-relayer as a library to test cw20-ics20 contract",
+  "description": "integration tests using ts-relayer as a library to test cw-ics721-bridge contract",
   "browserslist": [
     "maintained node versions"
   ],
-  "author": "Ethan Frey <ethanfrey@users.noreply.github.com>",
+  "author": "Tai Truong <mr-t@arkprotocol.io>",
   "license": "Apache-2.0",
   "private": false,
   "scripts": {

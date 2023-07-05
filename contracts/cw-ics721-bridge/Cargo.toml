@@ -13,23 +13,22 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-cosmwasm-std = { version = "1.1", features = ["ibc3"] }
-cosmwasm-schema = "1.1"
-# TODO: upgrade cw-storage-plus to latest version, once approved commit 6db957 will be merged into main and available in next release.
-cw-storage-plus = { rev = "6db957ce730a95141a3ab4dc5ab76fb38e8c0c42", git = "https://github.com/CosmWasm/cw-storage-plus" }
-cw-utils = "1.0.1"
-cw2 = "1.0.1"
-cw721 = "0.16"
-cw721-base = { version = "0.16", features = ["library"] }
-thiserror = "1"
-serde = "1.0"
-cw-paginate = { git = "https://github.com/DA0-DA0/dao-contracts.git", tag = "v2.1.0" }
-cw721-proxy-derive = { git = "https://github.com/0xekez/cw721-proxy.git" }
-cw-pause-once = { path = "../../packages/cw-pause-once" }
-cw-cii = { path = "../../packages/cw-cii" }
-zip-optional = { path = "../../packages/zip-optional" }
+cosmwasm-std = { workspace = true, features = ["ibc3"] }
+cosmwasm-schema = { workspace = true }
+cw-storage-plus = { workspace = true }
+cw-utils = { workspace = true }
+cw2 = { workspace = true }
+cw721 = { workspace = true }
+cw721-base = { workspace = true, features = ["library"] }
+thiserror = { workspace = true }
+serde = { workspace = true }
+cw-paginate = { workspace = true }
+cw721-proxy-derive = { workspace = true }
+cw-pause-once = { workspace = true }
+cw-cii = { workspace = true }
+zip-optional = { workspace = true }
 
 [dev-dependencies]
-anyhow = "1.0"
-cw-multi-test = "0.16.2"
-cw721-rate-limited-proxy = { git = "https://github.com/0xekez/cw721-proxy.git" }
+anyhow = { workspace = true }
+cw-multi-test = { workspace = true }
+cw721-rate-limited-proxy = { workspace = true }

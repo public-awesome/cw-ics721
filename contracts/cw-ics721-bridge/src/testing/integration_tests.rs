@@ -542,12 +542,12 @@ fn test_proxy_authorized() {
         .execute_contract(
             Addr::unchecked("ekez"),
             cw721.clone(),
-            &cw721_base::ExecuteMsg::<Empty, Empty>::Mint(cw721_base::MintMsg {
+            &cw721_base::ExecuteMsg::<Empty, Empty>::Mint {
                 token_id: "1".to_string(),
                 owner: test.bridge.to_string(),
                 token_uri: None,
                 extension: Empty::default(),
-            }),
+            },
             &[],
         )
         .unwrap();
