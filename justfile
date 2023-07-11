@@ -1,16 +1,11 @@
+platform := if arch() =~ "aarch64" {"linux/arm64"} else {"linux/amd64"}
+image := if arch() =~ "aarch64" {"cosmwasm/workspace-optimizer-arm64:0.12.12"} else {"cosmwasm/workspace-optimizer:0.12.12"}
 optimize:
-    docker run --rm -v "$(pwd)":/code --platform linux/amd64 \
+    docker run --rm -v "$(pwd)":/code --platform {{platform}} \
       --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
       --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-      cosmwasm/workspace-optimizer:0.12.11
-
-# Version of optimize that will run significantly faster on macbooks.
-optimize-arm:
-    docker run --rm -v "$(pwd)":/code --platform linux/arm64 \
-      --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
-      --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-      cosmwasm/workspace-optimizer-arm:0.12.11
-
+      {{image}}
+      
 unit-test:
     cargo test
 
@@ -24,7 +19,6 @@ start-local-chains:
 stop-local-chains:
 	./ts-relayer-tests/ci-scripts/wasmd/stop.sh
 	./ts-relayer-tests/ci-scripts/osmosis/stop.sh
-
 
 integration-test:
     npm i --prefix ts-relayer-tests && npm run full-test --prefix ts-relayer-tests

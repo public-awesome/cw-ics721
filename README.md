@@ -1,3 +1,5 @@
+# ICS721
+
 This is an implementation of the [ICS 721
 specification](https://github.com/cosmos/ibc/tree/master/spec/app/ics-721-nft-transfer)
 written in CosmWasm. It allows NFTs to be moved between IBC compatible
@@ -25,7 +27,7 @@ To sent a NFT from chain A to chan B:
 1. The NFT is locked on chain A.
 2. A message is delivered over IBC to the destination chain describing
    the NFT that has been locked.
-3. A debt-voucher, which is convienently an exact replica of the NFT
+3. A debt-voucher, which is conveniently an exact replica of the NFT
    locked on chain A, is minted on chain B.
 
 The duplicate NFT on the receiving chain is a debt-voucher. Possession
