@@ -484,6 +484,7 @@ dependencies = [
 name = "cw721-init-msg-registry"
 version = "0.0.1"
 dependencies = [
+ "cfg-if",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw721-base 0.18.0",

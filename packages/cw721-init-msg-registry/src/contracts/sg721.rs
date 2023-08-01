@@ -1,9 +1,9 @@
 use cosmwasm_std::{to_binary, Binary, StdResult};
 
-use crate::data::Ics721Data;
+use crate::data::InitMsgData;
 
 /// Generate sg721 init message given ics721 data
-pub fn ics721_get_init_msg(data: &Ics721Data) -> StdResult<Binary> {
+pub fn ics721_get_init_msg(data: &InitMsgData) -> StdResult<Binary> {
     to_binary(&sg721::InstantiateMsg {
         name: data.class_id.to_string(),
         symbol: data.class_id.to_string(),
