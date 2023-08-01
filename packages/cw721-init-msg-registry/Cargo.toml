@@ -7,7 +7,7 @@ authors = ["Art3mix"]
 [features]
 # We use default feature for development, but must be commented out for production
 # Choose the desired service and NFT contract to work on
-default    = ["ics721-base", "sg721-base"]
+# default    = ["ics721-base", "sg721-base"]
 
 # Service features, to choose which
 ics721-base = []

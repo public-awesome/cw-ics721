@@ -4,6 +4,6 @@ use cosmwasm_schema::cw_serde;
 #[cfg(feature = "ics721-base")]
 #[cw_serde]
 pub struct InitMsgData {
-  pub class_id: String,
-  pub ics721_addr: String,
+    pub class_id: String,
+    pub ics721_addr: String,
 }
