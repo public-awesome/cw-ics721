@@ -18,13 +18,14 @@ cw-multi-test = "0.16"
 cw-utils = "1.0"
 thiserror = "1"
 serde = "1.0"
-cw-paginate-storage = { version = "2.2.0", git = "https://github.com/DA0-DA0/dao-contracts.git" } # TODO: switch to original repo https://github.com/DA0-DA0/dao-contracts once lib versions are updated
+cw-paginate-storage = { version = "2.2.0", git = "https://github.com/DA0-DA0/dao-contracts.git" }
 cw721-proxy-derive = { git = "https://github.com/0xekez/cw721-proxy.git" }
 cw721-rate-limited-proxy = { git = "https://github.com/0xekez/cw721-proxy.git" }
 cw-pause-once = { path = "./packages/cw-pause-once" }
 cw-cii = { path = "./packages/cw-cii" }
 zip-optional = { path = "./packages/zip-optional" }
 cw-ics721-bridge = { path = "./contracts/cw-ics721-bridge"}
+cw721-init-msg-registry = { path = "./packages/cw721-init-msg-registry" }
 
 [profile.release]
 codegen-units = 1

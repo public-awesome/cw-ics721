@@ -1,0 +1,25 @@
+[package]
+name    = "cw721-init-msg-registry"
+version = "0.0.1"
+edition = { workspace = true }
+authors = ["Art3mix"]
+
+[features]
+# We use default feature for development, but must be commented out for production
+# Choose the desired service and NFT contract to work on
+# default    = ["ics721-base", "cw721-base"]
+
+# Service features, to choose which
+ics721-base = []
+
+# NFT contracts features, to choose which init msg to use
+cw721-base = ["dep:cw721-base"]
+sg721-base = ["dep:sg721"]
+
+[dependencies]
+cosmwasm-std    = { workspace = true }
+cosmwasm-schema = { workspace = true }
+
+# Contracts based on features
+cw721-base = { version = "0.18.0", optional = true }
+sg721      = { version = "3.1.0", git = "https://github.com/public-awesome/launchpad", optional = true }

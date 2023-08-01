@@ -27,6 +27,7 @@ cw721-proxy-derive = { workspace = true }
 cw-pause-once = { workspace = true }
 cw-cii = { workspace = true }
 zip-optional = { workspace = true }
+cw721-init-msg-registry = { workspace = true, features = ["ics721-base", "cw721-base"], default-features = false}
 
 [dev-dependencies]
 anyhow = { workspace = true }

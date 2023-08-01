@@ -238,6 +238,7 @@ dependencies = [
  "cw2 1.1.0",
  "cw721 0.18.0",
  "cw721-base 0.18.0",
+ "cw721-init-msg-registry",
  "cw721-proxy-derive",
  "cw721-rate-limited-proxy",
  "serde",
@@ -477,6 +478,16 @@ dependencies = [
  "schemars",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "cw721-init-msg-registry"
+version = "0.0.1"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw721-base 0.18.0",
+ "sg721",
 ]
 
 [[package]]
@@ -924,6 +935,20 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "sg721"
+version = "3.1.0"
+source = "git+https://github.com/public-awesome/launchpad#980e7038938430b158e616f5d6b1d3c840e5501c"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable",
+ "cw-utils 1.0.1",
+ "cw721-base 0.18.0",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]

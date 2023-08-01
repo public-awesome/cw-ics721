@@ -20,6 +20,7 @@ use crate::{
     },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
 };
+use cw721_init_msg_registry::{ics721_get_init_msg, InitMsgData};
 
 const CONTRACT_NAME: &str = "crates.io:cw-ics721-bridge";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -279,12 +280,9 @@ fn callback_create_vouchers(
             WasmMsg::Instantiate {
                 admin: None,
                 code_id: CW721_CODE_ID.load(deps.storage)?,
-                msg: to_binary(&cw721_base::msg::InstantiateMsg {
-                    // Name of the collection MUST be class_id as this is how
-                    // we create a map entry on reply.
-                    name: class.id.clone().into(),
-                    symbol: class.id.clone().into(),
-                    minter: env.contract.address.to_string(),
+                msg: ics721_get_init_msg(&InitMsgData {
+                    class_id: class.id.clone().into(),
+                    ics721_addr: env.contract.address.to_string(),
                 })?,
                 funds: vec![],
                 // Attempting to fit the class ID in the label field
