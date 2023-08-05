@@ -98,5 +98,5 @@ the background), you need to run these commands to stop them properly:
 
 ```
 ./ci-scripts/wasmd/stop.sh
-./ci-scripts/osmosisd/stop.sh
+./ci-scripts/osmosis/stop.sh
 ```
