@@ -164,9 +164,15 @@ test.serial("transfer NFT", async (t) => {
   );
   t.truthy(transferResponse);
 
+  // sleep for 5 seconds to allow for chain to process
+  await new Promise((r) => setTimeout(r, 5000));
+
   t.log("relaying packets");
 
   const info = await channel.link.relayAll();
+
+  // sleep for 5 seconds to allow for chain to process
+  await new Promise((r) => setTimeout(r, 5000));
 
   // Verify we got a success
   assertAckSuccess(info.acksFromB);
