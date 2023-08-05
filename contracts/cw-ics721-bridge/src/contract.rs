@@ -396,7 +396,7 @@ fn query_nft_contracts(
     start_after: Option<ClassId>,
     limit: Option<u32>,
 ) -> StdResult<Vec<(String, Addr)>> {
-    cw_paginate::paginate_map(
+    cw_paginate_storage::paginate_map(
         deps,
         &CLASS_ID_TO_NFT_CONTRACT,
         start_after,
@@ -417,7 +417,7 @@ fn query_channels(
             TokenId::new(class_token.token_id),
         )
     });
-    cw_paginate::paginate_map(
+    cw_paginate_storage::paginate_map(
         deps,
         &class_token_to_channel,
         start_after,
