@@ -22,7 +22,7 @@ cw721 = { workspace = true }
 cw721-base = { workspace = true, features = ["library"] }
 thiserror = { workspace = true }
 serde = { workspace = true }
-cw-paginate = { workspace = true }
+cw-paginate-storage = { workspace = true }
 cw721-proxy-derive = { workspace = true }
 cw-pause-once = { workspace = true }
 cw-cii = { workspace = true }
