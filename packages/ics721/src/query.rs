@@ -3,7 +3,7 @@ use cw_storage_plus::Map;
 
 use crate::{
     msg::{ClassToken, QueryMsg},
-    state::{Ics721Config, UniversalAllNftInfoResponse},
+    state::{Ics721Contract, UniversalAllNftInfoResponse},
     token_types::{Class, ClassId, Token, TokenId},
 };
 
@@ -26,25 +26,25 @@ pub trait Ics721Query {
                 to_binary(&self.query_owner(deps, class_id, token_id)?)
             }
             QueryMsg::Pauser {} => {
-                to_binary(&Ics721Config::default().po.query_pauser(deps.storage)?)
+                to_binary(&Ics721Contract::default().po.query_pauser(deps.storage)?)
             }
             QueryMsg::Paused {} => {
-                to_binary(&Ics721Config::default().po.query_paused(deps.storage)?)
+                to_binary(&Ics721Contract::default().po.query_paused(deps.storage)?)
             }
-            QueryMsg::Proxy {} => to_binary(&Ics721Config::default().proxy.load(deps.storage)?),
+            QueryMsg::Proxy {} => to_binary(&Ics721Contract::default().proxy.load(deps.storage)?),
             QueryMsg::Cw721CodeId {} => to_binary(&self.query_cw721_code_id(deps)?),
             QueryMsg::NftContracts { start_after, limit } => {
                 to_binary(&self.query_nft_contracts(deps, start_after, limit)?)
             }
             QueryMsg::OutgoingChannels { start_after, limit } => to_binary(&query_channels(
                 deps,
-                &Ics721Config::default().outgoing_class_token_to_channel,
+                &Ics721Contract::default().outgoing_class_token_to_channel,
                 start_after,
                 limit,
             )?),
             QueryMsg::IncomingChannels { start_after, limit } => to_binary(&query_channels(
                 deps,
-                &Ics721Config::default().incoming_class_token_to_channel,
+                &Ics721Contract::default().incoming_class_token_to_channel,
                 start_after,
                 limit,
             )?),
@@ -57,7 +57,7 @@ pub trait Ics721Query {
         contract: String,
     ) -> StdResult<Option<ClassId>> {
         let contract = deps.api.addr_validate(&contract)?;
-        Ics721Config::default()
+        Ics721Contract::default()
             .nft_contract_to_class_id
             .may_load(deps.storage, contract)
     }
@@ -67,13 +67,13 @@ pub trait Ics721Query {
         deps: Deps,
         class_id: String,
     ) -> StdResult<Option<Addr>> {
-        Ics721Config::default()
+        Ics721Contract::default()
             .class_id_to_nft_contract
             .may_load(deps.storage, ClassId::new(class_id))
     }
 
     fn query_class_metadata(&self, deps: Deps, class_id: String) -> StdResult<Option<Class>> {
-        Ics721Config::default()
+        Ics721Contract::default()
             .class_id_to_class
             .may_load(deps.storage, ClassId::new(class_id))
     }
@@ -87,7 +87,7 @@ pub trait Ics721Query {
         let token_id = TokenId::new(token_id);
         let class_id = ClassId::new(class_id);
 
-        let Some(token_metadata) = Ics721Config::default().token_metadata.may_load(
+        let Some(token_metadata) = Ics721Contract::default().token_metadata.may_load(
             deps.storage,
             (class_id.clone(), token_id.clone()),
         )? else {
@@ -95,7 +95,7 @@ pub trait Ics721Query {
         // metadata entry, we have no entry for this token at all.
         return Ok(None)
         };
-        let Some(token_contract) = Ics721Config::default().class_id_to_nft_contract.may_load(
+        let Some(token_contract) = Ics721Contract::default().class_id_to_nft_contract.may_load(
         deps.storage,
         class_id
         )? else {
@@ -122,7 +122,7 @@ pub trait Ics721Query {
         class_id: String,
         token_id: String,
     ) -> StdResult<cw721::OwnerOfResponse> {
-        let class_uri = Ics721Config::default()
+        let class_uri = Ics721Contract::default()
             .class_id_to_nft_contract
             .load(deps.storage, ClassId::new(class_id))?;
         let resp: cw721::OwnerOfResponse = deps.querier.query_wasm_smart(
@@ -136,7 +136,7 @@ pub trait Ics721Query {
     }
 
     fn query_cw721_code_id(&self, deps: Deps) -> StdResult<u64> {
-        Ics721Config::default().cw721_code_id.load(deps.storage)
+        Ics721Contract::default().cw721_code_id.load(deps.storage)
     }
 
     fn query_nft_contracts(
@@ -147,7 +147,7 @@ pub trait Ics721Query {
     ) -> StdResult<Vec<(String, Addr)>> {
         cw_paginate_storage::paginate_map(
             deps,
-            &Ics721Config::default().class_id_to_nft_contract,
+            &Ics721Contract::default().class_id_to_nft_contract,
             start_after,
             limit,
             Order::Ascending,
@@ -176,4 +176,4 @@ fn query_channels(
     )
 }
 
-impl Ics721Query for Ics721Config<'static> {}
+impl Ics721Query for Ics721Contract<'static> {}

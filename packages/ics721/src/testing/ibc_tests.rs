@@ -15,7 +15,7 @@ use crate::{
     },
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{InstantiateMsg, QueryMsg},
-    state::Ics721Config,
+    state::Ics721Contract,
     token_types::{ClassId, TokenId},
     ContractError,
 };
@@ -88,7 +88,7 @@ fn do_instantiate(deps: DepsMut, env: Env, sender: &str) -> Result<Response, Con
         proxy: None,
         pauser: None,
     };
-    Ics721Config::default().instantiate(deps, env, mock_info(sender, &[]), msg)
+    Ics721Contract::default().instantiate(deps, env, mock_info(sender, &[]), msg)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -164,11 +164,11 @@ fn test_reply_cw721() {
         ]
     );
 
-    let class_id = Ics721Config::default()
+    let class_id = Ics721Contract::default()
         .nft_contract_to_class_id
         .load(deps.as_ref().storage, Addr::unchecked("cosmos2contract"))
         .unwrap();
-    let nft = Ics721Config::default()
+    let nft = Ics721Contract::default()
         .class_id_to_nft_contract
         .load(deps.as_ref().storage, class_id.clone())
         .unwrap();
@@ -429,14 +429,14 @@ fn test_ibc_packet_receive() {
     let packet = IbcPacketReceiveMsg::new(ibc_packet.clone(), Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
-    Ics721Config::default()
+    Ics721Contract::default()
         .po
         .set_pauser(&mut deps.storage, &deps.api, None)
         .unwrap();
     ibc_packet_receive(deps.as_mut(), env, packet).unwrap();
 
     // check incoming classID and tokenID
-    let keys = Ics721Config::default()
+    let keys = Ics721Contract::default()
         .incoming_class_token_to_channel
         .keys(deps.as_mut().storage, None, None, Order::Ascending)
         .into_iter()
@@ -454,7 +454,7 @@ fn test_ibc_packet_receive() {
         TokenId::new(keys[0].clone().1),
     );
     assert_eq!(
-        Ics721Config::default()
+        Ics721Contract::default()
             .incoming_class_token_to_channel
             .load(deps.as_mut().storage, key)
             .unwrap(),
@@ -476,7 +476,7 @@ fn test_ibc_packet_receive_invalid_packet_data() {
     let mut deps = mock_dependencies();
     let env = mock_env();
 
-    Ics721Config::default()
+    Ics721Contract::default()
         .po
         .set_pauser(&mut deps.storage, &deps.api, None)
         .unwrap();
@@ -508,7 +508,7 @@ fn test_ibc_packet_receive_emits_memo() {
     let packet = IbcPacketReceiveMsg::new(mock_packet(data), Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
-    Ics721Config::default()
+    Ics721Contract::default()
         .po
         .set_pauser(&mut deps.storage, &deps.api, None)
         .unwrap();
@@ -523,7 +523,7 @@ fn test_ibc_packet_receive_emits_memo() {
 fn test_ibc_packet_receive_missmatched_lengths() {
     let mut deps = mock_dependencies();
 
-    Ics721Config::default()
+    Ics721Contract::default()
         .po
         .set_pauser(&mut deps.storage, &deps.api, None)
         .unwrap();
@@ -635,11 +635,11 @@ fn test_no_receive_when_paused() {
     let mut deps = mock_dependencies();
     let env = mock_env();
 
-    Ics721Config::default()
+    Ics721Contract::default()
         .po
         .set_pauser(&mut deps.storage, &deps.api, Some("ekez"))
         .unwrap();
-    Ics721Config::default()
+    Ics721Contract::default()
         .po
         .pause(&mut deps.storage, &Addr::unchecked("ekez"))
         .unwrap();

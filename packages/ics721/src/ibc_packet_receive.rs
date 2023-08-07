@@ -8,7 +8,7 @@ use crate::{
     ibc::{NonFungibleTokenPacketData, ACK_AND_DO_NOTHING},
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg},
-    state::Ics721Config,
+    state::Ics721Contract,
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
     ContractError,
 };
@@ -46,7 +46,7 @@ pub(crate) fn receive_ibc_packet(
     env: Env,
     packet: IbcPacket,
 ) -> Result<IbcReceiveResponse, ContractError> {
-    Ics721Config::default().po.error_if_paused(deps.storage)?;
+    Ics721Contract::default().po.error_if_paused(deps.storage)?;
 
     let data: NonFungibleTokenPacketData = from_binary(&packet.data)?;
     data.validate()?;
@@ -66,7 +66,7 @@ pub(crate) fn receive_ibc_packet(
                 if let Some(local_class_id) = local_class_id {
                     let local_class_id = ClassId::new(local_class_id);
                     let key = (local_class_id.clone(), token_id.clone());
-                    let outgoing_channel = Ics721Config::default()
+                    let outgoing_channel = Ics721Contract::default()
                         .outgoing_class_token_to_channel
                         .may_load(deps.storage, key.clone())?;
                     let returning_to_source = outgoing_channel.map_or(false, |outgoing_channel| {
@@ -76,7 +76,7 @@ pub(crate) fn receive_ibc_packet(
                         // We previously sent this NFT out on this
                         // channel. Unlock the local version for the
                         // receiver.
-                        Ics721Config::default()
+                        Ics721Contract::default()
                             .outgoing_class_token_to_channel
                             .remove(deps.storage, key);
                         messages.push(Action::Redemption {
@@ -90,7 +90,7 @@ pub(crate) fn receive_ibc_packet(
                 // new NFT.
                 let local_prefix = get_endpoint_prefix(&packet.dest);
                 let local_class_id = ClassId::new(format!("{}{}", local_prefix, data.class_id));
-                Ics721Config::default()
+                Ics721Contract::default()
                     .incoming_class_token_to_channel
                     .save(
                         deps.storage,
