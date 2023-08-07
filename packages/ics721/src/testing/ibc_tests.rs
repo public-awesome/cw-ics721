@@ -1,9 +1,9 @@
 use cosmwasm_std::{
     attr,
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier},
-    to_binary, to_vec, Addr, Attribute, Binary, ContractResult, DepsMut, Env, IbcAcknowledgement,
-    IbcChannel, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder, IbcPacket,
-    IbcPacketReceiveMsg, IbcTimeout, Order, QuerierResult, Reply, Response, StdResult,
+    to_binary, to_vec, Addr, Attribute, Binary, ContractResult, DepsMut, Empty, Env,
+    IbcAcknowledgement, IbcChannel, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder,
+    IbcPacket, IbcPacketReceiveMsg, IbcTimeout, Order, QuerierResult, Reply, Response, StdResult,
     SubMsgResponse, SubMsgResult, Timestamp, WasmQuery,
 };
 
@@ -153,7 +153,7 @@ fn test_reply_cw721() {
             data: Some(Binary::from_base64(reply_resp).unwrap()),
         }),
     };
-    let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
+    let res = reply::<Empty>(deps.as_mut(), mock_env(), rep).unwrap();
     // assert_eq!(res.data, Some(ack_success()));
     assert_eq!(
         res.attributes,
@@ -188,14 +188,14 @@ fn test_stateless_reply() {
             data: None,
         }),
     };
-    let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
+    let res = reply::<Empty>(deps.as_mut(), mock_env(), rep).unwrap();
     assert_eq!(res.data, Some(ack_success()));
 
     let rep = Reply {
         id: ACK_AND_DO_NOTHING,
         result: SubMsgResult::Err("some failure".to_string()),
     };
-    let res = reply(deps.as_mut(), mock_env(), rep).unwrap();
+    let res = reply::<Empty>(deps.as_mut(), mock_env(), rep).unwrap();
     assert_eq!(res.data, Some(ack_fail("some failure".to_string())));
 }
 
@@ -209,7 +209,7 @@ fn test_unrecognised_reply() {
             data: None,
         }),
     };
-    let err = reply(deps.as_mut(), mock_env(), rep).unwrap_err();
+    let err = reply::<Empty>(deps.as_mut(), mock_env(), rep).unwrap_err();
     assert_eq!(err, ContractError::UnrecognisedReplyId {})
 }
 
