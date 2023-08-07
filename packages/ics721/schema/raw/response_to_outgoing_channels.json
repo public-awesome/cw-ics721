@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Array_of_Tuple_of_Tuple_of_ClassId_and_TokenId_and_String",
+  "type": "array",
+  "items": {
+    "type": "array",
+    "items": [
+      {
+        "type": "array",
+        "items": [
+          {
+            "$ref": "#/definitions/ClassId"
+          },
+          {
+            "$ref": "#/definitions/TokenId"
+          }
+        ],
+        "maxItems": 2,
+        "minItems": 2
+      },
+      {
+        "type": "string"
+      }
+    ],
+    "maxItems": 2,
+    "minItems": 2
+  },
+  "definitions": {
+    "ClassId": {
+      "description": "A class ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+      "type": "string"
+    },
+    "TokenId": {
+      "description": "A token ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+      "type": "string"
+    }
+  }
+}

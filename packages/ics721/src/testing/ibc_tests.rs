@@ -8,14 +8,14 @@ use cosmwasm_std::{
 };
 
 use crate::{
-    contract::instantiate,
+    execute::Ics721Execute,
     ibc::{
         ibc_channel_connect, ibc_channel_open, ibc_packet_receive, reply,
         NonFungibleTokenPacketData, ACK_AND_DO_NOTHING, IBC_VERSION, INSTANTIATE_CW721_REPLY_ID,
     },
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{InstantiateMsg, QueryMsg},
-    state::Ics721Contract,
+    state::Ics721Config,
     token_types::{ClassId, TokenId},
     ContractError,
 };
@@ -88,7 +88,7 @@ fn do_instantiate(deps: DepsMut, env: Env, sender: &str) -> Result<Response, Con
         proxy: None,
         pauser: None,
     };
-    instantiate(deps, env, mock_info(sender, &[]), msg)
+    Ics721Config::default().instantiate(deps, env, mock_info(sender, &[]), msg)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -164,11 +164,11 @@ fn test_reply_cw721() {
         ]
     );
 
-    let class_id = Ics721Contract::default()
+    let class_id = Ics721Config::default()
         .nft_contract_to_class_id
         .load(deps.as_ref().storage, Addr::unchecked("cosmos2contract"))
         .unwrap();
-    let nft = Ics721Contract::default()
+    let nft = Ics721Config::default()
         .class_id_to_nft_contract
         .load(deps.as_ref().storage, class_id.clone())
         .unwrap();
@@ -429,14 +429,14 @@ fn test_ibc_packet_receive() {
     let packet = IbcPacketReceiveMsg::new(ibc_packet.clone(), Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
-    Ics721Contract::default()
+    Ics721Config::default()
         .po
         .set_pauser(&mut deps.storage, &deps.api, None)
         .unwrap();
     ibc_packet_receive(deps.as_mut(), env, packet).unwrap();
 
     // check incoming classID and tokenID
-    let keys = Ics721Contract::default()
+    let keys = Ics721Config::default()
         .incoming_class_token_to_channel
         .keys(deps.as_mut().storage, None, None, Order::Ascending)
         .into_iter()
@@ -454,7 +454,7 @@ fn test_ibc_packet_receive() {
         TokenId::new(keys[0].clone().1),
     );
     assert_eq!(
-        Ics721Contract::default()
+        Ics721Config::default()
             .incoming_class_token_to_channel
             .load(deps.as_mut().storage, key)
             .unwrap(),
@@ -476,7 +476,7 @@ fn test_ibc_packet_receive_invalid_packet_data() {
     let mut deps = mock_dependencies();
     let env = mock_env();
 
-    Ics721Contract::default()
+    Ics721Config::default()
         .po
         .set_pauser(&mut deps.storage, &deps.api, None)
         .unwrap();
@@ -488,7 +488,7 @@ fn test_ibc_packet_receive_invalid_packet_data() {
 
     assert!(error
         .unwrap()
-        .starts_with("Error parsing into type cw_ics721_bridge::ibc::NonFungibleTokenPacketData"))
+        .starts_with("Error parsing into type ics721::ibc::NonFungibleTokenPacketData"))
 }
 
 #[test]
@@ -508,7 +508,7 @@ fn test_ibc_packet_receive_emits_memo() {
     let packet = IbcPacketReceiveMsg::new(mock_packet(data), Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
-    Ics721Contract::default()
+    Ics721Config::default()
         .po
         .set_pauser(&mut deps.storage, &deps.api, None)
         .unwrap();
@@ -523,7 +523,7 @@ fn test_ibc_packet_receive_emits_memo() {
 fn test_ibc_packet_receive_missmatched_lengths() {
     let mut deps = mock_dependencies();
 
-    Ics721Contract::default()
+    Ics721Config::default()
         .po
         .set_pauser(&mut deps.storage, &deps.api, None)
         .unwrap();
@@ -635,11 +635,11 @@ fn test_no_receive_when_paused() {
     let mut deps = mock_dependencies();
     let env = mock_env();
 
-    Ics721Contract::default()
+    Ics721Config::default()
         .po
         .set_pauser(&mut deps.storage, &deps.api, Some("ekez"))
         .unwrap();
-    Ics721Contract::default()
+    Ics721Config::default()
         .po
         .pause(&mut deps.storage, &Addr::unchecked("ekez"))
         .unwrap();

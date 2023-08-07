@@ -25,7 +25,7 @@ pub enum ExecuteMsg {
         channel_id: String,
         timeout: IbcTimeout,
 
-        data: cw_ics721_bridge::ibc::NonFungibleTokenPacketData,
+        data: ics721::ibc::NonFungibleTokenPacketData,
     },
     SetAckMode {
         ack_mode: AckMode,

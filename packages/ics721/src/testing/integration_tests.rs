@@ -1,15 +1,50 @@
-use cosmwasm_std::{to_binary, Addr, Empty, IbcTimeout, IbcTimeoutBlock, WasmMsg};
+use cosmwasm_std::{
+    to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcTimeout, IbcTimeoutBlock, MessageInfo,
+    Response, StdResult, WasmMsg,
+};
+use cw2::set_contract_version;
 use cw_cii::{Admin, ContractInstantiateInfo};
 use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 use cw_pause_once::PauseError;
 
 use crate::{
+    execute::Ics721Execute,
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
+    query::Ics721Query,
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
-    ContractError,
+    ContractError, Ics721Config,
 };
 
 const COMMUNITY_POOL: &str = "community_pool";
+const CONTRACT_NAME: &str = "crates.io:cw-ics721-bridge";
+const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub fn instantiate(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: InstantiateMsg,
+) -> Result<Response, ContractError> {
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    Ics721Config::default().instantiate(deps, env, info, msg)
+}
+
+pub fn execute(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> Result<Response, ContractError> {
+    Ics721Config::default().execute(deps, env, info, msg)
+}
+
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    Ics721Config::default().query(deps, env, msg)
+}
+
+pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
+    Ics721Config::default().migrate(deps, env, msg)
+}
 
 pub struct Test {
     pub app: App,
@@ -164,13 +199,9 @@ fn cw721_contract() -> Box<dyn Contract<Empty>> {
 }
 
 fn bridge_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        crate::contract::execute,
-        crate::contract::instantiate,
-        crate::contract::query,
-    )
-    .with_migrate(crate::contract::migrate)
-    .with_reply(crate::ibc::reply);
+    let contract = ContractWrapper::new(execute, instantiate, query)
+        .with_migrate(migrate)
+        .with_reply(crate::ibc::reply);
     Box::new(contract)
 }
 

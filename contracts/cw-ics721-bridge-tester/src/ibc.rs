@@ -54,9 +54,9 @@ pub fn ibc_packet_receive(
 ) -> Result<IbcReceiveResponse, Never> {
     match ACK_MODE.load(deps.storage).unwrap() {
         AckMode::Error => Ok(IbcReceiveResponse::default()
-            .set_ack(cw_ics721_bridge::ibc_helpers::ack_fail("error".to_string()))),
+            .set_ack(ics721::ibc_helpers::ack_fail("error".to_string()))),
         AckMode::Success => {
-            Ok(IbcReceiveResponse::default().set_ack(cw_ics721_bridge::ibc_helpers::ack_success()))
+            Ok(IbcReceiveResponse::default().set_ack(ics721::ibc_helpers::ack_success()))
         }
     }
 }
@@ -67,7 +67,7 @@ pub fn ibc_packet_ack(
     _env: Env,
     ack: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    let err = cw_ics721_bridge::ibc_helpers::try_get_ack_error(&ack.acknowledgement);
+    let err = ics721::ibc_helpers::try_get_ack_error(&ack.acknowledgement);
     LAST_ACK.save(
         deps.storage,
         &err.map(|_| AckMode::Error).unwrap_or(AckMode::Success),

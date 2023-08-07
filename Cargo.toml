@@ -23,6 +23,7 @@ cw721-proxy-derive = { git = "https://github.com/arkprotocol/cw721-proxy.git", t
 cw721-rate-limited-proxy = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.6" }
 cw-pause-once = { path = "./packages/cw-pause-once" }
 cw-cii = { path = "./packages/cw-cii" }
+ics721 = { path = "./packages/ics721" }
 zip-optional = { path = "./packages/zip-optional" }
 cw-ics721-bridge = { path = "./contracts/cw-ics721-bridge"}
 

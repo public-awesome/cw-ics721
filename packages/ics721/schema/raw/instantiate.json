@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InstantiateMsg",
+  "type": "object",
+  "required": [
+    "cw721_base_code_id"
+  ],
+  "properties": {
+    "cw721_base_code_id": {
+      "description": "Code ID of cw721-ics contract. A new cw721-ics will be instantiated for each new IBCd NFT classID.\n\nNOTE: this _must_ correspond to the cw721-base contract. Using a regular cw721 may cause the ICS 721 interface implemented by this contract to stop working, and IBCd away NFTs to be unreturnable as cw721 does not have a mint method in the spec.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "pauser": {
+      "description": "Address that may pause the contract. PAUSER may pause the contract a single time; in pausing the contract they burn the right to do so again. A new pauser may be later nominated by the CosmWasm level admin via a migration.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "proxy": {
+      "description": "An optional proxy contract. If a proxy is set the contract will only accept NFTs from that proxy. The proxy is expected to implement the cw721 proxy interface defined in the cw721-proxy crate.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ContractInstantiateInfo"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "Admin": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "address"
+          ],
+          "properties": {
+            "address": {
+              "type": "object",
+              "required": [
+                "addr"
+              ],
+              "properties": {
+                "addr": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "instantiator"
+          ],
+          "properties": {
+            "instantiator": {
+              "type": "object",
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Binary": {
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+      "type": "string"
+    },
+    "ContractInstantiateInfo": {
+      "type": "object",
+      "required": [
+        "code_id",
+        "label",
+        "msg"
+      ],
+      "properties": {
+        "admin": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Admin"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "code_id": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "label": {
+          "type": "string"
+        },
+        "msg": {
+          "$ref": "#/definitions/Binary"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
