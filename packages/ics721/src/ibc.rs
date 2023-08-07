@@ -8,6 +8,7 @@ use cosmwasm_std::{
     SubMsgResult, WasmMsg,
 };
 use cw_utils::parse_reply_instantiate_data;
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     error::Never,
@@ -244,7 +245,10 @@ fn handle_packet_fail(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, ContractError> {
+pub fn reply<T>(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response<T>, ContractError>
+where
+    T: Serialize + DeserializeOwned + Clone,
+{
     match reply.id {
         INSTANTIATE_CW721_REPLY_ID => {
             // Don't need to add an ack or check for an error here as this

@@ -2,6 +2,7 @@ use cosmwasm_std::{
     from_binary, to_binary, Binary, DepsMut, Empty, Env, IbcMsg, MessageInfo, Response, StdResult,
     SubMsg, WasmMsg,
 };
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
@@ -11,14 +12,17 @@ use crate::{
     ContractError,
 };
 
-pub trait Ics721Execute {
+pub trait Ics721Execute<T>
+where
+    T: Serialize + DeserializeOwned + Clone,
+{
     fn instantiate(
         &self,
         deps: DepsMut,
         env: Env,
         _info: MessageInfo,
         msg: InstantiateMsg,
-    ) -> Result<Response, ContractError> {
+    ) -> Result<Response<T>, ContractError> {
         Ics721Contract::default()
             .cw721_code_id
             .save(deps.storage, &msg.cw721_base_code_id)?;
@@ -45,7 +49,7 @@ pub trait Ics721Execute {
         env: Env,
         info: MessageInfo,
         msg: ExecuteMsg,
-    ) -> Result<Response, ContractError> {
+    ) -> Result<Response<T>, ContractError> {
         Ics721Contract::default().po.error_if_paused(deps.storage)?;
         match msg {
             ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
@@ -69,7 +73,7 @@ pub trait Ics721Execute {
         token_id: String,
         sender: String,
         msg: Binary,
-    ) -> Result<Response, ContractError> {
+    ) -> Result<Response<T>, ContractError> {
         if Ics721Contract::default()
             .proxy
             .load(deps.storage)?
@@ -88,7 +92,7 @@ pub trait Ics721Execute {
         info: MessageInfo,
         eyeball: String,
         msg: cw721::Cw721ReceiveMsg,
-    ) -> Result<Response, ContractError> {
+    ) -> Result<Response<T>, ContractError> {
         if Ics721Contract::default()
             .proxy
             .load(deps.storage)?
@@ -106,7 +110,11 @@ pub trait Ics721Execute {
         receive_nft(deps, env, info, TokenId::new(token_id), sender, msg)
     }
 
-    fn execute_pause(&self, deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    fn execute_pause(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+    ) -> Result<Response<T>, ContractError> {
         Ics721Contract::default()
             .po
             .pause(deps.storage, &info.sender)?;
@@ -119,7 +127,7 @@ pub trait Ics721Execute {
         env: Env,
         info: MessageInfo,
         msg: CallbackMsg,
-    ) -> Result<Response, ContractError> {
+    ) -> Result<Response<T>, ContractError> {
         if info.sender != env.contract.address {
             Err(ContractError::Unauthorized {})
         } else {
@@ -152,7 +160,7 @@ pub trait Ics721Execute {
         env: Env,
         receiver: String,
         create: VoucherCreation,
-    ) -> Result<Response, ContractError> {
+    ) -> Result<Response<T>, ContractError> {
         let VoucherCreation { class, tokens } = create;
         let instantiate = if Ics721Contract::default()
             .class_id_to_nft_contract
@@ -160,7 +168,7 @@ pub trait Ics721Execute {
         {
             vec![]
         } else {
-            let message = SubMsg::<Empty>::reply_on_success(
+            let message = SubMsg::<T>::reply_on_success(
                 WasmMsg::Instantiate {
                     admin: None,
                     code_id: Ics721Contract::default().cw721_code_id.load(deps.storage)?,
@@ -195,7 +203,7 @@ pub trait Ics721Execute {
             funds: vec![],
         };
 
-        Ok(Response::default()
+        Ok(Response::<T>::default()
             .add_attribute("method", "callback_create_vouchers")
             .add_submessages(instantiate)
             .add_message(mint))
@@ -219,7 +227,7 @@ pub trait Ics721Execute {
         deps: DepsMut,
         receiver: String,
         redeem: VoucherRedemption,
-    ) -> Result<Response, ContractError> {
+    ) -> Result<Response<T>, ContractError> {
         let VoucherRedemption { class, token_ids } = redeem;
         let nft_contract = Ics721Contract::default()
             .class_id_to_nft_contract
@@ -250,7 +258,7 @@ pub trait Ics721Execute {
         class_id: ClassId,
         tokens: Vec<Token>,
         receiver: String,
-    ) -> Result<Response, ContractError> {
+    ) -> Result<Response<T>, ContractError> {
         let receiver = deps.api.addr_validate(&receiver)?;
         let cw721_addr = Ics721Contract::default()
             .class_id_to_nft_contract
@@ -293,7 +301,7 @@ pub trait Ics721Execute {
         deps: DepsMut,
         _env: Env,
         msg: MigrateMsg,
-    ) -> Result<Response, ContractError> {
+    ) -> Result<Response<T>, ContractError> {
         match msg {
             MigrateMsg::WithUpdate { pauser, proxy } => {
                 Ics721Contract::default().proxy.save(
@@ -314,16 +322,19 @@ pub trait Ics721Execute {
     }
 }
 
-impl Ics721Execute for Ics721Contract<'static> {}
+impl<T> Ics721Execute<T> for Ics721Contract<'static> where T: Serialize + DeserializeOwned + Clone {}
 
-pub(crate) fn receive_nft(
+pub(crate) fn receive_nft<T>(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
     token_id: TokenId,
     sender: String,
     msg: Binary,
-) -> Result<Response, ContractError> {
+) -> Result<Response<T>, ContractError>
+where
+    T: Serialize + DeserializeOwned + Clone,
+{
     let sender = deps.api.addr_validate(&sender)?;
     let msg: IbcOutgoingMsg = from_binary(&msg)?;
 

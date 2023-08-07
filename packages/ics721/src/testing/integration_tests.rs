@@ -209,7 +209,7 @@ fn bridge_contract() -> Box<dyn Contract<Empty>> {
 
 fn proxy_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cw721_rate_limited_proxy::contract::execute,
+        cw721_rate_limited_proxy::contract::execute::<Empty>,
         cw721_rate_limited_proxy::contract::instantiate,
         cw721_rate_limited_proxy::contract::query,
     );

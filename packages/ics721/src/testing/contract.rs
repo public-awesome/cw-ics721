@@ -68,7 +68,7 @@ fn test_receive_nft() {
     })
     .unwrap();
 
-    let res = receive_nft(
+    let res = receive_nft::<Empty>(
         deps.as_mut(),
         env,
         info,
@@ -143,7 +143,7 @@ fn test_receive_sets_uri() {
     })
     .unwrap();
 
-    receive_nft(deps.as_mut(), env, info, token_id, sender, msg).unwrap();
+    receive_nft::<Empty>(deps.as_mut(), env, info, token_id, sender, msg).unwrap();
 
     let class = Ics721Contract::default()
         .class_id_to_class

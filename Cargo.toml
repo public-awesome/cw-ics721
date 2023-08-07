@@ -19,8 +19,8 @@ cw-utils = "1.0"
 thiserror = "1"
 serde = "1.0"
 cw-paginate-storage = { version = "2.2.0", git = "https://github.com/DA0-DA0/dao-contracts.git" }
-cw721-proxy-derive = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.6" }
-cw721-rate-limited-proxy = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.6" }
+cw721-proxy-derive = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.7" }
+cw721-rate-limited-proxy = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.7" }
 cw-pause-once = { path = "./packages/cw-pause-once" }
 cw-cii = { path = "./packages/cw-cii" }
 ics721 = { path = "./packages/ics721" }
