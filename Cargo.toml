@@ -7,10 +7,10 @@ edition    = "2021"
 
 [workspace.dependencies]
 anyhow = "1.0"
-cosmwasm-std = "1.2.7"
-cosmwasm-schema = "1.2.7"
-cosmwasm-storage = "1.2.7"
-cw-storage-plus = "1.1.0"
+cosmwasm-std = "1.2"
+cosmwasm-schema = "1.2"
+cosmwasm-storage = "1.2"
+cw-storage-plus = "1.1"
 cw2 = "1.1"
 cw721 = "0.18"
 cw721-base = "0.18"
@@ -18,9 +18,9 @@ cw-multi-test = "0.16"
 cw-utils = "1.0"
 thiserror = "1"
 serde = "1.0"
-cw-paginate-storage = { version = "2.2.0", git = "https://github.com/DA0-DA0/dao-contracts.git" } # TODO: switch to original repo https://github.com/DA0-DA0/dao-contracts once lib versions are updated
-cw721-proxy-derive = { git = "https://github.com/0xekez/cw721-proxy.git" }
-cw721-rate-limited-proxy = { git = "https://github.com/0xekez/cw721-proxy.git" }
+cw-paginate-storage = { version = "2.2.0", git = "https://github.com/DA0-DA0/dao-contracts.git" }
+cw721-proxy-derive = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.6" }
+cw721-rate-limited-proxy = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.6" }
 cw-pause-once = { path = "./packages/cw-pause-once" }
 cw-cii = { path = "./packages/cw-cii" }
 zip-optional = { path = "./packages/zip-optional" }
