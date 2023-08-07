@@ -10,7 +10,7 @@ pub mod token_types;
 
 pub use crate::state::Ics721Contract;
 
+pub use crate::error::ContractError;
+
 #[cfg(test)]
 mod testing;
-
-pub use crate::error::ContractError;

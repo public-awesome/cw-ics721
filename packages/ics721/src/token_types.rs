@@ -57,7 +57,7 @@ pub struct VoucherCreation {
 }
 
 impl TokenId {
-    pub(crate) fn new<T>(token_id: T) -> Self
+    pub fn new<T>(token_id: T) -> Self
     where
         T: Into<String>,
     {
@@ -66,7 +66,7 @@ impl TokenId {
 }
 
 impl ClassId {
-    pub(crate) fn new<T>(class_id: T) -> Self
+    pub fn new<T>(class_id: T) -> Self
     where
         T: Into<String>,
     {
