@@ -5,7 +5,7 @@ use cosmwasm_std::{
 
 use crate::{
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
-    msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg},
+    msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg},
     state::{Ics721Contract, UniversalAllNftInfoResponse},
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
     ContractError,
@@ -271,6 +271,28 @@ impl<'a> Ics721Contract<'a> {
         Ok(Response::default()
             .add_attribute("method", "callback_mint")
             .add_messages(mint))
+    }
+
+    pub fn migrate(
+        &self,
+        deps: DepsMut,
+        _env: Env,
+        msg: MigrateMsg,
+    ) -> Result<Response, ContractError> {
+        match msg {
+            MigrateMsg::WithUpdate { pauser, proxy } => {
+                self.proxy.save(
+                    deps.storage,
+                    &proxy
+                        .as_ref()
+                        .map(|h| deps.api.addr_validate(h))
+                        .transpose()?,
+                )?;
+                self.po
+                    .set_pauser(deps.storage, deps.api, pauser.as_deref())?;
+                Ok(Response::default().add_attribute("method", "migrate"))
+            }
+        }
     }
 }
 

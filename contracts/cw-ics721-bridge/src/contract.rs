@@ -1,16 +1,12 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{
-    to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult,
-};
+use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
-use cw_storage_plus::Map;
 
 use crate::{
     error::ContractError,
-    msg::{ClassToken, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
-    state::{Ics721Contract, UniversalAllNftInfoResponse},
-    token_types::{Class, ClassId, Token, TokenId},
+    msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
+    state::Ics721Contract,
 };
 
 const CONTRACT_NAME: &str = "crates.io:cw-ics721-bridge";
@@ -43,20 +39,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
-    match msg {
-        MigrateMsg::WithUpdate { pauser, proxy } => {
-            Ics721Contract::default().proxy.save(
-                deps.storage,
-                &proxy
-                    .as_ref()
-                    .map(|h| deps.api.addr_validate(h))
-                    .transpose()?,
-            )?;
-            Ics721Contract::default()
-                .po
-                .set_pauser(deps.storage, deps.api, pauser.as_deref())?;
-            Ok(Response::default().add_attribute("method", "migrate"))
-        }
-    }
+pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
+    Ics721Contract::default().migrate(deps, env, msg)
 }
