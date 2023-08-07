@@ -328,11 +328,11 @@ dependencies = [
 [[package]]
 name = "cw-rate-limiter"
 version = "0.0.1"
-source = "git+https://github.com/0xekez/cw721-proxy.git#b1c98f5b84f21eac2c5a8a89f18209802ce6a3dd"
+source = "git+https://github.com/arkprotocol/cw721-proxy.git?tag=v0.0.6#a84ede1ad24bb40c3b1521575fa44480d75feed3"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
- "cw-storage-plus 0.16.0",
+ "cw-storage-plus 1.1.0",
  "schemars",
  "serde",
  "thiserror",
@@ -482,12 +482,12 @@ dependencies = [
 [[package]]
 name = "cw721-proxy"
 version = "0.0.1"
-source = "git+https://github.com/0xekez/cw721-proxy.git#b1c98f5b84f21eac2c5a8a89f18209802ce6a3dd"
+source = "git+https://github.com/arkprotocol/cw721-proxy.git?tag=v0.0.6#a84ede1ad24bb40c3b1521575fa44480d75feed3"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
- "cw-storage-plus 0.16.0",
- "cw721 0.16.0",
+ "cw-storage-plus 1.1.0",
+ "cw721 0.18.0",
  "cw721-proxy-derive",
  "thiserror",
 ]
@@ -495,9 +495,9 @@ dependencies = [
 [[package]]
 name = "cw721-proxy-derive"
 version = "0.0.1"
-source = "git+https://github.com/0xekez/cw721-proxy.git#b1c98f5b84f21eac2c5a8a89f18209802ce6a3dd"
+source = "git+https://github.com/arkprotocol/cw721-proxy.git?tag=v0.0.6#a84ede1ad24bb40c3b1521575fa44480d75feed3"
 dependencies = [
- "cw721 0.16.0",
+ "cw721 0.18.0",
  "proc-macro2",
  "quote",
  "syn",
@@ -506,14 +506,14 @@ dependencies = [
 [[package]]
 name = "cw721-rate-limited-proxy"
 version = "0.0.1"
-source = "git+https://github.com/0xekez/cw721-proxy.git#b1c98f5b84f21eac2c5a8a89f18209802ce6a3dd"
+source = "git+https://github.com/arkprotocol/cw721-proxy.git?tag=v0.0.6#a84ede1ad24bb40c3b1521575fa44480d75feed3"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-rate-limiter",
- "cw-storage-plus 0.16.0",
- "cw2 0.16.0",
- "cw721 0.16.0",
+ "cw-storage-plus 1.1.0",
+ "cw2 1.1.0",
+ "cw721 0.18.0",
  "cw721-proxy",
  "cw721-proxy-derive",
  "thiserror",
