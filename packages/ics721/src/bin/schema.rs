@@ -1,5 +1,5 @@
 use cosmwasm_schema::write_api;
-use cw_ics721_bridge::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use ics721::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 fn main() {
     write_api! {

@@ -5,7 +5,7 @@ use serde::Deserialize;
 
 use crate::token_types::{Class, ClassId, TokenId};
 
-pub struct Ics721Contract<'a> {
+pub struct Ics721Config<'a> {
     /// The code ID we will use for instantiating new cw721s.
     pub cw721_code_id: Item<'a, u64>,
     /// The proxy that this contract is receiving NFTs from, if any.
@@ -36,7 +36,7 @@ pub struct Ics721Contract<'a> {
     pub token_metadata: Map<'a, (ClassId, TokenId), Option<Binary>>,
 }
 
-impl Default for Ics721Contract<'static> {
+impl Default for Ics721Config<'static> {
     fn default() -> Self {
         Self {
             cw721_code_id: Item::new("a"),

@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Nullable_Token",
+  "anyOf": [
+    {
+      "$ref": "#/definitions/Token"
+    },
+    {
+      "type": "null"
+    }
+  ],
+  "definitions": {
+    "Binary": {
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+      "type": "string"
+    },
+    "Token": {
+      "description": "A token according to the ICS-721 spec.",
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "data": {
+          "description": "Optional base64 encoded metadata about the token.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "description": "A unique identifier for the token.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/TokenId"
+            }
+          ]
+        },
+        "uri": {
+          "description": "Optional URI pointing to off-chain metadata about the token.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "TokenId": {
+      "description": "A token ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+      "type": "string"
+    }
+  }
+}

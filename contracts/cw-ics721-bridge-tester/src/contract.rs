@@ -4,7 +4,7 @@ use cosmwasm_std::{
     to_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response, StdResult,
 };
 use cw2::set_contract_version;
-use cw_ics721_bridge::ibc::NonFungibleTokenPacketData;
+use ics721::ibc::NonFungibleTokenPacketData;
 
 use crate::{
     error::ContractError,

@@ -3,12 +3,12 @@ use cw_storage_plus::Map;
 
 use crate::{
     msg::{ClassToken, QueryMsg},
-    state::{Ics721Contract, UniversalAllNftInfoResponse},
+    state::{Ics721Config, UniversalAllNftInfoResponse},
     token_types::{Class, ClassId, Token, TokenId},
 };
 
-impl<'a> Ics721Contract<'a> {
-    pub fn query(&self, deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub trait Ics721Query {
+    fn query(&self, deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         match msg {
             QueryMsg::ClassId { contract } => {
                 to_binary(&self.query_class_id_for_nft_contract(deps, contract)?)
@@ -25,53 +25,60 @@ impl<'a> Ics721Contract<'a> {
             QueryMsg::Owner { class_id, token_id } => {
                 to_binary(&self.query_owner(deps, class_id, token_id)?)
             }
-            QueryMsg::Pauser {} => to_binary(&self.po.query_pauser(deps.storage)?),
-            QueryMsg::Paused {} => to_binary(&self.po.query_paused(deps.storage)?),
-            QueryMsg::Proxy {} => to_binary(&self.proxy.load(deps.storage)?),
+            QueryMsg::Pauser {} => {
+                to_binary(&Ics721Config::default().po.query_pauser(deps.storage)?)
+            }
+            QueryMsg::Paused {} => {
+                to_binary(&Ics721Config::default().po.query_paused(deps.storage)?)
+            }
+            QueryMsg::Proxy {} => to_binary(&Ics721Config::default().proxy.load(deps.storage)?),
             QueryMsg::Cw721CodeId {} => to_binary(&self.query_cw721_code_id(deps)?),
             QueryMsg::NftContracts { start_after, limit } => {
                 to_binary(&self.query_nft_contracts(deps, start_after, limit)?)
             }
             QueryMsg::OutgoingChannels { start_after, limit } => to_binary(&query_channels(
                 deps,
-                &self.outgoing_class_token_to_channel,
+                &Ics721Config::default().outgoing_class_token_to_channel,
                 start_after,
                 limit,
             )?),
             QueryMsg::IncomingChannels { start_after, limit } => to_binary(&query_channels(
                 deps,
-                &self.incoming_class_token_to_channel,
+                &Ics721Config::default().incoming_class_token_to_channel,
                 start_after,
                 limit,
             )?),
         }
     }
 
-    pub fn query_class_id_for_nft_contract(
+    fn query_class_id_for_nft_contract(
         &self,
         deps: Deps,
         contract: String,
     ) -> StdResult<Option<ClassId>> {
         let contract = deps.api.addr_validate(&contract)?;
-        self.nft_contract_to_class_id
+        Ics721Config::default()
+            .nft_contract_to_class_id
             .may_load(deps.storage, contract)
     }
 
-    pub fn query_nft_contract_for_class_id(
+    fn query_nft_contract_for_class_id(
         &self,
         deps: Deps,
         class_id: String,
     ) -> StdResult<Option<Addr>> {
-        self.class_id_to_nft_contract
+        Ics721Config::default()
+            .class_id_to_nft_contract
             .may_load(deps.storage, ClassId::new(class_id))
     }
 
-    pub fn query_class_metadata(&self, deps: Deps, class_id: String) -> StdResult<Option<Class>> {
-        self.class_id_to_class
+    fn query_class_metadata(&self, deps: Deps, class_id: String) -> StdResult<Option<Class>> {
+        Ics721Config::default()
+            .class_id_to_class
             .may_load(deps.storage, ClassId::new(class_id))
     }
 
-    pub fn query_token_metadata(
+    fn query_token_metadata(
         &self,
         deps: Deps,
         class_id: String,
@@ -80,7 +87,7 @@ impl<'a> Ics721Contract<'a> {
         let token_id = TokenId::new(token_id);
         let class_id = ClassId::new(class_id);
 
-        let Some(token_metadata) = self.token_metadata.may_load(
+        let Some(token_metadata) = Ics721Config::default().token_metadata.may_load(
             deps.storage,
             (class_id.clone(), token_id.clone()),
         )? else {
@@ -88,7 +95,7 @@ impl<'a> Ics721Contract<'a> {
         // metadata entry, we have no entry for this token at all.
         return Ok(None)
         };
-        let Some(token_contract) = self.class_id_to_nft_contract.may_load(
+        let Some(token_contract) = Ics721Config::default().class_id_to_nft_contract.may_load(
         deps.storage,
         class_id
         )? else {
@@ -109,13 +116,13 @@ impl<'a> Ics721Contract<'a> {
         }))
     }
 
-    pub fn query_owner(
+    fn query_owner(
         &self,
         deps: Deps,
         class_id: String,
         token_id: String,
     ) -> StdResult<cw721::OwnerOfResponse> {
-        let class_uri = self
+        let class_uri = Ics721Config::default()
             .class_id_to_nft_contract
             .load(deps.storage, ClassId::new(class_id))?;
         let resp: cw721::OwnerOfResponse = deps.querier.query_wasm_smart(
@@ -128,11 +135,11 @@ impl<'a> Ics721Contract<'a> {
         Ok(resp)
     }
 
-    pub fn query_cw721_code_id(&self, deps: Deps) -> StdResult<u64> {
-        self.cw721_code_id.load(deps.storage)
+    fn query_cw721_code_id(&self, deps: Deps) -> StdResult<u64> {
+        Ics721Config::default().cw721_code_id.load(deps.storage)
     }
 
-    pub fn query_nft_contracts(
+    fn query_nft_contracts(
         &self,
         deps: Deps,
         start_after: Option<ClassId>,
@@ -140,7 +147,7 @@ impl<'a> Ics721Contract<'a> {
     ) -> StdResult<Vec<(String, Addr)>> {
         cw_paginate_storage::paginate_map(
             deps,
-            &self.class_id_to_nft_contract,
+            &Ics721Config::default().class_id_to_nft_contract,
             start_after,
             limit,
             Order::Ascending,
@@ -168,3 +175,5 @@ fn query_channels(
         Order::Ascending,
     )
 }
+
+impl Ics721Query for Ics721Config<'static> {}

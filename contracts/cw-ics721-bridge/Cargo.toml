@@ -14,21 +14,5 @@ library = []
 
 [dependencies]
 cosmwasm-std = { workspace = true, features = ["ibc3"] }
-cosmwasm-schema = { workspace = true }
-cw-storage-plus = { workspace = true }
-cw-utils = { workspace = true }
 cw2 = { workspace = true }
-cw721 = { workspace = true }
-cw721-base = { workspace = true, features = ["library"] }
-thiserror = { workspace = true }
-serde = { workspace = true }
-cw-paginate-storage = { workspace = true }
-cw721-proxy-derive = { workspace = true }
-cw-pause-once = { workspace = true }
-cw-cii = { workspace = true }
-zip-optional = { workspace = true }
-
-[dev-dependencies]
-anyhow = { workspace = true }
-cw-multi-test = { workspace = true }
-cw721-rate-limited-proxy = { workspace = true }
+ics721 = { workspace = true }
