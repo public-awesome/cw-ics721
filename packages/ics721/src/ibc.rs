@@ -13,7 +13,7 @@ use crate::{
     error::Never,
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error, validate_order_and_version},
     ibc_packet_receive::receive_ibc_packet,
-    state::Ics721Config,
+    state::Ics721Contract,
     token_types::{ClassId, TokenId},
     ContractError,
 };
@@ -147,7 +147,7 @@ pub fn ibc_packet_ack(
     } else {
         let msg: NonFungibleTokenPacketData = from_binary(&ack.original_packet.data)?;
 
-        let nft_contract = Ics721Config::default()
+        let nft_contract = Ics721Contract::default()
             .class_id_to_nft_contract
             .load(deps.storage, msg.class_id.clone())?;
         // Burn all of the tokens being transfered out that were
@@ -156,7 +156,7 @@ pub fn ibc_packet_ack(
             Vec::<WasmMsg>::new(),
             |mut messages, token| -> StdResult<_> {
                 let key = (msg.class_id.clone(), token.clone());
-                let source_channel = Ics721Config::default()
+                let source_channel = Ics721Contract::default()
                     .incoming_class_token_to_channel
                     .may_load(deps.storage, key.clone())?;
                 let returning_to_source = source_channel.map_or(false, |source_channel| {
@@ -164,10 +164,10 @@ pub fn ibc_packet_ack(
                 });
                 if returning_to_source {
                     // This token's journey is complete, for now.
-                    Ics721Config::default()
+                    Ics721Contract::default()
                         .incoming_class_token_to_channel
                         .remove(deps.storage, key);
-                    Ics721Config::default()
+                    Ics721Contract::default()
                         .token_metadata
                         .remove(deps.storage, (msg.class_id.clone(), token.clone()));
 
@@ -209,7 +209,7 @@ fn handle_packet_fail(
     error: &str,
 ) -> Result<IbcBasicResponse, ContractError> {
     let message: NonFungibleTokenPacketData = from_binary(&packet.data)?;
-    let nft_address = Ics721Config::default()
+    let nft_address = Ics721Contract::default()
         .class_id_to_nft_contract
         .load(deps.storage, message.class_id.clone())?;
     let sender = deps.api.addr_validate(&message.sender)?;
@@ -219,7 +219,7 @@ fn handle_packet_fail(
         .iter()
         .cloned()
         .map(|token_id| -> StdResult<_> {
-            Ics721Config::default()
+            Ics721Contract::default()
                 .outgoing_class_token_to_channel
                 .remove(deps.storage, (message.class_id.clone(), token_id.clone()));
             Ok(WasmMsg::Execute {
@@ -266,12 +266,12 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
             let class_id = ClassId::new(name);
 
             // Save classId <-> contract mappings.
-            Ics721Config::default().class_id_to_nft_contract.save(
+            Ics721Contract::default().class_id_to_nft_contract.save(
                 deps.storage,
                 class_id.clone(),
                 &cw721_addr,
             )?;
-            Ics721Config::default().nft_contract_to_class_id.save(
+            Ics721Contract::default().nft_contract_to_class_id.save(
                 deps.storage,
                 cw721_addr.clone(),
                 &class_id,
@@ -285,7 +285,7 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
         INSTANTIATE_PROXY_REPLY_ID => {
             let res = parse_reply_instantiate_data(reply)?;
             let proxy_addr = deps.api.addr_validate(&res.contract_address)?;
-            Ics721Config::default()
+            Ics721Contract::default()
                 .proxy
                 .save(deps.storage, &Some(proxy_addr))?;
 

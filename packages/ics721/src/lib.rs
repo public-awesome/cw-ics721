@@ -8,7 +8,7 @@ pub mod query;
 pub mod state;
 pub mod token_types;
 
-pub use crate::state::Ics721Config;
+pub use crate::state::Ics721Contract;
 
 #[cfg(test)]
 mod testing;

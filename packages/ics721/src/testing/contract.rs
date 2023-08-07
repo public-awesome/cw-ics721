@@ -9,7 +9,7 @@ use crate::{
     execute::receive_nft,
     ibc::NonFungibleTokenPacketData,
     msg::IbcOutgoingMsg,
-    state::Ics721Config,
+    state::Ics721Contract,
     token_types::{ClassId, TokenId},
 };
 
@@ -101,7 +101,7 @@ fn test_receive_nft() {
     );
 
     // check outgoing classID and tokenID
-    let keys = Ics721Config::default()
+    let keys = Ics721Contract::default()
         .outgoing_class_token_to_channel
         .keys(deps.as_mut().storage, None, None, Order::Ascending)
         .into_iter()
@@ -115,7 +115,7 @@ fn test_receive_nft() {
         TokenId::new(keys[0].clone().1),
     );
     assert_eq!(
-        Ics721Config::default()
+        Ics721Contract::default()
             .outgoing_class_token_to_channel
             .load(deps.as_mut().storage, key)
             .unwrap(),
@@ -145,7 +145,7 @@ fn test_receive_sets_uri() {
 
     receive_nft(deps.as_mut(), env, info, token_id, sender, msg).unwrap();
 
-    let class = Ics721Config::default()
+    let class = Ics721Contract::default()
         .class_id_to_class
         .load(deps.as_ref().storage, ClassId::new(NFT_ADDR))
         .unwrap();

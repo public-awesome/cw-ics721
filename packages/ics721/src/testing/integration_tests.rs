@@ -12,7 +12,7 @@ use crate::{
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
-    ContractError, Ics721Config,
+    ContractError, Ics721Contract,
 };
 
 const COMMUNITY_POOL: &str = "community_pool";
@@ -26,7 +26,7 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    Ics721Config::default().instantiate(deps, env, info, msg)
+    Ics721Contract::default().instantiate(deps, env, info, msg)
 }
 
 pub fn execute(
@@ -35,15 +35,15 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    Ics721Config::default().execute(deps, env, info, msg)
+    Ics721Contract::default().execute(deps, env, info, msg)
 }
 
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
-    Ics721Config::default().query(deps, env, msg)
+    Ics721Contract::default().query(deps, env, msg)
 }
 
 pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
-    Ics721Config::default().migrate(deps, env, msg)
+    Ics721Contract::default().migrate(deps, env, msg)
 }
 
 pub struct Test {
