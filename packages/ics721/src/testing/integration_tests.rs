@@ -3,6 +3,8 @@ use cosmwasm_std::{
     Response, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
+use cw721::ContractInfoResponse;
+use cw721_base::msg::QueryMsg as Cw721QueryMsg;
 use cw_cii::{Admin, ContractInstantiateInfo};
 use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 use cw_pause_once::PauseError;
@@ -306,6 +308,20 @@ fn test_do_instantiate_and_mint() {
             },
         )
         .unwrap();
+
+    // check contract info is properly set
+    let contract_info: ContractInfoResponse = test
+        .app
+        .wrap()
+        .query_wasm_smart(nft.clone(), &Cw721QueryMsg::<Empty>::ContractInfo {})
+        .unwrap();
+    assert_eq!(
+        contract_info,
+        ContractInfoResponse {
+            name: "bad kids".to_string(),
+            symbol: "bad kids".to_string()
+        }
+    );
 
     // Check that token_uri was set properly.
     let token_info: cw721::NftInfoResponse<Empty> = test
