@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use cw721::{AllNftInfoResponse, NftInfoResponse};
 
 use crate::{
-    contract::receive_nft,
+    execute::receive_nft,
     ibc::NonFungibleTokenPacketData,
     msg::IbcOutgoingMsg,
     state::Ics721Contract,
