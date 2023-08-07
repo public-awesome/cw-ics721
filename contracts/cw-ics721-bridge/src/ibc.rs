@@ -13,10 +13,7 @@ use crate::{
     error::Never,
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error, validate_order_and_version},
     ibc_packet_receive::receive_ibc_packet,
-    state::{
-        CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID,
-        OUTGOING_CLASS_TOKEN_TO_CHANNEL, PROXY, TOKEN_METADATA,
-    },
+    state::Ics721Contract,
     token_types::{ClassId, TokenId},
     ContractError,
 };
@@ -150,22 +147,29 @@ pub fn ibc_packet_ack(
     } else {
         let msg: NonFungibleTokenPacketData = from_binary(&ack.original_packet.data)?;
 
-        let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, msg.class_id.clone())?;
+        let nft_contract = Ics721Contract::default()
+            .class_id_to_nft_contract
+            .load(deps.storage, msg.class_id.clone())?;
         // Burn all of the tokens being transfered out that were
         // previously transfered in on this channel.
         let burn_notices = msg.token_ids.iter().cloned().try_fold(
             Vec::<WasmMsg>::new(),
             |mut messages, token| -> StdResult<_> {
                 let key = (msg.class_id.clone(), token.clone());
-                let source_channel =
-                    INCOMING_CLASS_TOKEN_TO_CHANNEL.may_load(deps.storage, key.clone())?;
+                let source_channel = Ics721Contract::default()
+                    .incoming_class_token_to_channel
+                    .may_load(deps.storage, key.clone())?;
                 let returning_to_source = source_channel.map_or(false, |source_channel| {
                     source_channel == ack.original_packet.src.channel_id
                 });
                 if returning_to_source {
                     // This token's journey is complete, for now.
-                    INCOMING_CLASS_TOKEN_TO_CHANNEL.remove(deps.storage, key);
-                    TOKEN_METADATA.remove(deps.storage, (msg.class_id.clone(), token.clone()));
+                    Ics721Contract::default()
+                        .incoming_class_token_to_channel
+                        .remove(deps.storage, key);
+                    Ics721Contract::default()
+                        .token_metadata
+                        .remove(deps.storage, (msg.class_id.clone(), token.clone()));
 
                     messages.push(WasmMsg::Execute {
                         contract_addr: nft_contract.to_string(),
@@ -205,7 +209,9 @@ fn handle_packet_fail(
     error: &str,
 ) -> Result<IbcBasicResponse, ContractError> {
     let message: NonFungibleTokenPacketData = from_binary(&packet.data)?;
-    let nft_address = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, message.class_id.clone())?;
+    let nft_address = Ics721Contract::default()
+        .class_id_to_nft_contract
+        .load(deps.storage, message.class_id.clone())?;
     let sender = deps.api.addr_validate(&message.sender)?;
 
     let messages = message
@@ -213,7 +219,8 @@ fn handle_packet_fail(
         .iter()
         .cloned()
         .map(|token_id| -> StdResult<_> {
-            OUTGOING_CLASS_TOKEN_TO_CHANNEL
+            Ics721Contract::default()
+                .outgoing_class_token_to_channel
                 .remove(deps.storage, (message.class_id.clone(), token_id.clone()));
             Ok(WasmMsg::Execute {
                 contract_addr: nft_address.to_string(),
@@ -259,8 +266,16 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
             let class_id = ClassId::new(name);
 
             // Save classId <-> contract mappings.
-            CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class_id.clone(), &cw721_addr)?;
-            NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, cw721_addr.clone(), &class_id)?;
+            Ics721Contract::default().class_id_to_nft_contract.save(
+                deps.storage,
+                class_id.clone(),
+                &cw721_addr,
+            )?;
+            Ics721Contract::default().nft_contract_to_class_id.save(
+                deps.storage,
+                cw721_addr.clone(),
+                &class_id,
+            )?;
 
             Ok(Response::default()
                 .add_attribute("method", "instantiate_cw721_reply")
@@ -270,7 +285,9 @@ pub fn reply(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contrac
         INSTANTIATE_PROXY_REPLY_ID => {
             let res = parse_reply_instantiate_data(reply)?;
             let proxy_addr = deps.api.addr_validate(&res.contract_address)?;
-            PROXY.save(deps.storage, &Some(proxy_addr))?;
+            Ics721Contract::default()
+                .proxy
+                .save(deps.storage, &Some(proxy_addr))?;
 
             Ok(Response::default()
                 .add_attribute("method", "instantiate_proxy_reply_id")
