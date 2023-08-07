@@ -9,6 +9,8 @@ mod query;
 pub mod state;
 pub mod token_types;
 
+pub use crate::execute::Cw721InitMessage;
+
 #[cfg(test)]
 pub mod testing;
 

@@ -1,12 +1,14 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 
 use crate::{
     error::ContractError,
+    execute::Cw721InitMessage,
     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     state::Ics721Contract,
+    token_types::Class,
 };
 
 const CONTRACT_NAME: &str = "crates.io:cw-ics721-bridge";
@@ -41,4 +43,16 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
     Ics721Contract::default().migrate(deps, env, msg)
+}
+
+impl<'a> Cw721InitMessage for Ics721Contract<'a> {
+    fn init_msg(&self, env: &Env, class: &Class) -> StdResult<Binary> {
+        to_binary(&cw721_base::msg::InstantiateMsg {
+            // Name of the collection MUST be class_id as this is how
+            // we create a map entry on reply.
+            name: class.id.clone().into(),
+            symbol: class.id.clone().into(),
+            minter: env.contract.address.to_string(),
+        })
+    }
 }
