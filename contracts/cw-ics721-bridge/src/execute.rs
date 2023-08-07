@@ -11,6 +11,10 @@ use crate::{
     ContractError,
 };
 
+pub trait Cw721InitMessage {
+    fn init_msg(&self, env: &Env, class: &Class) -> StdResult<Binary>;
+}
+
 impl<'a> Ics721Contract<'a> {
     pub fn instantiate(
         &self,
@@ -160,13 +164,7 @@ impl<'a> Ics721Contract<'a> {
                 WasmMsg::Instantiate {
                     admin: None,
                     code_id: self.cw721_code_id.load(deps.storage)?,
-                    msg: to_binary(&cw721_base::msg::InstantiateMsg {
-                        // Name of the collection MUST be class_id as this is how
-                        // we create a map entry on reply.
-                        name: class.id.clone().into(),
-                        symbol: class.id.clone().into(),
-                        minter: env.contract.address.to_string(),
-                    })?,
+                    msg: self.init_msg(&env, &class)?,
                     funds: vec![],
                     // Attempting to fit the class ID in the label field
                     // can make this field too long which causes data
