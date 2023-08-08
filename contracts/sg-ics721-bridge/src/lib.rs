@@ -1,12 +1,17 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, StdResult};
+use cosmwasm_std::{
+    to_binary, Addr, Binary, Deps, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg,
+    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Reply, StdResult,
+};
 use cw2::set_contract_version;
 use cw_pause_once::PauseOrchestrator;
 use cw_storage_plus::Item;
 use ics721::{
-    error::ContractError,
+    error::{ContractError, Never},
     execute::Ics721Execute,
+    ibc::Ics721Ibc,
     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
     state::{ChannelsInfo, ClassIdInfo, Cw721Info, Ics721Contract},
@@ -74,6 +79,8 @@ impl Ics721Execute<StargazeMsgWrapper> for SgIcs721Contract<'static> {
 
 impl Ics721Query for SgIcs721Contract<'static> {}
 
+impl Ics721Ibc<StargazeMsgWrapper> for SgIcs721Contract<'static> {}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
@@ -103,6 +110,95 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
     SgIcs721Contract::default().migrate(deps, env, msg)
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
+    SgIcs721Contract::default().reply(deps, env, reply)
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn ibc_channel_open(
+    deps: DepsMut,
+    env: Env,
+    msg: IbcChannelOpenMsg,
+) -> Result<IbcChannelOpenResponse, ContractError> {
+    <SgIcs721Contract<'_> as Ics721Ibc<StargazeMsgWrapper>>::ibc_channel_open(
+        &SgIcs721Contract::default(),
+        deps,
+        env,
+        msg,
+    )
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn ibc_channel_connect(
+    deps: DepsMut,
+    env: Env,
+    msg: IbcChannelConnectMsg,
+) -> Result<IbcBasicResponse, ContractError> {
+    <SgIcs721Contract<'_> as Ics721Ibc<StargazeMsgWrapper>>::ibc_channel_connect(
+        &SgIcs721Contract::default(),
+        deps,
+        env,
+        msg,
+    )
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn ibc_channel_close(
+    deps: DepsMut,
+    env: Env,
+    msg: IbcChannelCloseMsg,
+) -> Result<IbcBasicResponse, ContractError> {
+    <SgIcs721Contract<'_> as Ics721Ibc<StargazeMsgWrapper>>::ibc_channel_close(
+        &SgIcs721Contract::default(),
+        deps,
+        env,
+        msg,
+    )
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn ibc_packet_receive(
+    deps: DepsMut,
+    env: Env,
+    msg: IbcPacketReceiveMsg,
+) -> Result<IbcReceiveResponse, Never> {
+    <SgIcs721Contract<'_> as Ics721Ibc<StargazeMsgWrapper>>::ibc_packet_receive(
+        &SgIcs721Contract::default(),
+        deps,
+        env,
+        msg,
+    )
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn ibc_packet_ack(
+    deps: DepsMut,
+    env: Env,
+    ack: IbcPacketAckMsg,
+) -> Result<IbcBasicResponse, ContractError> {
+    <SgIcs721Contract<'_> as Ics721Ibc<StargazeMsgWrapper>>::ibc_packet_ack(
+        &SgIcs721Contract::default(),
+        deps,
+        env,
+        ack,
+    )
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn ibc_packet_timeout(
+    deps: DepsMut,
+    env: Env,
+    msg: IbcPacketTimeoutMsg,
+) -> Result<IbcBasicResponse, ContractError> {
+    <SgIcs721Contract<'_> as Ics721Ibc<StargazeMsgWrapper>>::ibc_packet_timeout(
+        &SgIcs721Contract::default(),
+        deps,
+        env,
+        msg,
+    )
 }
 
 #[cfg(test)]
