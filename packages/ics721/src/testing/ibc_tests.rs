@@ -165,10 +165,12 @@ fn test_reply_cw721() {
     );
 
     let class_id = Ics721Contract::default()
+        .class_id_info
         .nft_contract_to_class_id
         .load(deps.as_ref().storage, Addr::unchecked("cosmos2contract"))
         .unwrap();
     let nft = Ics721Contract::default()
+        .class_id_info
         .class_id_to_nft_contract
         .load(deps.as_ref().storage, class_id.clone())
         .unwrap();
@@ -437,6 +439,7 @@ fn test_ibc_packet_receive() {
 
     // check incoming classID and tokenID
     let keys = Ics721Contract::default()
+        .channels_info
         .incoming_class_token_to_channel
         .keys(deps.as_mut().storage, None, None, Order::Ascending)
         .into_iter()
@@ -455,6 +458,7 @@ fn test_ibc_packet_receive() {
     );
     assert_eq!(
         Ics721Contract::default()
+            .channels_info
             .incoming_class_token_to_channel
             .load(deps.as_mut().storage, key)
             .unwrap(),

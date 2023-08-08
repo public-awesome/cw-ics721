@@ -102,6 +102,7 @@ fn test_receive_nft() {
 
     // check outgoing classID and tokenID
     let keys = Ics721Contract::default()
+        .channels_info
         .outgoing_class_token_to_channel
         .keys(deps.as_mut().storage, None, None, Order::Ascending)
         .into_iter()
@@ -116,6 +117,7 @@ fn test_receive_nft() {
     );
     assert_eq!(
         Ics721Contract::default()
+            .channels_info
             .outgoing_class_token_to_channel
             .load(deps.as_mut().storage, key)
             .unwrap(),
@@ -146,6 +148,7 @@ fn test_receive_sets_uri() {
     receive_nft::<Empty>(deps.as_mut(), env, info, token_id, sender, msg).unwrap();
 
     let class = Ics721Contract::default()
+        .class_id_info
         .class_id_to_class
         .load(deps.as_ref().storage, ClassId::new(NFT_ADDR))
         .unwrap();
