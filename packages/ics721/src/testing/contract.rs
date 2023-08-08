@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use cw721::{AllNftInfoResponse, NftInfoResponse};
 
 use crate::{
-    execute::receive_nft,
+    execute::Ics721Execute,
     ibc::NonFungibleTokenPacketData,
     msg::IbcOutgoingMsg,
     state::Ics721Contract,
@@ -68,21 +68,22 @@ fn test_receive_nft() {
     })
     .unwrap();
 
-    let res = receive_nft::<Empty>(
-        deps.as_mut(),
-        env,
-        info,
-        TokenId::new(token_id),
-        sender.clone(),
-        msg,
-    )
-    .unwrap();
+    let res: cosmwasm_std::Response<_> = Ics721Contract::default()
+        .receive_nft(
+            deps.as_mut(),
+            env,
+            info,
+            TokenId::new(token_id),
+            sender.clone(),
+            msg,
+        )
+        .unwrap();
     assert_eq!(res.messages.len(), 1);
 
     let channel_id = "channel-1".to_string();
     assert_eq!(
         res.messages[0],
-        SubMsg::new(CosmosMsg::Ibc(IbcMsg::SendPacket {
+        SubMsg::new(CosmosMsg::<Empty>::Ibc(IbcMsg::SendPacket {
             channel_id: channel_id.clone(),
             timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
             data: to_binary(&NonFungibleTokenPacketData {
@@ -145,7 +146,16 @@ fn test_receive_sets_uri() {
     })
     .unwrap();
 
-    receive_nft::<Empty>(deps.as_mut(), env, info, token_id, sender, msg).unwrap();
+    <Ics721Contract<'_> as Ics721Execute<Empty>>::receive_nft(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        env,
+        info,
+        token_id,
+        sender,
+        msg,
+    )
+    .unwrap();
 
     let class = Ics721Contract::default()
         .class_id_info
