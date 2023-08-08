@@ -24,6 +24,7 @@ where
         msg: InstantiateMsg,
     ) -> Result<Response<T>, ContractError> {
         Ics721Contract::default()
+            .cw721_info
             .cw721_code_id
             .save(deps.storage, &msg.cw721_base_code_id)?;
         Ics721Contract::default().proxy.save(deps.storage, &None)?;
@@ -163,6 +164,7 @@ where
     ) -> Result<Response<T>, ContractError> {
         let VoucherCreation { class, tokens } = create;
         let instantiate = if Ics721Contract::default()
+            .class_id_info
             .class_id_to_nft_contract
             .has(deps.storage, class.id.clone())
         {
@@ -171,7 +173,10 @@ where
             let message = SubMsg::<T>::reply_on_success(
                 WasmMsg::Instantiate {
                     admin: None,
-                    code_id: Ics721Contract::default().cw721_code_id.load(deps.storage)?,
+                    code_id: Ics721Contract::default()
+                        .cw721_info
+                        .cw721_code_id
+                        .load(deps.storage)?,
                     msg: self.init_msg(&env, &class)?,
                     funds: vec![],
                     // Attempting to fit the class ID in the label field
@@ -190,6 +195,7 @@ where
         // that the metadata has been updated on the source chain and
         // update it for the class ID locally as well.
         Ics721Contract::default()
+            .class_id_info
             .class_id_to_class
             .save(deps.storage, class.id.clone(), &class)?;
 
@@ -230,6 +236,7 @@ where
     ) -> Result<Response<T>, ContractError> {
         let VoucherRedemption { class, token_ids } = redeem;
         let nft_contract = Ics721Contract::default()
+            .class_id_info
             .class_id_to_nft_contract
             .load(deps.storage, class.id)?;
         let receiver = deps.api.addr_validate(&receiver)?;
@@ -261,6 +268,7 @@ where
     ) -> Result<Response<T>, ContractError> {
         let receiver = deps.api.addr_validate(&receiver)?;
         let cw721_addr = Ics721Contract::default()
+            .class_id_info
             .class_id_to_nft_contract
             .load(deps.storage, class_id.clone())?;
 
@@ -271,7 +279,7 @@ where
                 // supports on-chain metadata, this is where we will set
                 // that value on the debt-voucher token. Note that this is
                 // set for every token, regardless of if data is None.
-                Ics721Contract::default().token_metadata.save(
+                Ics721Contract::default().cw721_info.token_metadata.save(
                     deps.storage,
                     (class_id.clone(), id.clone()),
                     &data,
@@ -339,10 +347,12 @@ where
     let msg: IbcOutgoingMsg = from_binary(&msg)?;
 
     let class = match Ics721Contract::default()
+        .class_id_info
         .nft_contract_to_class_id
         .may_load(deps.storage, info.sender.clone())?
     {
         Some(class_id) => Ics721Contract::default()
+            .class_id_info
             .class_id_to_class
             .load(deps.storage, class_id)?,
         // No class ID being present means that this is a local NFT
@@ -357,24 +367,21 @@ where
                 data: None,
             };
 
-            Ics721Contract::default().nft_contract_to_class_id.save(
-                deps.storage,
-                info.sender.clone(),
-                &class.id,
-            )?;
-            Ics721Contract::default().class_id_to_nft_contract.save(
-                deps.storage,
-                class.id.clone(),
-                &info.sender,
-            )?;
+            Ics721Contract::default()
+                .class_id_info
+                .nft_contract_to_class_id
+                .save(deps.storage, info.sender.clone(), &class.id)?;
+            Ics721Contract::default()
+                .class_id_info
+                .class_id_to_nft_contract
+                .save(deps.storage, class.id.clone(), &info.sender)?;
 
             // Merging and usage of this PR may change that:
             // <https://github.com/CosmWasm/cw-nfts/pull/75>
-            Ics721Contract::default().class_id_to_class.save(
-                deps.storage,
-                class.id.clone(),
-                &class,
-            )?;
+            Ics721Contract::default()
+                .class_id_info
+                .class_id_to_class
+                .save(deps.storage, class.id.clone(), &class)?;
             class
         }
     };
@@ -392,6 +399,7 @@ where
     }
 
     let token_metadata = Ics721Contract::default()
+        .cw721_info
         .token_metadata
         .may_load(deps.storage, (class.id.clone(), token_id.clone()))?
         .flatten();
@@ -416,6 +424,7 @@ where
     };
 
     Ics721Contract::default()
+        .channels_info
         .outgoing_class_token_to_channel
         .save(
             deps.storage,

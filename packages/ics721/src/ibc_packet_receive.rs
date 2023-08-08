@@ -67,6 +67,7 @@ pub(crate) fn receive_ibc_packet(
                     let local_class_id = ClassId::new(local_class_id);
                     let key = (local_class_id.clone(), token_id.clone());
                     let outgoing_channel = Ics721Contract::default()
+                        .channels_info
                         .outgoing_class_token_to_channel
                         .may_load(deps.storage, key.clone())?;
                     let returning_to_source = outgoing_channel.map_or(false, |outgoing_channel| {
@@ -77,6 +78,7 @@ pub(crate) fn receive_ibc_packet(
                         // channel. Unlock the local version for the
                         // receiver.
                         Ics721Contract::default()
+                            .channels_info
                             .outgoing_class_token_to_channel
                             .remove(deps.storage, key);
                         messages.push(Action::Redemption {
@@ -91,6 +93,7 @@ pub(crate) fn receive_ibc_packet(
                 let local_prefix = get_endpoint_prefix(&packet.dest);
                 let local_class_id = ClassId::new(format!("{}{}", local_prefix, data.class_id));
                 Ics721Contract::default()
+                    .channels_info
                     .incoming_class_token_to_channel
                     .save(
                         deps.storage,

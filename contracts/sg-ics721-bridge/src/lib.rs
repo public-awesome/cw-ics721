@@ -3,74 +3,50 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, StdResult};
 use cw2::set_contract_version;
 use cw_pause_once::PauseOrchestrator;
-use cw_storage_plus::{Item, Map};
+use cw_storage_plus::Item;
 use ics721::{
     error::ContractError,
     execute::Ics721Execute,
     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
-    state::Ics721Contract,
-    token_types::{Class, ClassId, TokenId},
+    state::{ChannelsInfo, ClassIdInfo, Cw721Info, Ics721Contract},
+    token_types::Class,
 };
 use sg_std::{Response, StargazeMsgWrapper};
 
 const CONTRACT_NAME: &str = "crates.io:sg-ics721-bridge";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+// This type is an exact copy of Ics721Contract, since only traits defined in the current crate
+// can be implemented for types defined outside of the crate.
 pub struct SgIcs721Contract<'a> {
-    /// The code ID we will use for instantiating new cw721s.
-    pub cw721_code_id: Item<'a, u64>,
     /// The proxy that this contract is receiving NFTs from, if any.
     pub proxy: Item<'a, Option<Addr>>,
     /// Manages contract pauses.
     pub po: PauseOrchestrator<'a>,
-
-    /// Maps classID (from NonFungibleTokenPacketData) to the cw721
-    /// contract we have instantiated for that classID.
-    pub class_id_to_nft_contract: Map<'a, ClassId, Addr>,
-    /// Maps cw721 contracts to the classID they were instantiated for.
-    pub nft_contract_to_class_id: Map<'a, Addr, ClassId>,
-
-    /// Maps between classIDs and classs. We need to keep this state
-    /// ourselves as cw721 contracts do not have class-level metadata.
-    pub class_id_to_class: Map<'a, ClassId, Class>,
-
-    /// Maps (class ID, token ID) -> local channel ID. Used to determine
-    /// the local channel that NFTs have been sent out on.
-    pub outgoing_class_token_to_channel: Map<'a, (ClassId, TokenId), String>,
-    /// Same as above, but for NFTs arriving at this contract.
-    pub incoming_class_token_to_channel: Map<'a, (ClassId, TokenId), String>,
-    /// Maps (class ID, token ID) -> token metadata. Used to store
-    /// on-chain metadata for tokens that have arrived from other
-    /// chains. When a token arrives, it's metadata (regardless of if it
-    /// is `None`) is stored in this map. When the token is returned to
-    /// it's source chain, the metadata is removed from the map.
-    pub token_metadata: Map<'a, (ClassId, TokenId), Option<Binary>>,
+    /// cw721 related info like code ID and token metadata.
+    pub cw721_info: Cw721Info<'a>,
+    /// cw721 class related info like class ID to cw721 contract mappings.
+    pub class_id_info: ClassIdInfo<'a>,
+    /// Maps (class ID, token ID) -> to local incoming and outgoing channel ID.
+    pub channels_info: ChannelsInfo<'a>,
 }
 
 impl Default for SgIcs721Contract<'static> {
     fn default() -> Self {
         let Ics721Contract {
-            cw721_code_id,
             proxy,
             po,
-            class_id_to_nft_contract,
-            nft_contract_to_class_id,
-            class_id_to_class,
-            outgoing_class_token_to_channel,
-            incoming_class_token_to_channel,
-            token_metadata,
+            cw721_info,
+            class_id_info,
+            channels_info,
         } = Ics721Contract::default();
         Self {
-            cw721_code_id,
             proxy,
             po,
-            class_id_to_nft_contract,
-            nft_contract_to_class_id,
-            class_id_to_class,
-            outgoing_class_token_to_channel,
-            incoming_class_token_to_channel,
-            token_metadata,
+            cw721_info,
+            class_id_info,
+            channels_info,
         }
     }
 }

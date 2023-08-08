@@ -149,6 +149,7 @@ pub fn ibc_packet_ack(
         let msg: NonFungibleTokenPacketData = from_binary(&ack.original_packet.data)?;
 
         let nft_contract = Ics721Contract::default()
+            .class_id_info
             .class_id_to_nft_contract
             .load(deps.storage, msg.class_id.clone())?;
         // Burn all of the tokens being transfered out that were
@@ -158,6 +159,7 @@ pub fn ibc_packet_ack(
             |mut messages, token| -> StdResult<_> {
                 let key = (msg.class_id.clone(), token.clone());
                 let source_channel = Ics721Contract::default()
+                    .channels_info
                     .incoming_class_token_to_channel
                     .may_load(deps.storage, key.clone())?;
                 let returning_to_source = source_channel.map_or(false, |source_channel| {
@@ -166,9 +168,11 @@ pub fn ibc_packet_ack(
                 if returning_to_source {
                     // This token's journey is complete, for now.
                     Ics721Contract::default()
+                        .channels_info
                         .incoming_class_token_to_channel
                         .remove(deps.storage, key);
                     Ics721Contract::default()
+                        .cw721_info
                         .token_metadata
                         .remove(deps.storage, (msg.class_id.clone(), token.clone()));
 
@@ -211,6 +215,7 @@ fn handle_packet_fail(
 ) -> Result<IbcBasicResponse, ContractError> {
     let message: NonFungibleTokenPacketData = from_binary(&packet.data)?;
     let nft_address = Ics721Contract::default()
+        .class_id_info
         .class_id_to_nft_contract
         .load(deps.storage, message.class_id.clone())?;
     let sender = deps.api.addr_validate(&message.sender)?;
@@ -221,6 +226,7 @@ fn handle_packet_fail(
         .cloned()
         .map(|token_id| -> StdResult<_> {
             Ics721Contract::default()
+                .channels_info
                 .outgoing_class_token_to_channel
                 .remove(deps.storage, (message.class_id.clone(), token_id.clone()));
             Ok(WasmMsg::Execute {
@@ -270,16 +276,14 @@ where
             let class_id = ClassId::new(name);
 
             // Save classId <-> contract mappings.
-            Ics721Contract::default().class_id_to_nft_contract.save(
-                deps.storage,
-                class_id.clone(),
-                &cw721_addr,
-            )?;
-            Ics721Contract::default().nft_contract_to_class_id.save(
-                deps.storage,
-                cw721_addr.clone(),
-                &class_id,
-            )?;
+            Ics721Contract::default()
+                .class_id_info
+                .class_id_to_nft_contract
+                .save(deps.storage, class_id.clone(), &cw721_addr)?;
+            Ics721Contract::default()
+                .class_id_info
+                .nft_contract_to_class_id
+                .save(deps.storage, cw721_addr.clone(), &class_id)?;
 
             Ok(Response::default()
                 .add_attribute("method", "instantiate_cw721_reply")
