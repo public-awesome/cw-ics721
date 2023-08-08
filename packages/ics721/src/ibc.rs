@@ -1,6 +1,4 @@
 use cosmwasm_schema::cw_serde;
-#[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Binary, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacket, IbcPacketAckMsg,
@@ -65,255 +63,259 @@ pub struct NonFungibleTokenPacketData {
     pub memo: Option<String>,
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn ibc_channel_open(
-    _deps: DepsMut,
-    _env: Env,
-    msg: IbcChannelOpenMsg,
-) -> Result<IbcChannelOpenResponse, ContractError> {
-    validate_order_and_version(msg.channel(), msg.counterparty_version())?;
-    Ok(None)
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn ibc_channel_connect(
-    _deps: DepsMut,
-    _env: Env,
-    msg: IbcChannelConnectMsg,
-) -> Result<IbcBasicResponse, ContractError> {
-    validate_order_and_version(msg.channel(), msg.counterparty_version())?;
-
-    Ok(IbcBasicResponse::new()
-        .add_attribute("method", "ibc_channel_connect")
-        .add_attribute("channel", &msg.channel().endpoint.channel_id)
-        .add_attribute("port", &msg.channel().endpoint.port_id))
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn ibc_channel_close(
-    _deps: DepsMut,
-    _env: Env,
-    msg: IbcChannelCloseMsg,
-) -> Result<IbcBasicResponse, ContractError> {
-    match msg {
-        // Error any TX that would cause the channel to close that is
-        // coming from the local chain.
-        IbcChannelCloseMsg::CloseInit { channel: _ } => Err(ContractError::CantCloseChannel {}),
-        // If we're here, something has gone catastrophically wrong on
-        // our counterparty chain. Per the `CloseInit` handler above,
-        // this contract will _never_ allow its channel to be
-        // closed.
-        //
-        // Clearly, if this happens for a channel with real NFTs that
-        // have been sent out on it, we need some admin
-        // intervention. What intervention? No idea. It is unclear why
-        // this would ever happen (without the counterparty being
-        // malicious in which case it's also situational), yet alone
-        // what to do in response. The admin of this contract is
-        // expected to migrate it if this happens.
-        //
-        // Note: erroring here would prevent our side of the channel
-        // closing (bad because the channel is, for all intents and
-        // purposes, closed) so we must allow the transaction through.
-        IbcChannelCloseMsg::CloseConfirm { channel: _ } => Ok(IbcBasicResponse::default()),
-    }
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn ibc_packet_receive(
-    deps: DepsMut,
-    env: Env,
-    msg: IbcPacketReceiveMsg,
-) -> Result<IbcReceiveResponse, Never> {
-    // Regardless of if our processing of this packet works we need to
-    // commit an ACK to the chain. As such, we wrap all handling logic
-    // in a seprate function and on error write out an error ack.
-    match receive_ibc_packet(deps, env, msg.packet) {
-        Ok(response) => Ok(response),
-        Err(error) => Ok(IbcReceiveResponse::new()
-            .add_attribute("method", "ibc_packet_receive")
-            .add_attribute("error", error.to_string())
-            .set_ack(ack_fail(error.to_string()))),
-    }
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn ibc_packet_ack(
-    deps: DepsMut,
-    _env: Env,
-    ack: IbcPacketAckMsg,
-) -> Result<IbcBasicResponse, ContractError> {
-    if let Some(error) = try_get_ack_error(&ack.acknowledgement) {
-        handle_packet_fail(deps, ack.original_packet, &error)
-    } else {
-        let msg: NonFungibleTokenPacketData = from_binary(&ack.original_packet.data)?;
-
-        let nft_contract = Ics721Contract::default()
-            .class_id_info
-            .class_id_to_nft_contract
-            .load(deps.storage, msg.class_id.clone())?;
-        // Burn all of the tokens being transfered out that were
-        // previously transfered in on this channel.
-        let burn_notices = msg.token_ids.iter().cloned().try_fold(
-            Vec::<WasmMsg>::new(),
-            |mut messages, token| -> StdResult<_> {
-                let key = (msg.class_id.clone(), token.clone());
-                let source_channel = Ics721Contract::default()
-                    .channels_info
-                    .incoming_class_token_to_channel
-                    .may_load(deps.storage, key.clone())?;
-                let returning_to_source = source_channel.map_or(false, |source_channel| {
-                    source_channel == ack.original_packet.src.channel_id
-                });
-                if returning_to_source {
-                    // This token's journey is complete, for now.
-                    Ics721Contract::default()
-                        .channels_info
-                        .incoming_class_token_to_channel
-                        .remove(deps.storage, key);
-                    Ics721Contract::default()
-                        .cw721_info
-                        .token_metadata
-                        .remove(deps.storage, (msg.class_id.clone(), token.clone()));
-
-                    messages.push(WasmMsg::Execute {
-                        contract_addr: nft_contract.to_string(),
-                        msg: to_binary(&cw721::Cw721ExecuteMsg::Burn {
-                            token_id: token.into(),
-                        })?,
-                        funds: vec![],
-                    })
-                }
-                Ok(messages)
-            },
-        )?;
-
-        Ok(IbcBasicResponse::new()
-            .add_messages(burn_notices)
-            .add_attribute("method", "acknowledge")
-            .add_attribute("sender", msg.sender)
-            .add_attribute("receiver", msg.receiver)
-            .add_attribute("classId", msg.class_id)
-            .add_attribute("token_ids", format!("{:?}", msg.token_ids)))
-    }
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn ibc_packet_timeout(
-    deps: DepsMut,
-    _env: Env,
-    msg: IbcPacketTimeoutMsg,
-) -> Result<IbcBasicResponse, ContractError> {
-    handle_packet_fail(deps, msg.packet, "timeout")
-}
-
-/// Return the NFT locked in the bridge to sender; roll back.
-fn handle_packet_fail(
-    deps: DepsMut,
-    packet: IbcPacket,
-    error: &str,
-) -> Result<IbcBasicResponse, ContractError> {
-    let message: NonFungibleTokenPacketData = from_binary(&packet.data)?;
-    let nft_address = Ics721Contract::default()
-        .class_id_info
-        .class_id_to_nft_contract
-        .load(deps.storage, message.class_id.clone())?;
-    let sender = deps.api.addr_validate(&message.sender)?;
-
-    let messages = message
-        .token_ids
-        .iter()
-        .cloned()
-        .map(|token_id| -> StdResult<_> {
-            Ics721Contract::default()
-                .channels_info
-                .outgoing_class_token_to_channel
-                .remove(deps.storage, (message.class_id.clone(), token_id.clone()));
-            Ok(WasmMsg::Execute {
-                contract_addr: nft_address.to_string(),
-                msg: to_binary(&cw721::Cw721ExecuteMsg::TransferNft {
-                    recipient: sender.to_string(),
-                    token_id: token_id.into(),
-                })?,
-                funds: vec![],
-            })
-        })
-        .collect::<StdResult<Vec<_>>>()?;
-
-    Ok(IbcBasicResponse::new()
-        .add_messages(messages)
-        .add_attribute("method", "handle_packet_fail")
-        .add_attribute("token_ids", format!("{:?}", message.token_ids))
-        .add_attribute("class_id", message.class_id)
-        .add_attribute("channel_id", packet.src.channel_id)
-        .add_attribute("address_refunded", message.sender)
-        .add_attribute("error", error))
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply<T>(deps: DepsMut, _env: Env, reply: Reply) -> Result<Response<T>, ContractError>
+pub trait Ics721Ibc<T>
 where
     T: Serialize + DeserializeOwned + Clone,
 {
-    match reply.id {
-        INSTANTIATE_CW721_REPLY_ID => {
-            // Don't need to add an ack or check for an error here as this
-            // is only replies on success. This is OK because it is only
-            // ever used in `DoInstantiateAndMint` which itself is always
-            // a submessage of `ibc_packet_receive` which is caught and
-            // handled correctly by the reply handler for
-            // `ACK_AND_DO_NOTHING`.
+    fn ibc_channel_open(
+        &self,
+        _deps: DepsMut,
+        _env: Env,
+        msg: IbcChannelOpenMsg,
+    ) -> Result<IbcChannelOpenResponse, ContractError> {
+        validate_order_and_version(msg.channel(), msg.counterparty_version())?;
+        Ok(None)
+    }
 
-            let res = parse_reply_instantiate_data(reply)?;
-            let cw721_addr = deps.api.addr_validate(&res.contract_address)?;
+    fn ibc_channel_connect(
+        &self,
+        _deps: DepsMut,
+        _env: Env,
+        msg: IbcChannelConnectMsg,
+    ) -> Result<IbcBasicResponse, ContractError> {
+        validate_order_and_version(msg.channel(), msg.counterparty_version())?;
 
-            // We need to map this address back to a class
-            // ID. Fourtunately, we set the name of the new NFT
-            // contract to the class ID.
-            let cw721::ContractInfoResponse { name, .. } = deps
-                .querier
-                .query_wasm_smart(cw721_addr.clone(), &cw721::Cw721QueryMsg::ContractInfo {})?;
-            let class_id = ClassId::new(name);
+        Ok(IbcBasicResponse::new()
+            .add_attribute("method", "ibc_channel_connect")
+            .add_attribute("channel", &msg.channel().endpoint.channel_id)
+            .add_attribute("port", &msg.channel().endpoint.port_id))
+    }
 
-            // Save classId <-> contract mappings.
-            Ics721Contract::default()
+    fn ibc_channel_close(
+        &self,
+        _deps: DepsMut,
+        _env: Env,
+        msg: IbcChannelCloseMsg,
+    ) -> Result<IbcBasicResponse, ContractError> {
+        match msg {
+            // Error any TX that would cause the channel to close that is
+            // coming from the local chain.
+            IbcChannelCloseMsg::CloseInit { channel: _ } => Err(ContractError::CantCloseChannel {}),
+            // If we're here, something has gone catastrophically wrong on
+            // our counterparty chain. Per the `CloseInit` handler above,
+            // this contract will _never_ allow its channel to be
+            // closed.
+            //
+            // Clearly, if this happens for a channel with real NFTs that
+            // have been sent out on it, we need some admin
+            // intervention. What intervention? No idea. It is unclear why
+            // this would ever happen (without the counterparty being
+            // malicious in which case it's also situational), yet alone
+            // what to do in response. The admin of this contract is
+            // expected to migrate it if this happens.
+            //
+            // Note: erroring here would prevent our side of the channel
+            // closing (bad because the channel is, for all intents and
+            // purposes, closed) so we must allow the transaction through.
+            IbcChannelCloseMsg::CloseConfirm { channel: _ } => Ok(IbcBasicResponse::default()),
+        }
+    }
+
+    fn ibc_packet_receive(
+        &self,
+        deps: DepsMut,
+        env: Env,
+        msg: IbcPacketReceiveMsg,
+    ) -> Result<IbcReceiveResponse, Never> {
+        // Regardless of if our processing of this packet works we need to
+        // commit an ACK to the chain. As such, we wrap all handling logic
+        // in a seprate function and on error write out an error ack.
+        match receive_ibc_packet(deps, env, msg.packet) {
+            Ok(response) => Ok(response),
+            Err(error) => Ok(IbcReceiveResponse::new()
+                .add_attribute("method", "ibc_packet_receive")
+                .add_attribute("error", error.to_string())
+                .set_ack(ack_fail(error.to_string()))),
+        }
+    }
+
+    fn ibc_packet_ack(
+        &self,
+        deps: DepsMut,
+        _env: Env,
+        ack: IbcPacketAckMsg,
+    ) -> Result<IbcBasicResponse, ContractError> {
+        if let Some(error) = try_get_ack_error(&ack.acknowledgement) {
+            self.handle_packet_fail(deps, ack.original_packet, &error)
+        } else {
+            let msg: NonFungibleTokenPacketData = from_binary(&ack.original_packet.data)?;
+
+            let nft_contract = Ics721Contract::default()
                 .class_id_info
                 .class_id_to_nft_contract
-                .save(deps.storage, class_id.clone(), &cw721_addr)?;
-            Ics721Contract::default()
-                .class_id_info
-                .nft_contract_to_class_id
-                .save(deps.storage, cw721_addr.clone(), &class_id)?;
+                .load(deps.storage, msg.class_id.clone())?;
+            // Burn all of the tokens being transfered out that were
+            // previously transfered in on this channel.
+            let burn_notices = msg.token_ids.iter().cloned().try_fold(
+                Vec::<WasmMsg>::new(),
+                |mut messages, token| -> StdResult<_> {
+                    let key = (msg.class_id.clone(), token.clone());
+                    let source_channel = Ics721Contract::default()
+                        .channels_info
+                        .incoming_class_token_to_channel
+                        .may_load(deps.storage, key.clone())?;
+                    let returning_to_source = source_channel.map_or(false, |source_channel| {
+                        source_channel == ack.original_packet.src.channel_id
+                    });
+                    if returning_to_source {
+                        // This token's journey is complete, for now.
+                        Ics721Contract::default()
+                            .channels_info
+                            .incoming_class_token_to_channel
+                            .remove(deps.storage, key);
+                        Ics721Contract::default()
+                            .cw721_info
+                            .token_metadata
+                            .remove(deps.storage, (msg.class_id.clone(), token.clone()));
 
-            Ok(Response::default()
-                .add_attribute("method", "instantiate_cw721_reply")
-                .add_attribute("class_id", class_id)
-                .add_attribute("cw721_addr", cw721_addr))
-        }
-        INSTANTIATE_PROXY_REPLY_ID => {
-            let res = parse_reply_instantiate_data(reply)?;
-            let proxy_addr = deps.api.addr_validate(&res.contract_address)?;
-            Ics721Contract::default()
-                .proxy
-                .save(deps.storage, &Some(proxy_addr))?;
+                        messages.push(WasmMsg::Execute {
+                            contract_addr: nft_contract.to_string(),
+                            msg: to_binary(&cw721::Cw721ExecuteMsg::Burn {
+                                token_id: token.into(),
+                            })?,
+                            funds: vec![],
+                        })
+                    }
+                    Ok(messages)
+                },
+            )?;
 
-            Ok(Response::default()
-                .add_attribute("method", "instantiate_proxy_reply_id")
-                .add_attribute("proxy", res.contract_address))
+            Ok(IbcBasicResponse::new()
+                .add_messages(burn_notices)
+                .add_attribute("method", "acknowledge")
+                .add_attribute("sender", msg.sender)
+                .add_attribute("receiver", msg.receiver)
+                .add_attribute("classId", msg.class_id)
+                .add_attribute("token_ids", format!("{:?}", msg.token_ids)))
         }
-        // These messages don't need to do any state changes in the
-        // reply - just need to commit an ack.
-        ACK_AND_DO_NOTHING => {
-            match reply.result {
-                // On success, set a successful ack. Nothing else to do.
-                SubMsgResult::Ok(_) => Ok(Response::new().set_data(ack_success())),
-                // On error we need to use set_data to override the data field
-                // from our caller, the IBC packet recv, and acknowledge our
-                // failure.  As per:
-                // https://github.com/CosmWasm/cosmwasm/blob/main/SEMANTICS.md#handling-the-reply
-                SubMsgResult::Err(err) => Ok(Response::new().set_data(ack_fail(err))),
+    }
+
+    fn ibc_packet_timeout(
+        &self,
+        deps: DepsMut,
+        _env: Env,
+        msg: IbcPacketTimeoutMsg,
+    ) -> Result<IbcBasicResponse, ContractError> {
+        self.handle_packet_fail(deps, msg.packet, "timeout")
+    }
+
+    /// Return the NFT locked in the bridge to sender; roll back.
+    fn handle_packet_fail(
+        &self,
+        deps: DepsMut,
+        packet: IbcPacket,
+        error: &str,
+    ) -> Result<IbcBasicResponse, ContractError> {
+        let message: NonFungibleTokenPacketData = from_binary(&packet.data)?;
+        let nft_address = Ics721Contract::default()
+            .class_id_info
+            .class_id_to_nft_contract
+            .load(deps.storage, message.class_id.clone())?;
+        let sender = deps.api.addr_validate(&message.sender)?;
+
+        let messages = message
+            .token_ids
+            .iter()
+            .cloned()
+            .map(|token_id| -> StdResult<_> {
+                Ics721Contract::default()
+                    .channels_info
+                    .outgoing_class_token_to_channel
+                    .remove(deps.storage, (message.class_id.clone(), token_id.clone()));
+                Ok(WasmMsg::Execute {
+                    contract_addr: nft_address.to_string(),
+                    msg: to_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                        recipient: sender.to_string(),
+                        token_id: token_id.into(),
+                    })?,
+                    funds: vec![],
+                })
+            })
+            .collect::<StdResult<Vec<_>>>()?;
+
+        Ok(IbcBasicResponse::new()
+            .add_messages(messages)
+            .add_attribute("method", "handle_packet_fail")
+            .add_attribute("token_ids", format!("{:?}", message.token_ids))
+            .add_attribute("class_id", message.class_id)
+            .add_attribute("channel_id", packet.src.channel_id)
+            .add_attribute("address_refunded", message.sender)
+            .add_attribute("error", error))
+    }
+
+    fn reply(&self, deps: DepsMut, _env: Env, reply: Reply) -> Result<Response<T>, ContractError> {
+        match reply.id {
+            INSTANTIATE_CW721_REPLY_ID => {
+                // Don't need to add an ack or check for an error here as this
+                // is only replies on success. This is OK because it is only
+                // ever used in `DoInstantiateAndMint` which itself is always
+                // a submessage of `ibc_packet_receive` which is caught and
+                // handled correctly by the reply handler for
+                // `ACK_AND_DO_NOTHING`.
+
+                let res = parse_reply_instantiate_data(reply)?;
+                let cw721_addr = deps.api.addr_validate(&res.contract_address)?;
+
+                // We need to map this address back to a class
+                // ID. Fourtunately, we set the name of the new NFT
+                // contract to the class ID.
+                let cw721::ContractInfoResponse { name, .. } = deps
+                    .querier
+                    .query_wasm_smart(cw721_addr.clone(), &cw721::Cw721QueryMsg::ContractInfo {})?;
+                let class_id = ClassId::new(name);
+
+                // Save classId <-> contract mappings.
+                Ics721Contract::default()
+                    .class_id_info
+                    .class_id_to_nft_contract
+                    .save(deps.storage, class_id.clone(), &cw721_addr)?;
+                Ics721Contract::default()
+                    .class_id_info
+                    .nft_contract_to_class_id
+                    .save(deps.storage, cw721_addr.clone(), &class_id)?;
+
+                Ok(Response::default()
+                    .add_attribute("method", "instantiate_cw721_reply")
+                    .add_attribute("class_id", class_id)
+                    .add_attribute("cw721_addr", cw721_addr))
             }
+            INSTANTIATE_PROXY_REPLY_ID => {
+                let res = parse_reply_instantiate_data(reply)?;
+                let proxy_addr = deps.api.addr_validate(&res.contract_address)?;
+                Ics721Contract::default()
+                    .proxy
+                    .save(deps.storage, &Some(proxy_addr))?;
+
+                Ok(Response::default()
+                    .add_attribute("method", "instantiate_proxy_reply_id")
+                    .add_attribute("proxy", res.contract_address))
+            }
+            // These messages don't need to do any state changes in the
+            // reply - just need to commit an ack.
+            ACK_AND_DO_NOTHING => {
+                match reply.result {
+                    // On success, set a successful ack. Nothing else to do.
+                    SubMsgResult::Ok(_) => Ok(Response::new().set_data(ack_success())),
+                    // On error we need to use set_data to override the data field
+                    // from our caller, the IBC packet recv, and acknowledge our
+                    // failure.  As per:
+                    // https://github.com/CosmWasm/cosmwasm/blob/main/SEMANTICS.md#handling-the-reply
+                    SubMsgResult::Err(err) => Ok(Response::new().set_data(ack_fail(err))),
+                }
+            }
+            _ => Err(ContractError::UnrecognisedReplyId {}),
         }
-        _ => Err(ContractError::UnrecognisedReplyId {}),
     }
 }
+
+impl<T> Ics721Ibc<T> for Ics721Contract<'static> where T: Serialize + DeserializeOwned + Clone {}

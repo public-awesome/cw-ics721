@@ -10,8 +10,8 @@ use cosmwasm_std::{
 use crate::{
     execute::Ics721Execute,
     ibc::{
-        ibc_channel_connect, ibc_channel_open, ibc_packet_receive, reply,
-        NonFungibleTokenPacketData, ACK_AND_DO_NOTHING, IBC_VERSION, INSTANTIATE_CW721_REPLY_ID,
+        Ics721Ibc, NonFungibleTokenPacketData, ACK_AND_DO_NOTHING, IBC_VERSION,
+        INSTANTIATE_CW721_REPLY_ID,
     },
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{InstantiateMsg, QueryMsg},
@@ -65,9 +65,21 @@ fn mock_packet(data: Binary) -> IbcPacket {
 fn add_channel(mut deps: DepsMut, env: Env, channel_id: &str) {
     let channel = mock_channel(channel_id);
     let open_msg = IbcChannelOpenMsg::new_init(channel.clone());
-    ibc_channel_open(deps.branch(), env.clone(), open_msg).unwrap();
+    <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_channel_open(
+        &Ics721Contract::default(),
+        deps.branch(),
+        env.clone(),
+        open_msg,
+    )
+    .unwrap();
     let connect_msg = IbcChannelConnectMsg::new_ack(channel.clone(), IBC_VERSION);
-    let res = ibc_channel_connect(deps.branch(), env, connect_msg).unwrap();
+    let res = <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_channel_connect(
+        &Ics721Contract::default(),
+        deps.branch(),
+        env.clone(),
+        connect_msg,
+    )
+    .unwrap();
 
     // Smoke check our attributes
     assert_eq!(res.attributes.len(), 3);
@@ -153,7 +165,14 @@ fn test_reply_cw721() {
             data: Some(Binary::from_base64(reply_resp).unwrap()),
         }),
     };
-    let res = reply::<Empty>(deps.as_mut(), mock_env(), rep).unwrap();
+
+    let res = <Ics721Contract<'_> as Ics721Ibc<Empty>>::reply(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        mock_env(),
+        rep,
+    )
+    .unwrap();
     // assert_eq!(res.data, Some(ack_success()));
     assert_eq!(
         res.attributes,
@@ -190,14 +209,26 @@ fn test_stateless_reply() {
             data: None,
         }),
     };
-    let res = reply::<Empty>(deps.as_mut(), mock_env(), rep).unwrap();
+    let res = <Ics721Contract<'_> as Ics721Ibc<Empty>>::reply(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        mock_env(),
+        rep,
+    )
+    .unwrap();
     assert_eq!(res.data, Some(ack_success()));
 
     let rep = Reply {
         id: ACK_AND_DO_NOTHING,
         result: SubMsgResult::Err("some failure".to_string()),
     };
-    let res = reply::<Empty>(deps.as_mut(), mock_env(), rep).unwrap();
+    let res = <Ics721Contract<'_> as Ics721Ibc<Empty>>::reply(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        mock_env(),
+        rep,
+    )
+    .unwrap();
     assert_eq!(res.data, Some(ack_fail("some failure".to_string())));
 }
 
@@ -211,7 +242,13 @@ fn test_unrecognised_reply() {
             data: None,
         }),
     };
-    let err = reply::<Empty>(deps.as_mut(), mock_env(), rep).unwrap_err();
+    let err = <Ics721Contract<'_> as Ics721Ibc<Empty>>::reply(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        mock_env(),
+        rep,
+    )
+    .unwrap_err();
     assert_eq!(err, ContractError::UnrecognisedReplyId {})
 }
 
@@ -252,7 +289,13 @@ fn test_ibc_channel_open_ordered_channel() {
     );
 
     let msg = IbcChannelOpenMsg::OpenInit { channel };
-    ibc_channel_open(deps.as_mut(), env, msg).unwrap();
+    <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_channel_open(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        env,
+        msg,
+    )
+    .unwrap();
 }
 
 #[test]
@@ -280,7 +323,13 @@ fn test_ibc_channel_open_invalid_version() {
     );
 
     let msg = IbcChannelOpenMsg::OpenInit { channel };
-    ibc_channel_open(deps.as_mut(), env, msg).unwrap();
+    <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_channel_open(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        env,
+        msg,
+    )
+    .unwrap();
 }
 
 #[test]
@@ -311,7 +360,13 @@ fn test_ibc_channel_open_invalid_version_counterparty() {
         channel,
         counterparty_version: "invalid_version".to_string(),
     };
-    ibc_channel_open(deps.as_mut(), env, msg).unwrap();
+    <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_channel_open(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        env,
+        msg,
+    )
+    .unwrap();
 }
 
 #[test]
@@ -351,7 +406,13 @@ fn test_ibc_channel_connect_ordered_channel() {
     );
 
     let msg = IbcChannelConnectMsg::new_confirm(channel);
-    ibc_channel_connect(deps.as_mut(), env, msg).unwrap();
+    <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_channel_connect(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        env,
+        msg,
+    )
+    .unwrap();
 }
 
 #[test]
@@ -379,7 +440,13 @@ fn test_ibc_channel_connect_invalid_version() {
     );
 
     let msg = IbcChannelConnectMsg::OpenConfirm { channel };
-    ibc_channel_connect(deps.as_mut(), env, msg).unwrap();
+    <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_channel_connect(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        env,
+        msg,
+    )
+    .unwrap();
 }
 
 #[test]
@@ -410,7 +477,13 @@ fn test_ibc_channel_connect_invalid_version_counterparty() {
         channel,
         counterparty_version: "invalid_version".to_string(),
     };
-    ibc_channel_connect(deps.as_mut(), env, msg).unwrap();
+    <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_channel_connect(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        env,
+        msg,
+    )
+    .unwrap();
 }
 
 #[test]
@@ -435,7 +508,13 @@ fn test_ibc_packet_receive() {
         .po
         .set_pauser(&mut deps.storage, &deps.api, None)
         .unwrap();
-    ibc_packet_receive(deps.as_mut(), env, packet).unwrap();
+    <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_packet_receive(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        env,
+        packet,
+    )
+    .unwrap();
 
     // check incoming classID and tokenID
     let keys = Ics721Contract::default()
@@ -485,7 +564,12 @@ fn test_ibc_packet_receive_invalid_packet_data() {
         .set_pauser(&mut deps.storage, &deps.api, None)
         .unwrap();
 
-    let res = ibc_packet_receive(deps.as_mut(), env, packet);
+    let res = <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_packet_receive(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        env,
+        packet,
+    );
 
     assert!(res.is_ok());
     let error = try_get_ack_error(&IbcAcknowledgement::new(res.unwrap().acknowledgement));
@@ -516,7 +600,13 @@ fn test_ibc_packet_receive_emits_memo() {
         .po
         .set_pauser(&mut deps.storage, &deps.api, None)
         .unwrap();
-    let res = ibc_packet_receive(deps.as_mut(), env, packet).unwrap();
+    let res = <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_packet_receive(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        env,
+        packet,
+    )
+    .unwrap();
     assert!(res.attributes.contains(&Attribute {
         key: "ics721_memo".to_string(),
         value: "memo".to_string()
@@ -550,7 +640,12 @@ fn test_ibc_packet_receive_missmatched_lengths() {
         Addr::unchecked(RELAYER_ADDR),
     );
 
-    let res = ibc_packet_receive(deps.as_mut(), mock_env(), packet);
+    let res = <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_packet_receive(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        mock_env(),
+        packet,
+    );
 
     assert!(res.is_ok());
     let error = try_get_ack_error(&IbcAcknowledgement::new(res.unwrap().acknowledgement));
@@ -582,7 +677,12 @@ fn test_ibc_packet_receive_missmatched_lengths() {
         Addr::unchecked(RELAYER_ADDR),
     );
 
-    let res = ibc_packet_receive(deps.as_mut(), mock_env(), packet);
+    let res = <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_packet_receive(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        mock_env(),
+        packet,
+    );
 
     assert!(res.is_ok());
     let error = try_get_ack_error(&IbcAcknowledgement::new(res.unwrap().acknowledgement));
@@ -648,7 +748,12 @@ fn test_no_receive_when_paused() {
         .pause(&mut deps.storage, &Addr::unchecked("ekez"))
         .unwrap();
 
-    let res = ibc_packet_receive(deps.as_mut(), env, packet);
+    let res = <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_packet_receive(
+        &Ics721Contract::default(),
+        deps.as_mut(),
+        env,
+        packet,
+    );
 
     assert!(res.is_ok());
     let error = try_get_ack_error(&IbcAcknowledgement::new(res.unwrap().acknowledgement));

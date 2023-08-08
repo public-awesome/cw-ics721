@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcTimeout, IbcTimeoutBlock, MessageInfo,
-    Response, StdResult, WasmMsg,
+    Reply, Response, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw721::ContractInfoResponse;
@@ -11,6 +11,7 @@ use cw_pause_once::PauseError;
 
 use crate::{
     execute::Ics721Execute,
+    ibc::Ics721Ibc,
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
@@ -21,7 +22,7 @@ const COMMUNITY_POOL: &str = "community_pool";
 const CONTRACT_NAME: &str = "crates.io:cw-ics721-bridge";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub fn instantiate(
+fn instantiate(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
@@ -31,7 +32,7 @@ pub fn instantiate(
     Ics721Contract::default().instantiate(deps, env, info, msg)
 }
 
-pub fn execute(
+fn execute(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
@@ -40,25 +41,22 @@ pub fn execute(
     Ics721Contract::default().execute(deps, env, info, msg)
 }
 
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     Ics721Contract::default().query(deps, env, msg)
 }
 
-pub fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
+fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, ContractError> {
     Ics721Contract::default().migrate(deps, env, msg)
 }
 
-pub struct Test {
-    pub app: App,
-    pub cw721_id: u64,
-    pub bridge_id: u64,
-    pub bridge: Addr,
-    pub proxy: Option<ContractInstantiateInfo>,
-    pub pauser: Option<String>,
+struct Test {
+    app: App,
+    cw721_id: u64,
+    bridge: Addr,
 }
 
 impl Test {
-    pub fn instantiate_bridge(proxy: bool, pauser: Option<String>) -> Self {
+    fn instantiate_bridge(proxy: bool, pauser: Option<String>) -> Self {
         let mut app = App::default();
         let cw721_id = app.store_code(cw721_contract());
         let bridge_id = app.store_code(bridge_contract());
@@ -99,14 +97,11 @@ impl Test {
         Self {
             app,
             cw721_id,
-            bridge_id,
             bridge,
-            proxy,
-            pauser,
         }
     }
 
-    pub fn pause_bridge(&mut self, sender: &str) {
+    fn pause_bridge(&mut self, sender: &str) {
         self.app
             .execute_contract(
                 Addr::unchecked(sender),
@@ -117,7 +112,7 @@ impl Test {
             .unwrap();
     }
 
-    pub fn pause_bridge_should_fail(&mut self, sender: &str) -> ContractError {
+    fn pause_bridge_should_fail(&mut self, sender: &str) -> ContractError {
         self.app
             .execute_contract(
                 Addr::unchecked(sender),
@@ -130,7 +125,7 @@ impl Test {
             .unwrap()
     }
 
-    pub fn query_pause_info(&mut self) -> (bool, Option<Addr>) {
+    fn query_pause_info(&mut self) -> (bool, Option<Addr>) {
         let paused = self
             .app
             .wrap()
@@ -144,14 +139,14 @@ impl Test {
         (paused, pauser)
     }
 
-    pub fn query_cw721_id(&mut self) -> u64 {
+    fn query_cw721_id(&mut self) -> u64 {
         self.app
             .wrap()
             .query_wasm_smart(self.bridge.clone(), &QueryMsg::Cw721CodeId {})
             .unwrap()
     }
 
-    pub fn query_nft_contracts(&mut self) -> Vec<(String, Addr)> {
+    fn query_nft_contracts(&mut self) -> Vec<(String, Addr)> {
         self.app
             .wrap()
             .query_wasm_smart(
@@ -164,7 +159,7 @@ impl Test {
             .unwrap()
     }
 
-    pub fn query_outgoing_channels(&mut self) -> Vec<((String, String), String)> {
+    fn query_outgoing_channels(&mut self) -> Vec<((String, String), String)> {
         self.app
             .wrap()
             .query_wasm_smart(
@@ -177,7 +172,7 @@ impl Test {
             .unwrap()
     }
 
-    pub fn query_incoming_channels(&mut self) -> Vec<((String, String), String)> {
+    fn query_incoming_channels(&mut self) -> Vec<((String, String), String)> {
         self.app
             .wrap()
             .query_wasm_smart(
@@ -200,10 +195,14 @@ fn cw721_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
+fn ibc_reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
+    Ics721Contract::default().reply(deps, env, reply)
+}
+
 fn bridge_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(execute, instantiate, query)
         .with_migrate(migrate)
-        .with_reply(crate::ibc::reply);
+        .with_reply(ibc_reply);
     Box::new(contract)
 }
 
