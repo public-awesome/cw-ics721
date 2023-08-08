@@ -1,0 +1,33 @@
+[package]
+name = "sg-ics721-bridge"
+version = "0.0.1"
+authors = ["mr-t <mr-t@arkprotocol.io>"]
+edition = "2021"
+description = "an implementation of the ICS721 specification for transfering NFTs between blockchains"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+backtraces = ["cosmwasm-std/backtraces"]
+library = []
+
+[dependencies]
+cosmwasm-std = { workspace = true, features = ["ibc3"] }
+cw-storage-plus = { workspace = true }
+cw2 = { workspace = true }
+ics721 = { workspace = true }
+serde = { workspace = true }
+sg-std = { workspace = true}
+sg721 = { workspace = true }
+cw-pause-once = { workspace = true }
+
+[dev-dependencies]
+cw-cii = { workspace = true }
+cw-multi-test = { workspace = true }
+cw721 = { workspace = true}
+cw721-rate-limited-proxy = { workspace = true }
+sg721-base = { workspace = true}
+cw721-base = { workspace = true}
+sg-multi-test = { workspace = true}
+
