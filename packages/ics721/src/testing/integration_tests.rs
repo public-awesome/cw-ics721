@@ -58,7 +58,7 @@ struct Test {
 impl Test {
     fn instantiate_bridge(proxy: bool, pauser: Option<String>) -> Self {
         let mut app = App::default();
-        let cw721_id = app.store_code(cw721_contract());
+        let cw721_id = app.store_code(cw721_base_contract());
         let bridge_id = app.store_code(bridge_contract());
 
         use cw721_rate_limited_proxy as rlp;
@@ -186,7 +186,7 @@ impl Test {
     }
 }
 
-fn cw721_contract() -> Box<dyn Contract<Empty>> {
+fn cw721_base_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
         cw721_base::entry::execute,
         cw721_base::entry::instantiate,
@@ -569,7 +569,7 @@ fn test_proxy_authorized() {
         .unwrap();
     let proxy_address = proxy_address.expect("expected a proxy");
 
-    let cw721_id = test.app.store_code(cw721_contract());
+    let cw721_id = test.app.store_code(cw721_base_contract());
     let cw721 = test
         .app
         .instantiate_contract(

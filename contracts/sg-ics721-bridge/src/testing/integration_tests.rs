@@ -1,18 +1,11 @@
 use cosmwasm_std::{
-    to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcTimeout, IbcTimeoutBlock, MessageInfo,
-    Reply, StdResult, WasmMsg,
+    testing::mock_env, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcTimeout,
+    IbcTimeoutBlock, MessageInfo, Reply, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw721::ContractInfoResponse;
-use cw721_base::{
-    msg::{
-        ExecuteMsg as Cw721ExecuteMsg, InstantiateMsg as Cw721InstantiateMsg,
-        QueryMsg as Cw721QueryMsg,
-    },
-    ContractError as Cw721ContractError,
-};
+use cw721_base::msg::QueryMsg as Cw721QueryMsg;
 
-use cw721_rate_limited_proxy::RateLimitError;
 use cw_cii::{Admin, ContractInstantiateInfo};
 use cw_multi_test::{Contract, ContractWrapper, Executor};
 use cw_pause_once::PauseError;
@@ -69,7 +62,7 @@ struct Test {
 impl Test {
     fn instantiate_bridge(proxy: bool, pauser: Option<String>) -> Self {
         let mut app = StargazeApp::default();
-        let cw721_id = app.store_code(sg721_contract());
+        let cw721_id = app.store_code(sg721_base_contract());
         let bridge_id = app.store_code(bridge_contract());
 
         use cw721_rate_limited_proxy as rlp;
@@ -197,39 +190,7 @@ impl Test {
     }
 }
 
-// wrapper for return Response<StagazeMsgWrapper>
-fn cw721_base_instantiate(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    msg: Cw721InstantiateMsg,
-) -> Result<Response, RateLimitError> {
-    cw721_base::entry::instantiate(deps, env, info, msg)?; // this returns Response<Empty>
-    Ok(Response::default())
-}
-
-// wrapper for return Response<StagazeMsgWrapper>
-fn cw721_base_execute(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    msg: Cw721ExecuteMsg<Option<Empty>, Empty>,
-) -> Result<Response, Cw721ContractError> {
-    cw721_base::entry::execute(deps, env, info, msg)?; // this returns Response<Empty>
-    Ok(Response::default())
-}
-
-// wrapper for return Response<StagazeMsgWrapper>
-fn cw721_contract() -> Box<dyn Contract<StargazeMsgWrapper>> {
-    let contract = ContractWrapper::new(
-        cw721_base_execute,
-        cw721_base_instantiate,
-        cw721_base::entry::query,
-    );
-    Box::new(contract)
-}
-
-fn sg721_contract() -> Box<dyn Contract<StargazeMsgWrapper>> {
+fn sg721_base_contract() -> Box<dyn Contract<StargazeMsgWrapper>> {
     let contract = ContractWrapper::new(
         sg721_base::entry::execute,
         sg721_base::entry::instantiate,
@@ -635,16 +596,25 @@ fn test_proxy_authorized() {
         .unwrap();
     let proxy_address = proxy_address.expect("expected a proxy");
 
-    let cw721_id = test.app.store_code(cw721_contract());
+    let cw721_id = test.app.store_code(sg721_base_contract());
     let cw721 = test
         .app
         .instantiate_contract(
             cw721_id,
-            Addr::unchecked("mr-t"),
-            &cw721_base::InstantiateMsg {
+            test.bridge.clone(), // sg721 contract can only be instantiated by a contract, not user (unauthorized)
+            &sg721::InstantiateMsg {
                 name: "token".to_string(),
                 symbol: "nonfungible".to_string(),
                 minter: "mr-t".to_string(),
+                collection_info: sg721::CollectionInfo {
+                    creator: mock_env().contract.address.to_string(),
+                    description: "".to_string(),
+                    image: "https://arkprotocol.io".to_string(),
+                    external_link: None,
+                    explicit_content: None,
+                    start_trading_time: None,
+                    royalty_info: None,
+                },
             },
             &[],
             "label cw721",
