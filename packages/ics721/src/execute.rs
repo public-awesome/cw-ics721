@@ -22,7 +22,7 @@ where
         env: Env,
         _info: MessageInfo,
         msg: InstantiateMsg,
-    ) -> Result<Response<T>, ContractError> {
+    ) -> StdResult<Response<T>> {
         Ics721Contract::default()
             .cw721_info
             .cw721_code_id
