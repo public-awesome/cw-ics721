@@ -4,7 +4,7 @@ use sg_std::StargazeMsgWrapper;
 
 use crate::state::SgIcs721Contract;
 
-impl Ics721Execute<StargazeMsgWrapper> for SgIcs721Contract<'static> {
+impl Ics721Execute<StargazeMsgWrapper> for SgIcs721Contract {
     fn init_msg(&self, env: &Env, class: &Class) -> StdResult<Binary> {
         to_binary(&sg721::InstantiateMsg {
             // Name of the collection MUST be class_id as this is how

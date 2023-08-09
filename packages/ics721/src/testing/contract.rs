@@ -7,13 +7,20 @@ use cw721::{AllNftInfoResponse, NftInfoResponse};
 
 use crate::{
     execute::Ics721Execute,
-    ibc::NonFungibleTokenPacketData,
+    ibc::{Ics721Ibc, NonFungibleTokenPacketData},
     msg::IbcOutgoingMsg,
-    state::Ics721Contract,
+    query::Ics721Query,
+    state::{CLASS_ID_TO_CLASS, OUTGOING_CLASS_TOKEN_TO_CHANNEL},
     token_types::{ClassId, TokenId},
 };
 
 const NFT_ADDR: &str = "nft";
+
+#[derive(Default)]
+pub struct Ics721Contract {}
+impl Ics721Execute<Empty> for Ics721Contract {}
+impl Ics721Ibc<Empty> for Ics721Contract {}
+impl Ics721Query for Ics721Contract {}
 
 fn nft_info_response_mock_querier(query: &WasmQuery) -> QuerierResult {
     match query {
@@ -102,9 +109,7 @@ fn test_receive_nft() {
     );
 
     // check outgoing classID and tokenID
-    let keys = Ics721Contract::default()
-        .channels_info
-        .outgoing_class_token_to_channel
+    let keys = OUTGOING_CLASS_TOKEN_TO_CHANNEL
         .keys(deps.as_mut().storage, None, None, Order::Ascending)
         .into_iter()
         .collect::<StdResult<Vec<(String, String)>>>()
@@ -117,9 +122,7 @@ fn test_receive_nft() {
         TokenId::new(keys[0].clone().1),
     );
     assert_eq!(
-        Ics721Contract::default()
-            .channels_info
-            .outgoing_class_token_to_channel
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL
             .load(deps.as_mut().storage, key)
             .unwrap(),
         channel_id
@@ -146,20 +149,11 @@ fn test_receive_sets_uri() {
     })
     .unwrap();
 
-    <Ics721Contract<'_> as Ics721Execute<Empty>>::receive_nft(
-        &Ics721Contract::default(),
-        deps.as_mut(),
-        env,
-        info,
-        token_id,
-        sender,
-        msg,
-    )
-    .unwrap();
+    Ics721Contract {}
+        .receive_nft(deps.as_mut(), env, info, token_id, sender, msg)
+        .unwrap();
 
-    let class = Ics721Contract::default()
-        .class_id_info
-        .class_id_to_class
+    let class = CLASS_ID_TO_CLASS
         .load(deps.as_ref().storage, ClassId::new(NFT_ADDR))
         .unwrap();
     assert_eq!(class.uri, None);

@@ -15,12 +15,18 @@ use crate::{
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
-    ContractError, Ics721Contract,
+    ContractError,
 };
 
 const COMMUNITY_POOL: &str = "community_pool";
 const CONTRACT_NAME: &str = "crates.io:cw-ics721-bridge";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+#[derive(Default)]
+pub struct Ics721Contract {}
+impl Ics721Execute<Empty> for Ics721Contract {}
+impl Ics721Ibc<Empty> for Ics721Contract {}
+impl Ics721Query for Ics721Contract {}
 
 fn instantiate(
     deps: DepsMut,

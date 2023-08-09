@@ -1,7 +1,12 @@
+mod execute;
+mod ibc;
+mod query;
+mod state;
+
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    Binary, Deps, DepsMut, Empty, Env, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
+    Binary, Deps, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg,
     IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Reply, Response, StdResult,
 };
@@ -12,8 +17,8 @@ use ics721::{
     ibc::Ics721Ibc,
     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
-    state::Ics721Contract,
 };
+use state::Ics721Contract;
 
 const CONTRACT_NAME: &str = "crates.io:cw-ics721-bridge";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -60,12 +65,7 @@ pub fn ibc_channel_open(
     env: Env,
     msg: IbcChannelOpenMsg,
 ) -> Result<IbcChannelOpenResponse, ContractError> {
-    <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_channel_open(
-        &Ics721Contract::default(),
-        deps,
-        env,
-        msg,
-    )
+    Ics721Contract::default().ibc_channel_open(deps, env, msg)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -74,12 +74,7 @@ pub fn ibc_channel_connect(
     env: Env,
     msg: IbcChannelConnectMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_channel_connect(
-        &Ics721Contract::default(),
-        deps,
-        env,
-        msg,
-    )
+    Ics721Contract::default().ibc_channel_connect(deps, env, msg)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -88,12 +83,7 @@ pub fn ibc_channel_close(
     env: Env,
     msg: IbcChannelCloseMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_channel_close(
-        &Ics721Contract::default(),
-        deps,
-        env,
-        msg,
-    )
+    Ics721Contract::default().ibc_channel_close(deps, env, msg)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -102,12 +92,7 @@ pub fn ibc_packet_receive(
     env: Env,
     msg: IbcPacketReceiveMsg,
 ) -> Result<IbcReceiveResponse, Never> {
-    <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_packet_receive(
-        &Ics721Contract::default(),
-        deps,
-        env,
-        msg,
-    )
+    Ics721Contract::default().ibc_packet_receive(deps, env, msg)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -116,12 +101,7 @@ pub fn ibc_packet_ack(
     env: Env,
     ack: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_packet_ack(
-        &Ics721Contract::default(),
-        deps,
-        env,
-        ack,
-    )
+    Ics721Contract::default().ibc_packet_ack(deps, env, ack)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -130,10 +110,5 @@ pub fn ibc_packet_timeout(
     env: Env,
     msg: IbcPacketTimeoutMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    <Ics721Contract<'_> as Ics721Ibc<Empty>>::ibc_packet_timeout(
-        &Ics721Contract::default(),
-        deps,
-        env,
-        msg,
-    )
+    Ics721Contract::default().ibc_packet_timeout(deps, env, msg)
 }

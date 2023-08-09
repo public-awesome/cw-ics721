@@ -8,8 +8,6 @@ pub mod query;
 pub mod state;
 pub mod token_types;
 
-pub use crate::state::Ics721Contract;
-
 pub use crate::error::ContractError;
 
 #[cfg(test)]
