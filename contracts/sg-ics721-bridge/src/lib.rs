@@ -18,7 +18,7 @@ use ics721::{
     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
 };
-use sg_std::{Response, StargazeMsgWrapper};
+use sg_std::Response;
 use state::SgIcs721Contract;
 
 const CONTRACT_NAME: &str = "crates.io:sg-ics721-bridge";
@@ -66,12 +66,7 @@ pub fn ibc_channel_open(
     env: Env,
     msg: IbcChannelOpenMsg,
 ) -> Result<IbcChannelOpenResponse, ContractError> {
-    <SgIcs721Contract<'_> as Ics721Ibc<StargazeMsgWrapper>>::ibc_channel_open(
-        &SgIcs721Contract::default(),
-        deps,
-        env,
-        msg,
-    )
+    SgIcs721Contract::default().ibc_channel_open(deps, env, msg)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -80,12 +75,7 @@ pub fn ibc_channel_connect(
     env: Env,
     msg: IbcChannelConnectMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    <SgIcs721Contract<'_> as Ics721Ibc<StargazeMsgWrapper>>::ibc_channel_connect(
-        &SgIcs721Contract::default(),
-        deps,
-        env,
-        msg,
-    )
+    SgIcs721Contract::default().ibc_channel_connect(deps, env, msg)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -94,12 +84,7 @@ pub fn ibc_channel_close(
     env: Env,
     msg: IbcChannelCloseMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    <SgIcs721Contract<'_> as Ics721Ibc<StargazeMsgWrapper>>::ibc_channel_close(
-        &SgIcs721Contract::default(),
-        deps,
-        env,
-        msg,
-    )
+    SgIcs721Contract::default().ibc_channel_close(deps, env, msg)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -108,12 +93,7 @@ pub fn ibc_packet_receive(
     env: Env,
     msg: IbcPacketReceiveMsg,
 ) -> Result<IbcReceiveResponse, Never> {
-    <SgIcs721Contract<'_> as Ics721Ibc<StargazeMsgWrapper>>::ibc_packet_receive(
-        &SgIcs721Contract::default(),
-        deps,
-        env,
-        msg,
-    )
+    SgIcs721Contract::default().ibc_packet_receive(deps, env, msg)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -122,12 +102,7 @@ pub fn ibc_packet_ack(
     env: Env,
     ack: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    <SgIcs721Contract<'_> as Ics721Ibc<StargazeMsgWrapper>>::ibc_packet_ack(
-        &SgIcs721Contract::default(),
-        deps,
-        env,
-        ack,
-    )
+    SgIcs721Contract::default().ibc_packet_ack(deps, env, ack)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -136,12 +111,7 @@ pub fn ibc_packet_timeout(
     env: Env,
     msg: IbcPacketTimeoutMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    <SgIcs721Contract<'_> as Ics721Ibc<StargazeMsgWrapper>>::ibc_packet_timeout(
-        &SgIcs721Contract::default(),
-        deps,
-        env,
-        msg,
-    )
+    SgIcs721Contract::default().ibc_packet_timeout(deps, env, msg)
 }
 
 #[cfg(test)]

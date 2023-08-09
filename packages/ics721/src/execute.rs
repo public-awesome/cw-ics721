@@ -7,12 +7,15 @@ use serde::{de::DeserializeOwned, Serialize};
 use crate::{
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg},
-    state::{Ics721Contract, UniversalAllNftInfoResponse},
+    state::{
+        UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
+        NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY, TOKEN_METADATA,
+    },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
     ContractError,
 };
 
-pub trait Ics721Execute<T>
+pub trait Ics721Execute<T = Empty>
 where
     T: Serialize + DeserializeOwned + Clone,
 {
@@ -23,14 +26,9 @@ where
         _info: MessageInfo,
         msg: InstantiateMsg,
     ) -> StdResult<Response<T>> {
-        Ics721Contract::default()
-            .cw721_info
-            .cw721_code_id
-            .save(deps.storage, &msg.cw721_base_code_id)?;
-        Ics721Contract::default().proxy.save(deps.storage, &None)?;
-        Ics721Contract::default()
-            .po
-            .set_pauser(deps.storage, deps.api, msg.pauser.as_deref())?;
+        CW721_CODE_ID.save(deps.storage, &msg.cw721_base_code_id)?;
+        PROXY.save(deps.storage, &None)?;
+        PO.set_pauser(deps.storage, deps.api, msg.pauser.as_deref())?;
 
         let proxy_instantiate = msg
             .proxy
@@ -51,7 +49,7 @@ where
         info: MessageInfo,
         msg: ExecuteMsg,
     ) -> Result<Response<T>, ContractError> {
-        Ics721Contract::default().po.error_if_paused(deps.storage)?;
+        PO.error_if_paused(deps.storage)?;
         match msg {
             ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
                 sender,
@@ -75,11 +73,7 @@ where
         sender: String,
         msg: Binary,
     ) -> Result<Response<T>, ContractError> {
-        if Ics721Contract::default()
-            .proxy
-            .load(deps.storage)?
-            .is_some()
-        {
+        if PROXY.load(deps.storage)?.is_some() {
             Err(ContractError::Unauthorized {})
         } else {
             self.receive_nft(deps, env, info, TokenId::new(token_id), sender, msg)
@@ -94,8 +88,7 @@ where
         eyeball: String,
         msg: cw721::Cw721ReceiveMsg,
     ) -> Result<Response<T>, ContractError> {
-        if Ics721Contract::default()
-            .proxy
+        if PROXY
             .load(deps.storage)?
             .map_or(true, |proxy| info.sender != proxy)
         {
@@ -125,15 +118,8 @@ where
         let sender = deps.api.addr_validate(&sender)?;
         let msg: IbcOutgoingMsg = from_binary(&msg)?;
 
-        let class = match Ics721Contract::default()
-            .class_id_info
-            .nft_contract_to_class_id
-            .may_load(deps.storage, info.sender.clone())?
-        {
-            Some(class_id) => Ics721Contract::default()
-                .class_id_info
-                .class_id_to_class
-                .load(deps.storage, class_id)?,
+        let class = match NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, info.sender.clone())? {
+            Some(class_id) => CLASS_ID_TO_CLASS.load(deps.storage, class_id)?,
             // No class ID being present means that this is a local NFT
             // that has never been sent out of this contract.
             None => {
@@ -146,21 +132,12 @@ where
                     data: None,
                 };
 
-                Ics721Contract::default()
-                    .class_id_info
-                    .nft_contract_to_class_id
-                    .save(deps.storage, info.sender.clone(), &class.id)?;
-                Ics721Contract::default()
-                    .class_id_info
-                    .class_id_to_nft_contract
-                    .save(deps.storage, class.id.clone(), &info.sender)?;
+                NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, info.sender.clone(), &class.id)?;
+                CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class.id.clone(), &info.sender)?;
 
                 // Merging and usage of this PR may change that:
                 // <https://github.com/CosmWasm/cw-nfts/pull/75>
-                Ics721Contract::default()
-                    .class_id_info
-                    .class_id_to_class
-                    .save(deps.storage, class.id.clone(), &class)?;
+                CLASS_ID_TO_CLASS.save(deps.storage, class.id.clone(), &class)?;
                 class
             }
         };
@@ -177,9 +154,7 @@ where
             return Err(ContractError::Unauthorized {});
         }
 
-        let token_metadata = Ics721Contract::default()
-            .cw721_info
-            .token_metadata
+        let token_metadata = TOKEN_METADATA
             .may_load(deps.storage, (class.id.clone(), token_id.clone()))?
             .flatten();
 
@@ -202,14 +177,11 @@ where
             timeout: msg.timeout,
         };
 
-        Ics721Contract::default()
-            .channels_info
-            .outgoing_class_token_to_channel
-            .save(
-                deps.storage,
-                (class.id.clone(), token_id.clone()),
-                &msg.channel_id,
-            )?;
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL.save(
+            deps.storage,
+            (class.id.clone(), token_id.clone()),
+            &msg.channel_id,
+        )?;
 
         Ok(Response::default()
             .add_attribute("method", "execute_receive_nft")
@@ -224,9 +196,7 @@ where
         deps: DepsMut,
         info: MessageInfo,
     ) -> Result<Response<T>, ContractError> {
-        Ics721Contract::default()
-            .po
-            .pause(deps.storage, &info.sender)?;
+        PO.pause(deps.storage, &info.sender)?;
         Ok(Response::default().add_attribute("method", "pause"))
     }
 
@@ -271,20 +241,13 @@ where
         create: VoucherCreation,
     ) -> Result<Response<T>, ContractError> {
         let VoucherCreation { class, tokens } = create;
-        let instantiate = if Ics721Contract::default()
-            .class_id_info
-            .class_id_to_nft_contract
-            .has(deps.storage, class.id.clone())
-        {
+        let instantiate = if CLASS_ID_TO_NFT_CONTRACT.has(deps.storage, class.id.clone()) {
             vec![]
         } else {
             let message = SubMsg::<T>::reply_on_success(
                 WasmMsg::Instantiate {
                     admin: None,
-                    code_id: Ics721Contract::default()
-                        .cw721_info
-                        .cw721_code_id
-                        .load(deps.storage)?,
+                    code_id: CW721_CODE_ID.load(deps.storage)?,
                     msg: self.init_msg(&env, &class)?,
                     funds: vec![],
                     // Attempting to fit the class ID in the label field
@@ -302,10 +265,7 @@ where
         // ID we have already seen comes in with new metadata, we assume
         // that the metadata has been updated on the source chain and
         // update it for the class ID locally as well.
-        Ics721Contract::default()
-            .class_id_info
-            .class_id_to_class
-            .save(deps.storage, class.id.clone(), &class)?;
+        CLASS_ID_TO_CLASS.save(deps.storage, class.id.clone(), &class)?;
 
         let mint = WasmMsg::Execute {
             contract_addr: env.contract.address.into_string(),
@@ -343,10 +303,7 @@ where
         redeem: VoucherRedemption,
     ) -> Result<Response<T>, ContractError> {
         let VoucherRedemption { class, token_ids } = redeem;
-        let nft_contract = Ics721Contract::default()
-            .class_id_info
-            .class_id_to_nft_contract
-            .load(deps.storage, class.id)?;
+        let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class.id)?;
         let receiver = deps.api.addr_validate(&receiver)?;
         Ok(Response::default()
             .add_attribute("method", "callback_redeem_vouchers")
@@ -375,10 +332,7 @@ where
         receiver: String,
     ) -> Result<Response<T>, ContractError> {
         let receiver = deps.api.addr_validate(&receiver)?;
-        let cw721_addr = Ics721Contract::default()
-            .class_id_info
-            .class_id_to_nft_contract
-            .load(deps.storage, class_id.clone())?;
+        let cw721_addr = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class_id.clone())?;
 
         let mint = tokens
             .into_iter()
@@ -387,11 +341,7 @@ where
                 // supports on-chain metadata, this is where we will set
                 // that value on the debt-voucher token. Note that this is
                 // set for every token, regardless of if data is None.
-                Ics721Contract::default().cw721_info.token_metadata.save(
-                    deps.storage,
-                    (class_id.clone(), id.clone()),
-                    &data,
-                )?;
+                TOKEN_METADATA.save(deps.storage, (class_id.clone(), id.clone()), &data)?;
 
                 let msg = cw721_base::msg::ExecuteMsg::<Empty, Empty>::Mint {
                     token_id: id.into(),
@@ -424,23 +374,16 @@ where
                 proxy,
                 cw721_base_code_id,
             } => {
-                Ics721Contract::default().proxy.save(
+                PROXY.save(
                     deps.storage,
                     &proxy
                         .as_ref()
                         .map(|h| deps.api.addr_validate(h))
                         .transpose()?,
                 )?;
-                Ics721Contract::default().po.set_pauser(
-                    deps.storage,
-                    deps.api,
-                    pauser.as_deref(),
-                )?;
+                PO.set_pauser(deps.storage, deps.api, pauser.as_deref())?;
                 if let Some(cw721_base_code_id) = cw721_base_code_id {
-                    Ics721Contract::default()
-                        .cw721_info
-                        .cw721_code_id
-                        .save(deps.storage, &cw721_base_code_id)?;
+                    CW721_CODE_ID.save(deps.storage, &cw721_base_code_id)?;
                 }
                 Ok(Response::default()
                     .add_attribute("method", "migrate")
@@ -454,5 +397,3 @@ where
         }
     }
 }
-
-impl<T> Ics721Execute<T> for Ics721Contract<'static> where T: Serialize + DeserializeOwned + Clone {}
