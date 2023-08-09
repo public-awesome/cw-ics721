@@ -1,8 +1,8 @@
-This contract is intented to a counterpart to the `cw-ics721-bridge`
+This contract is intented to a counterpart to the `ics721-base`
 contract that ought to have been distributed along with this source
 code. It is intended to be used to answer the following questions:
 
-How does the ics721-bridge contract respond if..
+How does the ics721-base contract respond if..
 
 - the other side closes the connection?
 - the other side sends a class ID corresponding to a class ID that is

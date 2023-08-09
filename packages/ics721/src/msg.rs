@@ -34,7 +34,7 @@ pub enum ExecuteMsg {
     /// be a binary encoded `IbcOutgoingMsg`.
     ReceiveNft(cw721::Cw721ReceiveMsg),
 
-    /// Pauses the bridge. Only the pauser may call this. In pausing
+    /// Pauses the ICS721 contract. Only the pauser may call this. In pausing
     /// the contract, the pauser burns the right to do so again.
     Pause {},
 

@@ -1,5 +1,5 @@
 [package]
-name = "sg-ics721-bridge"
+name = "sg-ics721"
 version = "0.0.1"
 authors = ["mr-t <mr-t@arkprotocol.io>"]
 edition = "2021"

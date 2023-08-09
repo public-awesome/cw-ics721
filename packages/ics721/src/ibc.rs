@@ -201,7 +201,7 @@ where
         self.handle_packet_fail(deps, msg.packet, "timeout")
     }
 
-    /// Return the NFT locked in the bridge to sender; roll back.
+    /// Return the NFT locked in the ICS721 contract to sender; roll back.
     fn handle_packet_fail(
         &self,
         deps: DepsMut,

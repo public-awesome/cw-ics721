@@ -21,7 +21,7 @@ use ics721::{
 use sg_std::Response;
 use state::SgIcs721Contract;
 
-const CONTRACT_NAME: &str = "crates.io:sg-ics721-bridge";
+const CONTRACT_NAME: &str = "crates.io:sg-ics721";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]

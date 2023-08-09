@@ -20,7 +20,7 @@ use ics721::{
 };
 use state::Ics721Contract;
 
-const CONTRACT_NAME: &str = "crates.io:cw-ics721-bridge";
+const CONTRACT_NAME: &str = "crates.io:ics721-base";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]

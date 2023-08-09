@@ -90,7 +90,7 @@ impl VoucherRedemption {
     ///
     /// ## Arguments
     ///
-    /// - `contract` the address of the ics721-bridge contract
+    /// - `contract` the address of the ics721 contract
     ///   vouchers are being redeemed on.
     /// - `receiver` that address that ought to receive the NFTs the
     ///   debt-vouchers are redeemable for.
@@ -112,7 +112,7 @@ impl VoucherCreation {
     ///
     /// ## Arguments
     ///
-    /// - `contract` the address of the ics721-bridge contract
+    /// - `contract` the address of the ics721 contract
     ///   vouchers are being created on.
     /// - `receiver` that address that ought to receive the newly
     ///   created debt-vouchers.
