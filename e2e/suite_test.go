@@ -37,9 +37,9 @@ func (suite *TransferTestSuite) SetupTest() {
 	// suite.coordinator.CommitBlock(suite.chainA, suite.chainB)
 
 	// Store the ICS721 contract.
-	chainAStoreResp := suite.chainA.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
+	chainAStoreResp := suite.chainA.StoreCodeFile("../artifacts/ics721_base.wasm")
 	require.Equal(suite.T(), uint64(1), chainAStoreResp.CodeID)
-	chainBStoreResp := suite.chainB.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
+	chainBStoreResp := suite.chainB.StoreCodeFile("../artifacts/ics721_base.wasm")
 	require.Equal(suite.T(), uint64(1), chainBStoreResp.CodeID)
 
 	// Store the cw721 contract.
@@ -260,7 +260,7 @@ func TestIBC(t *testing.T) {
 // instantiated contract.
 func instantiateBridge(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAddress {
 	// Store the contracts.
-	bridgeresp := chain.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
+	bridgeresp := chain.StoreCodeFile("../artifacts/ics721_base.wasm")
 	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
 
 	// Instantiate the ICS721 contract.
@@ -580,9 +580,9 @@ func TestCloseRejected(t *testing.T) {
 	chainB := coordinator.GetChain(wasmibctesting.GetChainID(1))
 
 	// Store the ICS721 contract.
-	chainAStoreResp := chainA.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
+	chainAStoreResp := chainA.StoreCodeFile("../artifacts/ics721_base.wasm")
 	require.Equal(t, uint64(1), chainAStoreResp.CodeID)
-	chainBStoreResp := chainB.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
+	chainBStoreResp := chainB.StoreCodeFile("../artifacts/ics721_base.wasm")
 	require.Equal(t, uint64(1), chainBStoreResp.CodeID)
 
 	// Store the cw721 contract.
