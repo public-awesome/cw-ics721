@@ -31,7 +31,7 @@ fn instantiate(
     env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
-) -> Result<Response, ContractError> {
+) -> StdResult<Response> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     SgIcs721Contract::default().instantiate(deps, env, info, msg)
 }
