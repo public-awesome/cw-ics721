@@ -57,6 +57,7 @@ struct Test {
     app: StargazeApp,
     cw721_id: u64,
     bridge: Addr,
+    bridge_id: u64,
 }
 
 impl Test {
@@ -102,6 +103,7 @@ impl Test {
             app,
             cw721_id,
             bridge,
+            bridge_id,
         }
     }
 
@@ -141,6 +143,13 @@ impl Test {
             .query_wasm_smart(self.bridge.clone(), &QueryMsg::Pauser {})
             .unwrap();
         (paused, pauser)
+    }
+
+    fn query_proxy(&mut self) -> Option<Addr> {
+        self.app
+            .wrap()
+            .query_wasm_smart(self.bridge.clone(), &QueryMsg::Proxy {})
+            .unwrap()
     }
 
     fn query_cw721_id(&mut self) -> u64 {
@@ -199,13 +208,14 @@ fn sg721_base_contract() -> Box<dyn Contract<StargazeMsgWrapper>> {
     Box::new(contract)
 }
 
-fn ibc_reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
-    SgIcs721Contract::default()
-        .reply(deps, env, reply)
-        .and_then(|_| Ok(Response::default()))
-}
-
 fn bridge_contract() -> Box<dyn Contract<StargazeMsgWrapper>> {
+    // need to wrap method in function for testing
+    fn ibc_reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
+        SgIcs721Contract::default()
+            .reply(deps, env, reply)
+            .and_then(|_| Ok(Response::default()))
+    }
+
     let contract = ContractWrapper::new(execute, instantiate, query)
         .with_migrate(migrate)
         .with_reply(ibc_reply);
@@ -751,6 +761,7 @@ fn test_pause() {
                 msg: to_binary(&MigrateMsg::WithUpdate {
                     pauser: Some("zeke".to_string()),
                     proxy: None,
+                    cw721_base_code_id: None,
                 })
                 .unwrap(),
             }
@@ -768,4 +779,67 @@ fn test_pause() {
     let (paused, pauser) = test.query_pause_info();
     assert!(paused);
     assert_eq!(pauser, None);
+}
+
+/// Tests migration.
+#[test]
+fn test_migration() {
+    let mut test = Test::instantiate_bridge(true, Some("mr-t".to_string()));
+    // assert instantiation worked
+    let (_, pauser) = test.query_pause_info();
+    assert_eq!(pauser, Some(Addr::unchecked("mr-t")));
+    let proxy = test.query_proxy();
+    assert!(proxy.is_some());
+    let cw721_code_id = test.query_cw721_id();
+    assert_eq!(cw721_code_id, test.cw721_id);
+
+    // migrate changes
+    test.app
+        .execute(
+            Addr::unchecked("mr-t"),
+            WasmMsg::Migrate {
+                contract_addr: test.bridge.to_string(),
+                new_code_id: test.bridge_id,
+                msg: to_binary(&MigrateMsg::WithUpdate {
+                    pauser: None,
+                    proxy: None,
+                    cw721_base_code_id: Some(12345678),
+                })
+                .unwrap(),
+            }
+            .into(),
+        )
+        .unwrap();
+    // assert migration worked
+    let (_, pauser) = test.query_pause_info();
+    assert_eq!(pauser, None);
+    let proxy = test.query_proxy();
+    assert!(proxy.is_none());
+    let cw721_code_id = test.query_cw721_id();
+    assert_eq!(cw721_code_id, 12345678);
+
+    // migrate without changing code id
+    test.app
+        .execute(
+            Addr::unchecked("mr-t"),
+            WasmMsg::Migrate {
+                contract_addr: test.bridge.to_string(),
+                new_code_id: test.bridge_id,
+                msg: to_binary(&MigrateMsg::WithUpdate {
+                    pauser: None,
+                    proxy: None,
+                    cw721_base_code_id: None,
+                })
+                .unwrap(),
+            }
+            .into(),
+        )
+        .unwrap();
+    // assert migration worked
+    let (_, pauser) = test.query_pause_info();
+    assert_eq!(pauser, None);
+    let proxy = test.query_proxy();
+    assert!(proxy.is_none());
+    let cw721_code_id = test.query_cw721_id();
+    assert_eq!(cw721_code_id, 12345678);
 }
