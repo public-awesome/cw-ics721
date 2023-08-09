@@ -6,21 +6,17 @@ mod state;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Addr, Binary, Deps, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg,
-    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Reply, StdResult,
+    Binary, Deps, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
+    IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Reply, StdResult,
 };
 use cw2::set_contract_version;
-use cw_pause_once::PauseOrchestrator;
-use cw_storage_plus::Item;
 use ics721::{
     error::{ContractError, Never},
     execute::Ics721Execute,
     ibc::Ics721Ibc,
     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
-    state::{ChannelsInfo, ClassIdInfo, Cw721Info, Ics721Contract},
-    token_types::Class,
 };
 use sg_std::{Response, StargazeMsgWrapper};
 use state::SgIcs721Contract;
