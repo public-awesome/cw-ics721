@@ -32,10 +32,10 @@ cw-cii = { path = "./packages/cw-cii" }
 cw-pause-once = { path = "./packages/cw-pause-once" }
 ics721 = { path = "./packages/ics721" }
 zip-optional = { path = "./packages/zip-optional" }
-cw-ics721-bridge = { path = "./contracts/cw-ics721-bridge"}
-cw-ics721-bridge-tester = { path = "./contracts/cw-ics721-bridge-tester"}
+ics721-base = { path = "./contracts/ics721-base"}
+ics721-base-tester = { path = "./contracts/cw-ics721-base-tester"}
 cw721-tester = { path = "./contracts/cw721-tester"}
-sg-ics721-bridge = { path = "./contracts/sg-ics721-bridge"}
+sg-ics721 = { path = "./contracts/sg-ics721"}
 
 [profile.release]
 codegen-units = 1

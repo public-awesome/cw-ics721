@@ -11,7 +11,7 @@ This implementation
    used by most NFT marketplaces in the IBC ecosystem;
 2. has a minimal, but powerful governance system that can quickly
    pause the system in an emergency, without ceding any of the
-   governance module's control over the bridge;
+   governance module's control over the ICS721 contract;
 3. supports a proxy system that allows for arbitrary filtering and
    rate limiting of outgoing NFTs;
 4. is well tested.
@@ -36,7 +36,7 @@ to redeem it for the original NFT on chain A.
 
 To return the transferred NFT:
 
-1. The debt-voucher is returned to the bridge.
+1. The debt-voucher is returned to the ICS721 contract.
 2. A message is sent to the source chain informing it that the debt
    voucher has been returned.
 3. The original NFT is unlocked and sent to the receiver of the NFT.
@@ -44,7 +44,7 @@ To return the transferred NFT:
 
 The failure handling logic for this contract is also reasonably simple
 to explain: if the receiver does not process the packet correctly, the
-NFT sent to the bridge is returned to the sender as if the transfer
+NFT sent to the ICS721 contract is returned to the sender as if the transfer
 had never happened.
 
 ## From closer to the ground
@@ -66,7 +66,7 @@ which may pause the contract a _single time_. In pausing the contract,
 the subDAO loses the ability to pause again until it is reauthorized
 by governance.
 
-After a pause, the bridge will remain paused until governance chooses
+After a pause, the ICS721 contract will remain paused until governance chooses
 to unpause it. During the unpause process governance may appoint a new
 subDAO or reappoint the existing one as pause manager. It is imagined
 that the admin of this contract will be a chain's community pool, and
@@ -75,21 +75,21 @@ that the subDAO may pause the contract in the event of a problem, but
 may not lock the contract, as in pausing the contract the subDAO burns
 its ability to do so again.
 
-Filtering is enabled by an optional proxy that the bridge may be
-configured to use. If a proxy is configured, the bridge will only
+Filtering is enabled by an optional proxy that the ICS721 contract may be
+configured to use. If a proxy is configured, the ICS721 contract will only
 accept NFTs delivered by the proxy address. This proxy interface is
 very minimal and enables very flexible rate limiting and
 filtering. Currently, per-collection rate limiting is
-implemented. Users of this bridge are encouraged to implement their
+implemented. Users of this ICS721 contract are enchouraged to implement their
 own filtering regimes and may add them to the [proxy
-repository](https://github.com/0xekez/cw721-proxy) so that others may
+repository](https://github.com/arkprotocol/cw721-proxy) so that others may
 use them.
 
 ## Failure handling errata
 
 This contract will never close an IBC channel between itself and
-another bridge. If the other side of a channel closes the connection,
-the bridge assumes this has happened due to a catastrophic bug in its
+another ICS721 contract or module. If the other side of a channel closes the connection,
+the ICS721 contract assumes this has happened due to a catastrophic bug in its
 counterparty or a malicious action. As such, if a channel closes NFTs
 will not be removable from it until governance intervention sets the
 policy for what to do.
@@ -101,9 +101,9 @@ transfers to fail.
 
 These sorts of issues can cause trouble with relayer
 implementations. The inability to collect fees for relaying is a
-limitation of the IBC protocol and this bridge contract can not hope
+limitation of the IBC protocol and this ICS721 contract can not hope
 to address that. To this end, it is strongly recommended that users of
-this bridge and all other IBC bridges have users [relay their own
+this ICS721 contract and all other IBC bridges have users [relay their own
 packets](https://github.com/DA0-DA0/dao-dao-ui/issues/885). We will be
 working on an implementation of this that other front ends can easily
 integrate as part of this work.

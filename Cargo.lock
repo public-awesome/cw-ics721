@@ -223,28 +223,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw-ics721-bridge"
-version = "0.0.1"
-dependencies = [
- "cosmwasm-std",
- "cw2 1.1.0",
- "ics721",
-]
-
-[[package]]
-name = "cw-ics721-bridge-tester"
-version = "0.1.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cosmwasm-storage",
- "cw-storage-plus 1.1.0",
- "cw2 1.1.0",
- "ics721",
- "thiserror",
-]
-
-[[package]]
 name = "cw-multi-test"
 version = "0.16.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -722,6 +700,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "ics721-base"
+version = "0.0.1"
+dependencies = [
+ "cosmwasm-std",
+ "cw2 1.1.0",
+ "ics721",
+]
+
+[[package]]
+name = "ics721-base-tester"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-storage-plus 1.1.0",
+ "cw2 1.1.0",
+ "ics721",
+ "thiserror",
+]
+
+[[package]]
 name = "idna"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -961,7 +961,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sg-ics721-bridge"
+name = "sg-ics721"
 version = "0.0.1"
 dependencies = [
  "cosmwasm-std",

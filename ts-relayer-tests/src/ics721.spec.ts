@@ -25,9 +25,9 @@ interface TestContext {
   osmoAddr: string;
 
   wasmCw721: string;
-  wasmBridge: string;
+  wasmIcs721: string;
 
-  osmoBridge: string;
+  osmoIcs721: string;
 
   channel: ChannelInfo;
 }
@@ -35,7 +35,7 @@ interface TestContext {
 const test = anyTest as TestFn<TestContext>;
 
 const WASM_FILE_CW721 = "./internal/cw721_base_v0.18.0.wasm";
-const WASM_FILE_CW_ICS721_BRIDGE = "./internal/cw_ics721_bridge.wasm";
+const WASM_FILE_CW_ICS721_ICS721 = "./internal/ics721_base.wasm";
 const MALICIOUS_CW721 = "./internal/cw721_tester.wasm";
 
 const standardSetup = async (t: ExecutionContext<TestContext>) => {
@@ -57,7 +57,7 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
       },
     },
     ics721: {
-      path: WASM_FILE_CW_ICS721_BRIDGE,
+      path: WASM_FILE_CW_ICS721_ICS721,
       instantiateMsg: undefined,
     },
   };
@@ -67,7 +67,7 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
       instantiateMsg: undefined,
     },
     ics721: {
-      path: WASM_FILE_CW_ICS721_BRIDGE,
+      path: WASM_FILE_CW_ICS721_ICS721,
       instantiateMsg: undefined,
     },
   };
@@ -82,36 +82,36 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
   const wasmCw721Id = info.wasmContractInfos.cw721.codeId;
   const osmoCw721Id = info.osmoContractInfos.cw721.codeId;
 
-  const wasmBridgeId = info.wasmContractInfos.ics721.codeId;
-  const osmoBridgeId = info.osmoContractInfos.ics721.codeId;
+  const wasmIcs721Id = info.wasmContractInfos.ics721.codeId;
+  const osmoIcs721Id = info.osmoContractInfos.ics721.codeId;
 
   t.context.wasmCw721 = info.wasmContractInfos.cw721.address as string;
 
-  t.log(`instantiating wasm bridge contract (${wasmBridgeId})`);
+  t.log(`instantiating wasm ICS721 contract (${wasmIcs721Id})`);
 
-  const { contractAddress: wasmBridge } = await instantiateContract(
+  const { contractAddress: wasmIcs721 } = await instantiateContract(
     wasmClient,
-    wasmBridgeId,
+    wasmIcs721Id,
     { cw721_base_code_id: wasmCw721Id },
     "label ics721"
   );
-  t.context.wasmBridge = wasmBridge;
+  t.context.wasmIcs721 = wasmIcs721;
 
-  t.log(`instantiating osmo bridge contract (${osmoBridgeId})`);
+  t.log(`instantiating osmo ICS721 contract (${osmoIcs721Id})`);
 
-  const { contractAddress: osmoBridge } = await instantiateContract(
+  const { contractAddress: osmoIcs721 } = await instantiateContract(
     osmoClient,
-    osmoBridgeId,
+    osmoIcs721Id,
     { cw721_base_code_id: osmoCw721Id },
     "label ics721"
   );
-  t.context.osmoBridge = osmoBridge;
+  t.context.osmoIcs721 = osmoIcs721;
 
   const channelInfo = await createIbcConnectionAndChannel(
     wasmClient,
     osmoClient,
-    wasmBridge,
-    osmoBridge,
+    wasmIcs721,
+    osmoIcs721,
     Order.ORDER_UNORDERED,
     "ics721-1"
   );
@@ -128,10 +128,10 @@ test.serial("transfer NFT", async (t) => {
     wasmClient,
     wasmAddr,
     wasmCw721,
-    wasmBridge,
+    wasmIcs721,
     osmoClient,
     osmoAddr,
-    osmoBridge,
+    osmoIcs721,
     channel,
   } = t.context;
 
@@ -158,7 +158,7 @@ test.serial("transfer NFT", async (t) => {
   const transferResponse = await sendNft(
     wasmClient,
     wasmCw721,
-    wasmBridge,
+    wasmIcs721,
     ibcMsg,
     tokenId
   );
@@ -173,12 +173,12 @@ test.serial("transfer NFT", async (t) => {
 
   // assert NFT on chain A is locked/owned by ICS contract
   tokenOwner = await ownerOf(wasmClient, wasmCw721, tokenId);
-  t.is(wasmBridge, tokenOwner.owner);
+  t.is(wasmIcs721, tokenOwner.owner);
 
   t.context.channel.channel.dest.channelId;
 
   const osmoClassId = `${t.context.channel.channel.dest.portId}/${t.context.channel.channel.dest.channelId}/${t.context.wasmCw721}`;
-  const osmoCw721 = await osmoClient.sign.queryContractSmart(osmoBridge, {
+  const osmoCw721 = await osmoClient.sign.queryContractSmart(osmoIcs721, {
     nft_contract: { class_id: osmoClassId },
   });
 
@@ -195,8 +195,8 @@ test.serial("malicious NFT", async (t) => {
     channel,
     osmoAddr,
     wasmAddr,
-    wasmBridge,
-    osmoBridge,
+    wasmIcs721,
+    osmoIcs721,
   } = t.context;
   const tokenId = "1";
 
@@ -207,7 +207,7 @@ test.serial("malicious NFT", async (t) => {
         name: "evil",
         symbol: "evil",
         minter: wasmClient.senderAddress,
-        target: wasmBridge, // panic every time the bridge tries to return a NFT.
+        target: wasmIcs721, // panic every time the ICS721 contract tries to return a NFT.
       },
     },
   });
@@ -232,7 +232,7 @@ test.serial("malicious NFT", async (t) => {
   let transferResponse = await sendNft(
     wasmClient,
     cw721,
-    wasmBridge,
+    wasmIcs721,
     ibcMsg,
     tokenId
   );
@@ -245,7 +245,7 @@ test.serial("malicious NFT", async (t) => {
   assertAckSuccess(info.acksFromB);
 
   const osmoClassId = `${t.context.channel.channel.dest.portId}/${t.context.channel.channel.dest.channelId}/${cw721}`;
-  const osmoCw721 = await osmoClient.sign.queryContractSmart(osmoBridge, {
+  const osmoCw721 = await osmoClient.sign.queryContractSmart(osmoIcs721, {
     nft_contract: { class_id: osmoClassId },
   });
 
@@ -263,7 +263,7 @@ test.serial("malicious NFT", async (t) => {
   transferResponse = await sendNft(
     osmoClient,
     osmoCw721,
-    osmoBridge,
+    osmoIcs721,
     ibcMsg,
     tokenId
   );

@@ -12,7 +12,7 @@ use crate::{
     state::{ACK_MODE, LAST_ACK},
 };
 
-const CONTRACT_NAME: &str = "crates.io:cw-icw721-bridge-tester";
+const CONTRACT_NAME: &str = "crates.io:ics721-base-tester";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]

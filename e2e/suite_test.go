@@ -36,7 +36,7 @@ func (suite *TransferTestSuite) SetupTest() {
 	suite.chainB = suite.coordinator.GetChain(wasmibctesting.GetChainID(1))
 	// suite.coordinator.CommitBlock(suite.chainA, suite.chainB)
 
-	// Store the bridge contract.
+	// Store the ICS721 contract.
 	chainAStoreResp := suite.chainA.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
 	require.Equal(suite.T(), uint64(1), chainAStoreResp.CodeID)
 	chainBStoreResp := suite.chainB.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
@@ -256,14 +256,14 @@ func TestIBC(t *testing.T) {
 	suite.Run(t, new(TransferTestSuite))
 }
 
-// Instantiates a bridge contract on CHAIN. Returns the address of the
+// Instantiates a ICS721 contract on CHAIN. Returns the address of the
 // instantiated contract.
 func instantiateBridge(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAddress {
 	// Store the contracts.
 	bridgeresp := chain.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
 	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
 
-	// Instantiate the bridge contract.
+	// Instantiate the ICS721 contract.
 	instantiateICS721 := InstantiateICS721Bridge{
 		cw721resp.CodeID,
 		nil,
@@ -359,7 +359,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	chainB := coordinator.GetChain(wasmibctesting.GetChainID(1))
 	chainC := coordinator.GetChain(wasmibctesting.GetChainID(2))
 
-	// Chains are identical, so only one bridge address.
+	// Chains are identical, so only one ICS721 contract address.
 	bridge := instantiateBridge(t, chainA)
 	instantiateBridge(t, chainB)
 	instantiateBridge(t, chainC)
@@ -418,7 +418,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	ownerB := queryGetOwnerOf(t, chainB, chainBNft)
 	require.Equal(t, chainB.SenderAccount.GetAddress().String(), ownerB)
 
-	// Make sure chain A has the NFT in its bridge contract.
+	// Make sure chain A has the NFT in its ICS721 contract.
 	ownerA := queryGetOwnerOf(t, chainA, chainANft)
 	require.Equal(t, ownerA, bridge.String())
 
@@ -433,7 +433,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	ownerC := queryGetOwnerOf(t, chainC, chainCNft)
 	require.Equal(t, chainC.SenderAccount.GetAddress().String(), ownerC)
 
-	// Make sure the NFT is locked in the bridge contract on chain B.
+	// Make sure the NFT is locked in the ICS721 contract on chain B.
 	ownerB = queryGetOwnerOf(t, chainB, chainBNft)
 	require.Equal(t, bridge.String(), ownerB)
 
@@ -449,7 +449,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	ownerA = queryGetOwnerOf(t, chainA, chainANftDerivative)
 	require.Equal(t, chainA.SenderAccount.GetAddress().String(), ownerA)
 
-	// Make sure that the NFT is held in the bridge contract now.
+	// Make sure that the NFT is held in the ICS721 contract now.
 	ownerC = queryGetOwnerOf(t, chainC, chainCNft)
 	require.Equal(t, bridge.String(), ownerC)
 
@@ -494,7 +494,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	require.ErrorContains(t, err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>> not found")
 
 	// Hooray! We have completed the journey between three
-	// identical blockchains using our bridge contract.
+	// identical blockchains using our ICS721 contract.
 }
 
 func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
@@ -579,7 +579,7 @@ func TestCloseRejected(t *testing.T) {
 	chainA := coordinator.GetChain(wasmibctesting.GetChainID(0))
 	chainB := coordinator.GetChain(wasmibctesting.GetChainID(1))
 
-	// Store the bridge contract.
+	// Store the ICS721 contract.
 	chainAStoreResp := chainA.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
 	require.Equal(t, uint64(1), chainAStoreResp.CodeID)
 	chainBStoreResp := chainB.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
@@ -721,7 +721,7 @@ func (suite *TransferTestSuite) TestPacketTimeoutCausesRefund() {
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), owner)
 }
 
-// Tests that the NFT transfered to the bridge is returned to sender
+// Tests that the NFT transfered to the ICS721 contract is returned to sender
 // if the counterparty returns an ack fail while handling the
 // transfer.
 func (suite *TransferTestSuite) TestRefundOnAckFail() {

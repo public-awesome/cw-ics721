@@ -1,5 +1,5 @@
 [package]
-name = "cw-ics721-bridge"
+name = "ics721-base"
 version = "0.0.1"
 authors = ["ekez <ekez@withoutdoing.com>"]
 edition = "2021"

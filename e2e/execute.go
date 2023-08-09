@@ -19,7 +19,7 @@ func InstantiateBridge(t *testing.T, ctx sdk.Context, app *app.App, creatorAddre
 		Sender: creatorAddress,
 		Admin:  "",
 		CodeID: bridgeCodeID,
-		Label:  "bridge contract",
+		Label:  "ICS721 contract",
 		Msg:    instantiateMsgRaw,
 		Funds:  []sdk.Coin{},
 	})

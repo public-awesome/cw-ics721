@@ -23,7 +23,7 @@ use sg_std::{Response, StargazeMsgWrapper};
 use crate::{ContractError, SgIcs721Contract};
 
 const COMMUNITY_POOL: &str = "community_pool";
-const CONTRACT_NAME: &str = "crates.io:cw-ics721-bridge";
+const CONTRACT_NAME: &str = "crates.io:sg-ics721";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn instantiate(
@@ -56,15 +56,15 @@ fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, Contrac
 struct Test {
     app: StargazeApp,
     cw721_id: u64,
-    bridge: Addr,
-    bridge_id: u64,
+    ics721: Addr,
+    ics721_id: u64,
 }
 
 impl Test {
-    fn instantiate_bridge(proxy: bool, pauser: Option<String>) -> Self {
+    fn instantiate_ics721(proxy: bool, pauser: Option<String>) -> Self {
         let mut app = StargazeApp::default();
         let cw721_id = app.store_code(sg721_base_contract());
-        let bridge_id = app.store_code(bridge_contract());
+        let ics721_id = app.store_code(ics721_contract());
 
         use cw721_rate_limited_proxy as rlp;
         let proxy = match proxy {
@@ -84,9 +84,9 @@ impl Test {
             false => None,
         };
 
-        let bridge = app
+        let ics721 = app
             .instantiate_contract(
-                bridge_id,
+                ics721_id,
                 Addr::unchecked(COMMUNITY_POOL),
                 &InstantiateMsg {
                     cw721_base_code_id: cw721_id,
@@ -94,7 +94,7 @@ impl Test {
                     pauser: pauser.clone(),
                 },
                 &[],
-                "cw-ics721-bridge",
+                "sg-ics721",
                 pauser.clone(),
             )
             .unwrap();
@@ -102,27 +102,27 @@ impl Test {
         Self {
             app,
             cw721_id,
-            bridge,
-            bridge_id,
+            ics721,
+            ics721_id,
         }
     }
 
-    fn pause_bridge(&mut self, sender: &str) {
+    fn pause_ics721(&mut self, sender: &str) {
         self.app
             .execute_contract(
                 Addr::unchecked(sender),
-                self.bridge.clone(),
+                self.ics721.clone(),
                 &ExecuteMsg::Pause {},
                 &[],
             )
             .unwrap();
     }
 
-    fn pause_bridge_should_fail(&mut self, sender: &str) -> ContractError {
+    fn pause_ics721_should_fail(&mut self, sender: &str) -> ContractError {
         self.app
             .execute_contract(
                 Addr::unchecked(sender),
-                self.bridge.clone(),
+                self.ics721.clone(),
                 &ExecuteMsg::Pause {},
                 &[],
             )
@@ -135,12 +135,12 @@ impl Test {
         let paused = self
             .app
             .wrap()
-            .query_wasm_smart(self.bridge.clone(), &QueryMsg::Paused {})
+            .query_wasm_smart(self.ics721.clone(), &QueryMsg::Paused {})
             .unwrap();
         let pauser = self
             .app
             .wrap()
-            .query_wasm_smart(self.bridge.clone(), &QueryMsg::Pauser {})
+            .query_wasm_smart(self.ics721.clone(), &QueryMsg::Pauser {})
             .unwrap();
         (paused, pauser)
     }
@@ -148,14 +148,14 @@ impl Test {
     fn query_proxy(&mut self) -> Option<Addr> {
         self.app
             .wrap()
-            .query_wasm_smart(self.bridge.clone(), &QueryMsg::Proxy {})
+            .query_wasm_smart(self.ics721.clone(), &QueryMsg::Proxy {})
             .unwrap()
     }
 
     fn query_cw721_id(&mut self) -> u64 {
         self.app
             .wrap()
-            .query_wasm_smart(self.bridge.clone(), &QueryMsg::Cw721CodeId {})
+            .query_wasm_smart(self.ics721.clone(), &QueryMsg::Cw721CodeId {})
             .unwrap()
     }
 
@@ -163,7 +163,7 @@ impl Test {
         self.app
             .wrap()
             .query_wasm_smart(
-                self.bridge.clone(),
+                self.ics721.clone(),
                 &QueryMsg::NftContracts {
                     start_after: None,
                     limit: None,
@@ -176,7 +176,7 @@ impl Test {
         self.app
             .wrap()
             .query_wasm_smart(
-                self.bridge.clone(),
+                self.ics721.clone(),
                 &QueryMsg::OutgoingChannels {
                     start_after: None,
                     limit: None,
@@ -189,7 +189,7 @@ impl Test {
         self.app
             .wrap()
             .query_wasm_smart(
-                self.bridge.clone(),
+                self.ics721.clone(),
                 &QueryMsg::OutgoingChannels {
                     start_after: None,
                     limit: None,
@@ -208,7 +208,7 @@ fn sg721_base_contract() -> Box<dyn Contract<StargazeMsgWrapper>> {
     Box::new(contract)
 }
 
-fn bridge_contract() -> Box<dyn Contract<StargazeMsgWrapper>> {
+fn ics721_contract() -> Box<dyn Contract<StargazeMsgWrapper>> {
     // need to wrap method in function for testing
     fn ibc_reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
         SgIcs721Contract::default()
@@ -235,7 +235,7 @@ fn proxy_contract() -> Box<dyn Contract<StargazeMsgWrapper>> {
 
 #[test]
 fn test_instantiate() {
-    let mut test = Test::instantiate_bridge(false, None);
+    let mut test = Test::instantiate_ics721(false, None);
 
     // check stores are properly initialized
     let cw721_id = test.query_cw721_id();
@@ -250,12 +250,12 @@ fn test_instantiate() {
 
 #[test]
 fn test_do_instantiate_and_mint_weird_data() {
-    let mut test = Test::instantiate_bridge(false, None);
+    let mut test = Test::instantiate_ics721(false, None);
 
     test.app
         .execute_contract(
-            test.bridge.clone(),
-            test.bridge,
+            test.ics721.clone(),
+            test.ics721,
             &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
                 receiver: "mr-t".to_string(),
                 create: VoucherCreation {
@@ -279,12 +279,12 @@ fn test_do_instantiate_and_mint_weird_data() {
 
 #[test]
 fn test_do_instantiate_and_mint() {
-    let mut test = Test::instantiate_bridge(false, None);
+    let mut test = Test::instantiate_ics721(false, None);
 
     test.app
         .execute_contract(
-            test.bridge.clone(),
-            test.bridge.clone(),
+            test.ics721.clone(),
+            test.ics721.clone(),
             &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
                 receiver: "mr-t".to_string(),
                 create: VoucherCreation {
@@ -319,7 +319,7 @@ fn test_do_instantiate_and_mint() {
         .app
         .wrap()
         .query_wasm_smart(
-            test.bridge.clone(),
+            test.ics721.clone(),
             &QueryMsg::NftContract {
                 class_id: "bad kids".to_string(),
             },
@@ -349,7 +349,7 @@ fn test_do_instantiate_and_mint() {
     assert_eq!(
         collection_info,
         CollectionInfoResponse {
-            creator: test.bridge.to_string(),
+            creator: test.ics721.to_string(),
             description: "".to_string(),
             image: "https://arkprotocol.io".to_string(),
             external_link: None,
@@ -408,7 +408,7 @@ fn test_do_instantiate_and_mint() {
         .app
         .wrap()
         .query_wasm_smart(
-            test.bridge,
+            test.ics721,
             &QueryMsg::Owner {
                 token_id: "1".to_string(),
                 class_id: "bad kids".to_string(),
@@ -437,14 +437,14 @@ fn test_do_instantiate_and_mint() {
 
 #[test]
 fn test_do_instantiate_and_mint_no_instantiate() {
-    let mut test = Test::instantiate_bridge(false, None);
+    let mut test = Test::instantiate_ics721(false, None);
 
     // This will instantiate a new contract for the class ID and then
     // do a mint.
     test.app
         .execute_contract(
-            test.bridge.clone(),
-            test.bridge.clone(),
+            test.ics721.clone(),
+            test.ics721.clone(),
             &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
                 receiver: "mr-t".to_string(),
                 create: VoucherCreation {
@@ -473,8 +473,8 @@ fn test_do_instantiate_and_mint_no_instantiate() {
     // already been instantiated.
     test.app
         .execute_contract(
-            test.bridge.clone(),
-            test.bridge.clone(),
+            test.ics721.clone(),
+            test.ics721.clone(),
             &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
                 receiver: "mr-t".to_string(),
                 create: VoucherCreation {
@@ -503,7 +503,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         .app
         .wrap()
         .query_wasm_smart(
-            test.bridge,
+            test.ics721,
             &QueryMsg::NftContract {
                 class_id: "bad kids".to_string(),
             },
@@ -528,14 +528,14 @@ fn test_do_instantiate_and_mint_no_instantiate() {
 
 #[test]
 fn test_do_instantiate_and_mint_permissions() {
-    let mut test = Test::instantiate_bridge(false, None);
+    let mut test = Test::instantiate_ics721(false, None);
 
     // Method is only callable by the contract itself.
     let err: ContractError = test
         .app
         .execute_contract(
-            Addr::unchecked("notbridge"),
-            test.bridge,
+            Addr::unchecked("notIcs721"),
+            test.ics721,
             &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
                 receiver: "mr-t".to_string(),
                 create: VoucherCreation {
@@ -563,13 +563,13 @@ fn test_do_instantiate_and_mint_permissions() {
 /// Tests that we can not proxy NFTs if no proxy is configured.
 #[test]
 fn test_no_proxy_unauthorized() {
-    let mut test = Test::instantiate_bridge(false, None);
+    let mut test = Test::instantiate_ics721(false, None);
 
     let err: ContractError = test
         .app
         .execute_contract(
             Addr::unchecked("proxy"),
-            test.bridge,
+            test.ics721,
             &ExecuteMsg::ReceiveProxyNft {
                 eyeball: "nft".to_string(),
                 msg: cw721::Cw721ReceiveMsg {
@@ -597,12 +597,12 @@ fn test_no_proxy_unauthorized() {
 #[test]
 #[should_panic(expected = "Unexpected exec msg SendPacket")]
 fn test_proxy_authorized() {
-    let mut test = Test::instantiate_bridge(true, None);
+    let mut test = Test::instantiate_ics721(true, None);
 
     let proxy_address: Option<Addr> = test
         .app
         .wrap()
-        .query_wasm_smart(&test.bridge, &QueryMsg::Proxy {})
+        .query_wasm_smart(&test.ics721, &QueryMsg::Proxy {})
         .unwrap();
     let proxy_address = proxy_address.expect("expected a proxy");
 
@@ -611,7 +611,7 @@ fn test_proxy_authorized() {
         .app
         .instantiate_contract(
             cw721_id,
-            test.bridge.clone(), // sg721 contract can only be instantiated by a contract, not user (unauthorized)
+            test.ics721.clone(), // sg721 contract can only be instantiated by a contract, not user (unauthorized)
             &sg721::InstantiateMsg {
                 name: "token".to_string(),
                 symbol: "nonfungible".to_string(),
@@ -637,7 +637,7 @@ fn test_proxy_authorized() {
             cw721.clone(),
             &cw721_base::ExecuteMsg::<Empty, Empty>::Mint {
                 token_id: "1".to_string(),
-                owner: test.bridge.to_string(),
+                owner: test.ics721.to_string(),
                 token_uri: None,
                 extension: Empty::default(),
             },
@@ -648,7 +648,7 @@ fn test_proxy_authorized() {
     test.app
         .execute_contract(
             proxy_address,
-            test.bridge,
+            test.ics721,
             &ExecuteMsg::ReceiveProxyNft {
                 eyeball: cw721.into_string(),
                 msg: cw721::Cw721ReceiveMsg {
@@ -675,13 +675,13 @@ fn test_proxy_authorized() {
 /// proxy is installed.
 #[test]
 fn test_no_receive_with_proxy() {
-    let mut test = Test::instantiate_bridge(true, None);
+    let mut test = Test::instantiate_ics721(true, None);
 
     let err: ContractError = test
         .app
         .execute_contract(
             Addr::unchecked("cw721"),
-            test.bridge,
+            test.ics721,
             &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
                 sender: "mr-t".to_string(),
                 token_id: "1".to_string(),
@@ -708,7 +708,7 @@ fn test_no_receive_with_proxy() {
 /// Tests the contract's pause behavior.
 #[test]
 fn test_pause() {
-    let mut test = Test::instantiate_bridge(true, Some("mr-t".to_string()));
+    let mut test = Test::instantiate_ics721(true, Some("mr-t".to_string()));
 
     // Should start unpaused.
     let (paused, pauser) = test.query_pause_info();
@@ -716,7 +716,7 @@ fn test_pause() {
     assert_eq!(pauser, Some(Addr::unchecked("mr-t")));
 
     // Non-pauser may not pause.
-    let err = test.pause_bridge_should_fail("zeke");
+    let err = test.pause_ics721_should_fail("zeke");
     assert_eq!(
         err,
         ContractError::Pause(PauseError::Unauthorized {
@@ -724,15 +724,15 @@ fn test_pause() {
         })
     );
 
-    // Pause the bridge.
-    test.pause_bridge("mr-t");
+    // Pause the ICS721 contract.
+    test.pause_ics721("mr-t");
     // Pausing should remove the pauser.
     let (paused, pauser) = test.query_pause_info();
     assert!(paused);
     assert_eq!(pauser, None);
 
     // Pausing fails.
-    let err = test.pause_bridge_should_fail("mr-t");
+    let err = test.pause_ics721_should_fail("mr-t");
     assert_eq!(err, ContractError::Pause(PauseError::Paused {}));
 
     // Even something like executing a callback on ourselves will be
@@ -740,8 +740,8 @@ fn test_pause() {
     let err: ContractError = test
         .app
         .execute_contract(
-            test.bridge.clone(),
-            test.bridge.clone(),
+            test.ics721.clone(),
+            test.ics721.clone(),
             &ExecuteMsg::Callback(CallbackMsg::Conjunction { operands: vec![] }),
             &[],
         )
@@ -751,13 +751,13 @@ fn test_pause() {
     assert_eq!(err, ContractError::Pause(PauseError::Paused {}));
 
     // Set a new pauser.
-    let bridge_id = test.app.store_code(bridge_contract());
+    let ics721_id = test.app.store_code(ics721_contract());
     test.app
         .execute(
             Addr::unchecked("mr-t"),
             WasmMsg::Migrate {
-                contract_addr: test.bridge.to_string(),
-                new_code_id: bridge_id,
+                contract_addr: test.ics721.to_string(),
+                new_code_id: ics721_id,
                 msg: to_binary(&MigrateMsg::WithUpdate {
                     pauser: Some("zeke".to_string()),
                     proxy: None,
@@ -775,7 +775,7 @@ fn test_pause() {
     assert_eq!(pauser, Some(Addr::unchecked("zeke")));
 
     // One more pause for posterity sake.
-    test.pause_bridge("zeke");
+    test.pause_ics721("zeke");
     let (paused, pauser) = test.query_pause_info();
     assert!(paused);
     assert_eq!(pauser, None);
@@ -784,7 +784,7 @@ fn test_pause() {
 /// Tests migration.
 #[test]
 fn test_migration() {
-    let mut test = Test::instantiate_bridge(true, Some("mr-t".to_string()));
+    let mut test = Test::instantiate_ics721(true, Some("mr-t".to_string()));
     // assert instantiation worked
     let (_, pauser) = test.query_pause_info();
     assert_eq!(pauser, Some(Addr::unchecked("mr-t")));
@@ -798,8 +798,8 @@ fn test_migration() {
         .execute(
             Addr::unchecked("mr-t"),
             WasmMsg::Migrate {
-                contract_addr: test.bridge.to_string(),
-                new_code_id: test.bridge_id,
+                contract_addr: test.ics721.to_string(),
+                new_code_id: test.ics721_id,
                 msg: to_binary(&MigrateMsg::WithUpdate {
                     pauser: None,
                     proxy: None,
@@ -823,8 +823,8 @@ fn test_migration() {
         .execute(
             Addr::unchecked("mr-t"),
             WasmMsg::Migrate {
-                contract_addr: test.bridge.to_string(),
-                new_code_id: test.bridge_id,
+                contract_addr: test.ics721.to_string(),
+                new_code_id: test.ics721_id,
                 msg: to_binary(&MigrateMsg::WithUpdate {
                     pauser: None,
                     proxy: None,
