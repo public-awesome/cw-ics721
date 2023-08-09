@@ -95,7 +95,7 @@ func storeWasmFile(t *testing.T, file string, creator sdk.AccAddress, ctx sdk.Co
 }
 
 func StoreICS721Bridge(t *testing.T, creator sdk.AccAddress, ctx sdk.Context, app *app.App) uint64 {
-	return storeWasmFile(t, "../artifacts/cw_ics721_bridge.wasm", creator, ctx, app)
+	return storeWasmFile(t, "../artifacts/ics721_base.wasm", creator, ctx, app)
 }
 
 func StoreCw721Base(t *testing.T, creator sdk.AccAddress, ctx sdk.Context, app *app.App) uint64 {
