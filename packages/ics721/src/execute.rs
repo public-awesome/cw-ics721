@@ -419,7 +419,11 @@ where
         msg: MigrateMsg,
     ) -> Result<Response<T>, ContractError> {
         match msg {
-            MigrateMsg::WithUpdate { pauser, proxy } => {
+            MigrateMsg::WithUpdate {
+                pauser,
+                proxy,
+                cw721_base_code_id,
+            } => {
                 Ics721Contract::default().proxy.save(
                     deps.storage,
                     &proxy
@@ -432,7 +436,20 @@ where
                     deps.api,
                     pauser.as_deref(),
                 )?;
-                Ok(Response::default().add_attribute("method", "migrate"))
+                if let Some(cw721_base_code_id) = cw721_base_code_id {
+                    Ics721Contract::default()
+                        .cw721_info
+                        .cw721_code_id
+                        .save(deps.storage, &cw721_base_code_id)?;
+                }
+                Ok(Response::default()
+                    .add_attribute("method", "migrate")
+                    .add_attribute("pauser", pauser.map_or_else(|| "none".to_string(), |or| or))
+                    .add_attribute("proxy", proxy.map_or_else(|| "none".to_string(), |or| or))
+                    .add_attribute(
+                        "cw721_base_code_id",
+                        cw721_base_code_id.map_or_else(|| "none".to_string(), |or| or.to_string()),
+                    ))
             }
         }
     }
