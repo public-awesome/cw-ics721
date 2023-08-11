@@ -29,5 +29,4 @@ cw721 = { workspace = true}
 cw721-rate-limited-proxy = { workspace = true }
 sg721-base = { workspace = true}
 cw721-base = { workspace = true}
-sg-multi-test = { workspace = true}
 

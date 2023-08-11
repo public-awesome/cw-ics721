@@ -975,24 +975,9 @@ dependencies = [
  "cw721-rate-limited-proxy",
  "ics721",
  "serde",
- "sg-multi-test",
  "sg-std",
  "sg721",
  "sg721-base",
-]
-
-[[package]]
-name = "sg-multi-test"
-version = "3.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20744734b8049c64747bfb083bbc06a3c7204d1d34881ed3d89698e182aa9f97"
-dependencies = [
- "anyhow",
- "cosmwasm-std",
- "cw-multi-test",
- "schemars",
- "serde",
- "sg-std",
 ]
 
 [[package]]
