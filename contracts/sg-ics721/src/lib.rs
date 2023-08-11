@@ -8,7 +8,7 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     Binary, Deps, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Reply, StdResult,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Reply, Response, StdResult,
 };
 use cw2::set_contract_version;
 use ics721::{
@@ -18,7 +18,6 @@ use ics721::{
     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
 };
-use sg_std::Response;
 use state::SgIcs721Contract;
 
 const CONTRACT_NAME: &str = "crates.io:sg-ics721";

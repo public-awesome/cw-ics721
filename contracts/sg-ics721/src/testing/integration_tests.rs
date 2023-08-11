@@ -1,13 +1,13 @@
 use cosmwasm_std::{
     testing::mock_env, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcTimeout,
-    IbcTimeoutBlock, MessageInfo, Reply, StdResult, WasmMsg,
+    IbcTimeoutBlock, MessageInfo, Reply, Response, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw721::ContractInfoResponse;
 use cw721_base::msg::QueryMsg as Cw721QueryMsg;
 
 use cw_cii::{Admin, ContractInstantiateInfo};
-use cw_multi_test::{Contract, ContractWrapper, Executor};
+use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 use cw_pause_once::PauseError;
 use ics721::{
     execute::Ics721Execute,
@@ -17,8 +17,6 @@ use ics721::{
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
 };
 use sg721_base::msg::{CollectionInfoResponse, QueryMsg as Sg721QueryMsg};
-use sg_multi_test::StargazeApp;
-use sg_std::{Response, StargazeMsgWrapper};
 
 use crate::{ContractError, SgIcs721Contract};
 
@@ -54,7 +52,7 @@ fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, Contrac
 }
 
 struct Test {
-    app: StargazeApp,
+    app: App,
     cw721_id: u64,
     ics721: Addr,
     ics721_id: u64,
@@ -62,7 +60,7 @@ struct Test {
 
 impl Test {
     fn instantiate_ics721(proxy: bool, pauser: Option<String>) -> Self {
-        let mut app = StargazeApp::default();
+        let mut app = App::default();
         let cw721_id = app.store_code(sg721_base_contract());
         let ics721_id = app.store_code(ics721_contract());
 
@@ -199,16 +197,33 @@ impl Test {
     }
 }
 
-fn sg721_base_contract() -> Box<dyn Contract<StargazeMsgWrapper>> {
-    let contract = ContractWrapper::new(
-        sg721_base::entry::execute,
-        sg721_base::entry::instantiate,
-        sg721_base::entry::query,
-    );
+fn sg721_base_contract() -> Box<dyn Contract<Empty>> {
+    // sg721_base's execute and instantiate function deals Response<StargazeMsgWrapper>
+    // but App multi test deals Response<Empty>
+    // so we need to wrap sg721_base's execute and instantiate function
+    fn exececute_fn(
+        deps: DepsMut,
+        env: Env,
+        info: MessageInfo,
+        msg: sg721::ExecuteMsg<Option<Empty>, Empty>,
+    ) -> Result<Response, sg721_base::ContractError> {
+        sg721_base::entry::execute(deps, env, info, msg)
+            .and_then(|_| Ok::<Response, sg721_base::ContractError>(Response::default()))
+    }
+    fn instantiate_fn(
+        deps: DepsMut,
+        env: Env,
+        info: MessageInfo,
+        msg: sg721::InstantiateMsg,
+    ) -> Result<Response, sg721_base::ContractError> {
+        sg721_base::entry::instantiate(deps, env, info, msg)
+            .and_then(|_| Ok::<Response, sg721_base::ContractError>(Response::default()))
+    }
+    let contract = ContractWrapper::new(exececute_fn, instantiate_fn, sg721_base::entry::query);
     Box::new(contract)
 }
 
-fn ics721_contract() -> Box<dyn Contract<StargazeMsgWrapper>> {
+fn ics721_contract() -> Box<dyn Contract<Empty>> {
     // need to wrap method in function for testing
     fn ibc_reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
         SgIcs721Contract::default()
@@ -222,9 +237,9 @@ fn ics721_contract() -> Box<dyn Contract<StargazeMsgWrapper>> {
     Box::new(contract)
 }
 
-fn proxy_contract() -> Box<dyn Contract<StargazeMsgWrapper>> {
-    let execute_fn = cw721_rate_limited_proxy::contract::execute::<StargazeMsgWrapper>;
-    let instatiate_fn = cw721_rate_limited_proxy::contract::instantiate::<StargazeMsgWrapper>;
+fn proxy_contract() -> Box<dyn Contract<Empty>> {
+    let execute_fn = cw721_rate_limited_proxy::contract::execute::<Empty>;
+    let instatiate_fn = cw721_rate_limited_proxy::contract::instantiate::<Empty>;
     let contract = ContractWrapper::new(
         execute_fn,
         instatiate_fn,
