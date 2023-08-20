@@ -1,16 +1,19 @@
 use cosmwasm_std::{
+    from_binary,
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier, MOCK_CONTRACT_ADDR},
-    to_binary, ContractResult, CosmosMsg, Empty, IbcMsg, IbcTimeout, Order, QuerierResult,
+    to_binary, Addr, ContractResult, CosmosMsg, Empty, IbcMsg, IbcTimeout, Order, QuerierResult,
     StdResult, SubMsg, Timestamp, WasmQuery,
 };
 use cw721::{AllNftInfoResponse, NftInfoResponse};
+use cw721_base::QueryMsg;
+use cw_ownable::Ownership;
 
 use crate::{
     execute::Ics721Execute,
     ibc::{Ics721Ibc, NonFungibleTokenPacketData},
-    msg::IbcOutgoingMsg,
+    msg::{Cw721LegacyMinterQueryMsg, IbcOutgoingMsg},
     query::Ics721Query,
-    state::{CLASS_ID_TO_CLASS, OUTGOING_CLASS_TOKEN_TO_CHANNEL},
+    state::{ClassData, CLASS_ID_TO_CLASS, OUTGOING_CLASS_TOKEN_TO_CHANNEL},
     token_types::{ClassId, TokenId},
 };
 
@@ -25,26 +28,56 @@ impl Ics721Query for Ics721Contract {}
 fn nft_info_response_mock_querier(query: &WasmQuery) -> QuerierResult {
     match query {
         cosmwasm_std::WasmQuery::Smart {
-            contract_addr,
-            msg: _,
+            contract_addr: _,
+            msg,
         } => {
-            if *contract_addr == NFT_ADDR {
-                QuerierResult::Ok(ContractResult::Ok(
-                    to_binary(&AllNftInfoResponse::<Option<Empty>> {
-                        access: cw721::OwnerOfResponse {
-                            owner: MOCK_CONTRACT_ADDR.to_string(),
-                            approvals: vec![],
-                        },
-                        info: NftInfoResponse {
-                            token_uri: Some("https://moonphase.is/image.svg".to_string()),
-                            extension: None,
-                        },
-                    })
-                    .unwrap(),
-                ))
-            } else {
-                unimplemented!()
+            let cw721_base_query_msg = from_binary::<cw721_base::msg::QueryMsg<Empty>>(&msg);
+            let cw721_legacy_minter_query_msg = from_binary::<Cw721LegacyMinterQueryMsg>(&msg);
+            match (cw721_base_query_msg, cw721_legacy_minter_query_msg) {
+                (Ok(msg), _) => match msg {
+                    QueryMsg::Ownership {} => QuerierResult::Ok(ContractResult::Ok(
+                        to_binary(&Ownership::<Addr> {
+                            owner: None,
+                            pending_owner: None,
+                            pending_expiry: None,
+                        })
+                        .unwrap(),
+                    )),
+                    QueryMsg::AllNftInfo { .. } => QuerierResult::Ok(ContractResult::Ok(
+                        to_binary(&AllNftInfoResponse::<Option<Empty>> {
+                            access: cw721::OwnerOfResponse {
+                                owner: MOCK_CONTRACT_ADDR.to_string(),
+                                approvals: vec![],
+                            },
+                            info: NftInfoResponse {
+                                token_uri: Some("https://moonphase.is/image.svg".to_string()),
+                                extension: None,
+                            },
+                        })
+                        .unwrap(),
+                    )),
+                    _ => unimplemented!(),
+                },
+                (_, Ok(_)) => unimplemented!(),
+                (_, _) => unimplemented!(),
             }
+            // if *contract_addr == NFT_ADDR {
+            //     QuerierResult::Ok(ContractResult::Ok(
+            //         to_binary(&AllNftInfoResponse::<Option<Empty>> {
+            //             access: cw721::OwnerOfResponse {
+            //                 owner: MOCK_CONTRACT_ADDR.to_string(),
+            //                 approvals: vec![],
+            //             },
+            //             info: NftInfoResponse {
+            //                 token_uri: Some("https://moonphase.is/image.svg".to_string()),
+            //                 extension: None,
+            //             },
+            //         })
+            //         .unwrap(),
+            //     ))
+            // } else {
+            //     unimplemented!()
+            // }
         }
         cosmwasm_std::WasmQuery::Raw {
             contract_addr: _,
@@ -96,7 +129,7 @@ fn test_receive_nft() {
             data: to_binary(&NonFungibleTokenPacketData {
                 class_id: ClassId::new(NFT_ADDR),
                 class_uri: None,
-                class_data: None,
+                class_data: Some(to_binary(&ClassData { owner: None }).unwrap()),
                 token_data: None,
                 token_ids: vec![TokenId::new(token_id)],
                 token_uris: Some(vec!["https://moonphase.is/image.svg".to_string()]),
@@ -157,5 +190,8 @@ fn test_receive_sets_uri() {
         .load(deps.as_ref().storage, ClassId::new(NFT_ADDR))
         .unwrap();
     assert_eq!(class.uri, None);
-    assert_eq!(class.data, None);
+    assert_eq!(
+        class.data,
+        Some(to_binary(&ClassData { owner: None }).unwrap()),
+    );
 }
