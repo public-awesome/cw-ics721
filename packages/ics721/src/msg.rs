@@ -5,6 +5,10 @@ use cw_cii::ContractInstantiateInfo;
 
 use crate::token_types::{ClassId, Token, TokenId, VoucherCreation, VoucherRedemption};
 
+/// cw721 version v0.16 and older stores creator in minter, higher versions have optional ownership
+#[cw_serde]
+pub struct Cw721LegacyMinterQueryMsg {}
+
 #[cw_serde]
 pub struct InstantiateMsg {
     /// Code ID of cw721-ics contract. A new cw721-ics will be
