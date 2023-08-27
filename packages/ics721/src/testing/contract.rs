@@ -18,6 +18,7 @@ use crate::{
 };
 
 const NFT_ADDR: &str = "nft";
+const OWNER: &str = "owner";
 
 #[derive(Default)]
 pub struct Ics721Contract {}
@@ -25,7 +26,7 @@ impl Ics721Execute<Empty> for Ics721Contract {}
 impl Ics721Ibc<Empty> for Ics721Contract {}
 impl Ics721Query for Ics721Contract {}
 
-fn nft_info_response_mock_querier(query: &WasmQuery) -> QuerierResult {
+fn mock_querier(query: &WasmQuery) -> QuerierResult {
     match query {
         cosmwasm_std::WasmQuery::Smart {
             contract_addr: _,
@@ -37,7 +38,7 @@ fn nft_info_response_mock_querier(query: &WasmQuery) -> QuerierResult {
                 (Ok(msg), _) => match msg {
                     QueryMsg::Ownership {} => QuerierResult::Ok(ContractResult::Ok(
                         to_binary(&Ownership::<Addr> {
-                            owner: None,
+                            owner: Some(Addr::unchecked(OWNER)),
                             pending_owner: None,
                             pending_expiry: None,
                         })
@@ -61,23 +62,6 @@ fn nft_info_response_mock_querier(query: &WasmQuery) -> QuerierResult {
                 (_, Ok(_)) => unimplemented!(),
                 (_, _) => unimplemented!(),
             }
-            // if *contract_addr == NFT_ADDR {
-            //     QuerierResult::Ok(ContractResult::Ok(
-            //         to_binary(&AllNftInfoResponse::<Option<Empty>> {
-            //             access: cw721::OwnerOfResponse {
-            //                 owner: MOCK_CONTRACT_ADDR.to_string(),
-            //                 approvals: vec![],
-            //             },
-            //             info: NftInfoResponse {
-            //                 token_uri: Some("https://moonphase.is/image.svg".to_string()),
-            //                 extension: None,
-            //             },
-            //         })
-            //         .unwrap(),
-            //     ))
-            // } else {
-            //     unimplemented!()
-            // }
         }
         cosmwasm_std::WasmQuery::Raw {
             contract_addr: _,
@@ -91,7 +75,7 @@ fn nft_info_response_mock_querier(query: &WasmQuery) -> QuerierResult {
 #[test]
 fn test_receive_nft() {
     let mut querier = MockQuerier::default();
-    querier.update_wasm(nft_info_response_mock_querier);
+    querier.update_wasm(mock_querier);
 
     let mut deps = mock_dependencies();
     deps.querier = querier;
@@ -129,7 +113,12 @@ fn test_receive_nft() {
             data: to_binary(&NonFungibleTokenPacketData {
                 class_id: ClassId::new(NFT_ADDR),
                 class_uri: None,
-                class_data: Some(to_binary(&ClassData { owner: None }).unwrap()),
+                class_data: Some(
+                    to_binary(&ClassData {
+                        owner: Some(OWNER.to_string())
+                    })
+                    .unwrap()
+                ),
                 token_data: None,
                 token_ids: vec![TokenId::new(token_id)],
                 token_uris: Some(vec!["https://moonphase.is/image.svg".to_string()]),
@@ -165,7 +154,7 @@ fn test_receive_nft() {
 #[test]
 fn test_receive_sets_uri() {
     let mut querier = MockQuerier::default();
-    querier.update_wasm(nft_info_response_mock_querier);
+    querier.update_wasm(mock_querier);
 
     let mut deps = mock_dependencies();
     deps.querier = querier;
@@ -192,6 +181,11 @@ fn test_receive_sets_uri() {
     assert_eq!(class.uri, None);
     assert_eq!(
         class.data,
-        Some(to_binary(&ClassData { owner: None }).unwrap()),
+        Some(
+            to_binary(&ClassData {
+                owner: Some(OWNER.to_string())
+            })
+            .unwrap()
+        ),
     );
 }
