@@ -8,6 +8,7 @@ edition    = "2021"
 [workspace.dependencies]
 # common libs
 anyhow = "1.0"
+bech32 = "^0.9"
 cosmwasm-std = "1.2"
 cosmwasm-schema = "1.2"
 cosmwasm-storage = "1.2"

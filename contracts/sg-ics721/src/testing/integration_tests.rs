@@ -1,19 +1,26 @@
+use bech32::Variant;
 use cosmwasm_std::{
-    testing::mock_env, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcTimeout,
-    IbcTimeoutBlock, MessageInfo, Reply, Response, StdResult, WasmMsg,
+    testing::mock_env, to_binary, Addr, Api, Binary, Deps, DepsMut, Empty, Env, GovMsg, IbcMsg,
+    IbcQuery, IbcTimeout, IbcTimeoutBlock, MessageInfo, Reply, Response, StdResult, Storage,
+    WasmMsg,
 };
 use cw2::set_contract_version;
 use cw721::ContractInfoResponse;
 use cw721_base::msg::QueryMsg as Cw721QueryMsg;
 
 use cw_cii::{Admin, ContractInstantiateInfo};
-use cw_multi_test::{App, Contract, ContractWrapper, Executor};
+use cw_multi_test::{
+    AddressGenerator, App, AppBuilder, BankKeeper, Contract, ContractWrapper, DistributionKeeper,
+    Executor, FailingModule, Router, StakeKeeper, WasmKeeper,
+};
 use cw_pause_once::PauseError;
+use cw_storage_plus::Item;
 use ics721::{
     execute::Ics721Execute,
     ibc::Ics721Ibc,
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
+    state::ClassData,
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
 };
 use sg721_base::msg::{CollectionInfoResponse, QueryMsg as Sg721QueryMsg};
@@ -23,6 +30,9 @@ use crate::{ContractError, SgIcs721Contract};
 const COMMUNITY_POOL: &str = "community_pool";
 const CONTRACT_NAME: &str = "crates.io:sg-ics721";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+const OWNER_SOURCE_CHAIN: &str = "juno1ke55z7catvdvnhvyyh0pkvs30t09me72vcxkh5";
+const TARGET_HRP: &str = "stars";
 
 fn instantiate(
     deps: DepsMut,
@@ -51,6 +61,48 @@ fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, Contrac
     SgIcs721Contract::default().migrate(deps, env, msg)
 }
 
+fn no_init(
+    _router: &mut Router<
+        BankKeeper,
+        FailingModule<Empty, Empty, Empty>,
+        WasmKeeper<Empty, Empty>,
+        StakeKeeper,
+        DistributionKeeper,
+        FailingModule<IbcMsg, IbcQuery, Empty>,
+        FailingModule<GovMsg, Empty, Empty>,
+    >,
+    _api: &dyn Api,
+    _storage: &mut dyn Storage,
+) {
+}
+
+#[derive(Debug)]
+struct HrpAddressGenerator {
+    pub hrp: String,
+}
+
+const COUNT: Item<u8> = Item::new("count");
+
+impl HrpAddressGenerator {
+    pub const fn new(hrp: String) -> Self {
+        Self { hrp }
+    }
+}
+
+impl AddressGenerator for HrpAddressGenerator {
+    fn next_address(&self, storage: &mut dyn Storage) -> Addr {
+        let count = match COUNT.may_load(storage) {
+            Ok(Some(count)) => count,
+            _ => 0,
+        };
+        let data = bech32::u5::try_from_u8(count).unwrap();
+        let encoded_addr = bech32::encode(self.hrp.as_str(), vec![data], Variant::Bech32).unwrap();
+        let addr = Addr::unchecked(encoded_addr);
+        COUNT.save(storage, &(count + 1)).unwrap();
+        addr
+    }
+}
+
 struct Test {
     app: App,
     cw721_id: u64,
@@ -60,7 +112,13 @@ struct Test {
 
 impl Test {
     fn instantiate_ics721(proxy: bool, pauser: Option<String>) -> Self {
-        let mut app = App::default();
+        let mut app = AppBuilder::new()
+            .with_wasm::<FailingModule<Empty, Empty, Empty>, WasmKeeper<Empty, Empty>>(
+                WasmKeeper::new_with_custom_address_generator(HrpAddressGenerator::new(
+                    TARGET_HRP.to_string(),
+                )),
+            )
+            .build(no_init);
         let cw721_id = app.store_code(sg721_base_contract());
         let ics721_id = app.store_code(ics721_contract());
 
@@ -277,7 +335,12 @@ fn test_do_instantiate_and_mint_weird_data() {
                     class: Class {
                         id: ClassId::new("bad kids"),
                         uri: None,
-                        data: None,
+                        data: Some(
+                            to_binary(&ClassData {
+                                owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                            })
+                            .unwrap(),
+                        ),
                     },
                     tokens: vec![Token {
                         id: TokenId::new("1"),
@@ -306,7 +369,12 @@ fn test_do_instantiate_and_mint() {
                     class: Class {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
-                        data: None,
+                        data: Some(
+                            to_binary(&ClassData {
+                                owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                            })
+                            .unwrap(),
+                        ),
                     },
                     tokens: vec![
                         Token {
@@ -361,10 +429,13 @@ fn test_do_instantiate_and_mint() {
         .wrap()
         .query_wasm_smart(nft.clone(), &Sg721QueryMsg::CollectionInfo {})
         .unwrap();
+    let (_source_hrp, source_data, source_variant) = bech32::decode(OWNER_SOURCE_CHAIN).unwrap();
+    let target_owner = bech32::encode(TARGET_HRP, source_data, source_variant).unwrap();
+
     assert_eq!(
         collection_info,
         CollectionInfoResponse {
-            creator: test.ics721.to_string(),
+            creator: target_owner,
             description: "".to_string(),
             image: "https://arkprotocol.io".to_string(),
             external_link: None,
@@ -466,7 +537,12 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                     class: Class {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
-                        data: None,
+                        data: Some(
+                            to_binary(&ClassData {
+                                owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                            })
+                            .unwrap(),
+                        ),
                     },
                     tokens: vec![Token {
                         id: TokenId::new("1"),
@@ -496,7 +572,12 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                     class: Class {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
-                        data: None,
+                        data: Some(
+                            to_binary(&ClassData {
+                                owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                            })
+                            .unwrap(),
+                        ),
                     },
                     tokens: vec![Token {
                         id: TokenId::new("2"),
@@ -557,7 +638,12 @@ fn test_do_instantiate_and_mint_permissions() {
                     class: Class {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
-                        data: None,
+                        data: Some(
+                            to_binary(&ClassData {
+                                owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                            })
+                            .unwrap(),
+                        ),
                     },
                     tokens: vec![Token {
                         id: TokenId::new("1"),
