@@ -23,6 +23,8 @@ cw-cii = { workspace = true }
 zip-optional = { workspace = true }
 
 [dev-dependencies]
+anyhow = { workspace = true }
+cw721-base-016 = { workspace = true }
 cw-multi-test = { workspace = true }
 cw2 = { workspace = true }
 cw721-rate-limited-proxy = { workspace = true }

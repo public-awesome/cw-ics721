@@ -18,6 +18,7 @@ cw-storage-plus = "1.1"
 cw2 = "1.1"
 cw721 = "0.18"
 cw721-base = "0.18"
+cw721-base-016  = { version = "0.16.0", package = "cw721-base" }
 cw721-proxy-derive = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.7" }
 cw721-rate-limited-proxy = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.7" }
 cw-multi-test = "0.16"

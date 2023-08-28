@@ -187,7 +187,7 @@ where
         let ibc_message = NonFungibleTokenPacketData {
             class_id: class.id.clone(),
             class_uri: class.uri,
-            class_data: class.data,
+            class_data: class.data.clone(),
 
             token_ids: vec![token_id.clone()],
             token_uris: info.token_uri.map(|uri| vec![uri]),
@@ -208,11 +208,13 @@ where
             (class.id.clone(), token_id.clone()),
             &msg.channel_id,
         )?;
+        let class_data: ClassData = from_binary(&class.data.unwrap())?;
 
         Ok(Response::default()
             .add_attribute("method", "execute_receive_nft")
             .add_attribute("token_id", token_id)
             .add_attribute("class_id", class.id)
+            .add_attribute("class_data", format!("{:?}", class_data))
             .add_attribute("channel_id", msg.channel_id)
             .add_message(ibc_message))
     }

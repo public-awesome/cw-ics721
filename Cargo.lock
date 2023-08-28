@@ -687,6 +687,7 @@ dependencies = [
 name = "ics721"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "bech32",
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -699,6 +700,7 @@ dependencies = [
  "cw-utils 1.0.1",
  "cw2 1.1.0",
  "cw721 0.18.0",
+ "cw721-base 0.16.0",
  "cw721-base 0.18.0",
  "cw721-proxy-derive",
  "cw721-rate-limited-proxy",
@@ -972,6 +974,7 @@ dependencies = [
 name = "sg-ics721"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "bech32",
  "cosmwasm-schema",
  "cosmwasm-std",
