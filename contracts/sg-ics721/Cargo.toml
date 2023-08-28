@@ -24,6 +24,7 @@ sg721 = { workspace = true }
 cw-pause-once = { workspace = true }
 
 [dev-dependencies]
+anyhow = { workspace = true }
 cosmwasm-schema = { workspace = true }
 cw-cii = { workspace = true }
 cw-multi-test = { workspace = true }

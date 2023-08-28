@@ -1,16 +1,16 @@
 use bech32::Variant;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    to_binary, Addr, Api, Binary, Deps, DepsMut, Empty, Env, GovMsg, IbcMsg, IbcQuery, IbcTimeout,
-    IbcTimeoutBlock, MessageInfo, Reply, Response, StdResult, Storage, WasmMsg,
+    testing::MockApi, to_binary, Addr, Api, Binary, Deps, DepsMut, Empty, Env, GovMsg, IbcTimeout,
+    IbcTimeoutBlock, MemoryStorage, MessageInfo, Reply, Response, StdResult, Storage, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw721::ContractInfoResponse;
-use cw721_base::msg::QueryMsg as Cw721QueryMsg;
+use cw721_base::msg::{InstantiateMsg as Cw721InstantiateMsg, QueryMsg as Cw721QueryMsg};
 use cw_cii::{Admin, ContractInstantiateInfo};
 use cw_multi_test::{
     AddressGenerator, App, AppBuilder, BankKeeper, Contract, ContractWrapper, DistributionKeeper,
-    Executor, FailingModule, Router, StakeKeeper, WasmKeeper,
+    Executor, FailingModule, IbcAcceptingModule, Router, StakeKeeper, WasmKeeper,
 };
 use cw_pause_once::PauseError;
 use cw_storage_plus::Item;
@@ -72,7 +72,7 @@ fn no_init(
         WasmKeeper<Empty, Empty>,
         StakeKeeper,
         DistributionKeeper,
-        FailingModule<IbcMsg, IbcQuery, Empty>,
+        IbcAcceptingModule,
         FailingModule<GovMsg, Empty, Empty>,
     >,
     _api: &dyn Api,
@@ -113,22 +113,35 @@ impl AddressGenerator for Bech32AddressGenerator {
 }
 
 struct Test {
-    app: App,
+    app: App<
+        BankKeeper,
+        MockApi,
+        MemoryStorage,
+        FailingModule<Empty, Empty, Empty>,
+        WasmKeeper<Empty, Empty>,
+        StakeKeeper,
+        DistributionKeeper,
+        IbcAcceptingModule,
+    >,
+    minter: Addr,
     cw721_id: u64,
-    ics721: Addr,
+    cw721: Addr,
     ics721_id: u64,
+    ics721: Addr,
+    nfts_minted: usize,
 }
 
 impl Test {
-    fn instantiate_ics721(proxy: bool, pauser: Option<String>) -> Self {
+    fn new(proxy: bool, pauser: Option<String>, cw721_code: Box<dyn Contract<Empty>>) -> Self {
         let mut app = AppBuilder::new()
             .with_wasm::<FailingModule<Empty, Empty, Empty>, WasmKeeper<Empty, Empty>>(
                 WasmKeeper::new_with_custom_address_generator(Bech32AddressGenerator::new(
                     TARGET_HRP.to_string(),
                 )),
             )
+            .with_ibc(IbcAcceptingModule)
             .build(no_init);
-        let cw721_id = app.store_code(cw721_base_contract());
+        let cw721_id = app.store_code(cw721_code);
         let ics721_id = app.store_code(ics721_contract());
 
         use cw721_rate_limited_proxy as rlp;
@@ -164,11 +177,30 @@ impl Test {
             )
             .unwrap();
 
+        let minter = Addr::unchecked("minter");
+        let cw721 = app
+            .instantiate_contract(
+                cw721_id,
+                minter.clone(),
+                &Cw721InstantiateMsg {
+                    name: "name".to_string(),
+                    symbol: "symbol".to_string(),
+                    minter: minter.to_string(),
+                },
+                &[],
+                "cw721-base",
+                None,
+            )
+            .unwrap();
+
         Self {
             app,
+            minter,
             cw721_id,
-            ics721,
+            cw721,
             ics721_id,
+            ics721,
+            nfts_minted: 0,
         }
     }
 
@@ -262,6 +294,24 @@ impl Test {
             )
             .unwrap()
     }
+
+    fn execute_cw721_mint(&mut self, owner: Addr) -> Result<String, anyhow::Error> {
+        self.nfts_minted += 1;
+
+        self.app
+            .execute_contract(
+                self.minter.clone(),
+                self.cw721.clone(),
+                &cw721_base::msg::ExecuteMsg::<Empty, Empty>::Mint {
+                    token_id: self.nfts_minted.to_string(),
+                    owner: owner.to_string(),
+                    token_uri: None,
+                    extension: Default::default(),
+                },
+                &[],
+            )
+            .map(|_| self.nfts_minted.to_string())
+    }
 }
 
 fn cw721_base_contract() -> Box<dyn Contract<Empty>> {
@@ -269,6 +319,16 @@ fn cw721_base_contract() -> Box<dyn Contract<Empty>> {
         cw721_base::entry::execute,
         cw721_base::entry::instantiate,
         cw721_base::entry::query,
+    );
+    Box::new(contract)
+}
+
+fn cw721_v16_base_contract() -> Box<dyn Contract<Empty>> {
+    use cw721_base_016 as v16;
+    let contract = ContractWrapper::new(
+        v16::entry::execute,
+        v16::entry::instantiate,
+        v16::entry::query,
     );
     Box::new(contract)
 }
@@ -296,7 +356,7 @@ fn proxy_contract() -> Box<dyn Contract<Empty>> {
 
 #[test]
 fn test_instantiate() {
-    let mut test = Test::instantiate_ics721(false, None);
+    let mut test = Test::new(false, None, cw721_base_contract());
 
     // check stores are properly initialized
     let cw721_id = test.query_cw721_id();
@@ -311,7 +371,7 @@ fn test_instantiate() {
 
 #[test]
 fn test_do_instantiate_and_mint_weird_data() {
-    let mut test = Test::instantiate_ics721(false, None);
+    let mut test = Test::new(false, None, cw721_base_contract());
 
     test.app
         .execute_contract(
@@ -347,7 +407,7 @@ fn test_do_instantiate_and_mint_weird_data() {
 fn test_do_instantiate_and_mint() {
     // test case: instantiate cw721 with no ClassData
     {
-        let mut test = Test::instantiate_ics721(false, None);
+        let mut test = Test::new(false, None, cw721_base_contract());
         test.app
             .execute_contract(
                 test.ics721.clone(),
@@ -484,7 +544,7 @@ fn test_do_instantiate_and_mint() {
     }
     // test case: instantiate cw721 with ClassData containing owner
     {
-        let mut test = Test::instantiate_ics721(false, None);
+        let mut test = Test::new(false, None, cw721_base_contract());
         test.app
             .execute_contract(
                 test.ics721.clone(),
@@ -626,7 +686,7 @@ fn test_do_instantiate_and_mint() {
     }
     // test case: instantiate cw721 with different CustomClassData with no owner info
     {
-        let mut test = Test::instantiate_ics721(false, None);
+        let mut test = Test::new(false, None, cw721_base_contract());
         test.app
             .execute_contract(
                 test.ics721.clone(),
@@ -770,7 +830,7 @@ fn test_do_instantiate_and_mint() {
 
 #[test]
 fn test_do_instantiate_and_mint_no_instantiate() {
-    let mut test = Test::instantiate_ics721(false, None);
+    let mut test = Test::new(false, None, cw721_base_contract());
 
     // This will instantiate a new contract for the class ID and then
     // do a mint.
@@ -871,7 +931,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
 
 #[test]
 fn test_do_instantiate_and_mint_permissions() {
-    let mut test = Test::instantiate_ics721(false, None);
+    let mut test = Test::new(false, None, cw721_base_contract());
 
     // Method is only callable by the contract itself.
     let err: ContractError = test
@@ -911,7 +971,7 @@ fn test_do_instantiate_and_mint_permissions() {
 /// Tests that we can not proxy NFTs if no proxy is configured.
 #[test]
 fn test_no_proxy_unauthorized() {
-    let mut test = Test::instantiate_ics721(false, None);
+    let mut test = Test::new(false, None, cw721_base_contract());
 
     let err: ContractError = test
         .app
@@ -935,17 +995,9 @@ fn test_no_proxy_unauthorized() {
     assert_eq!(err, ContractError::Unauthorized {});
 }
 
-// Tests that the proxy can send NFTs via this contract. multi test
-// doesn't support IBC messages and panics with "Unexpected exec msg
-// SendPacket" when you try to send one. If we're sending an IBC
-// message this test has passed though.
-//
-// NOTE: this test may fail when updating multi-test as the panic
-// string may change.
 #[test]
-#[should_panic(expected = "Unexpected exec msg SendPacket")]
 fn test_proxy_authorized() {
-    let mut test = Test::instantiate_ics721(true, None);
+    let mut test = Test::new(true, None, cw721_base_contract());
 
     let proxy_address: Option<Addr> = test
         .app
@@ -1010,11 +1062,56 @@ fn test_proxy_authorized() {
         .unwrap();
 }
 
+#[test]
+fn test_receive_nft() {
+    let mut test = Test::new(false, None, cw721_base_contract());
+    // mint and escrowed/owned by ics721
+    let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
+
+    let res = test
+        .app
+        .execute_contract(
+            test.cw721.clone(),
+            test.ics721,
+            &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+                sender: test.minter.to_string(),
+                token_id: token_id.clone(),
+                msg: to_binary(&IbcOutgoingMsg {
+                    receiver: "mr-t".to_string(),
+                    channel_id: "channel-0".to_string(),
+                    timeout: IbcTimeout::with_block(IbcTimeoutBlock {
+                        revision: 0,
+                        height: 10,
+                    }),
+                    memo: None,
+                })
+                .unwrap(),
+            }),
+            &[],
+        )
+        .unwrap();
+    let event = res.events.into_iter().find(|e| e.ty == "wasm").unwrap();
+    let class_data_attribute = event
+        .attributes
+        .into_iter()
+        .find(|a| a.key == "class_data")
+        .unwrap();
+    assert_eq!(
+        class_data_attribute.value,
+        format!(
+            "{:?}",
+            ClassData {
+                owner: Some(test.minter.to_string())
+            }
+        )
+    );
+}
+
 /// Tests that receiving a NFT via a regular receive fails when a
 /// proxy is installed.
 #[test]
 fn test_no_receive_with_proxy() {
-    let mut test = Test::instantiate_ics721(true, None);
+    let mut test = Test::new(true, None, cw721_base_contract());
 
     let err: ContractError = test
         .app
@@ -1047,7 +1144,7 @@ fn test_no_receive_with_proxy() {
 /// Tests the contract's pause behavior.
 #[test]
 fn test_pause() {
-    let mut test = Test::instantiate_ics721(true, Some("ekez".to_string()));
+    let mut test = Test::new(true, Some("ekez".to_string()), cw721_base_contract());
 
     // Should start unpaused.
     let (paused, pauser) = test.query_pause_info();
@@ -1123,7 +1220,7 @@ fn test_pause() {
 /// Tests migration.
 #[test]
 fn test_migration() {
-    let mut test = Test::instantiate_ics721(true, Some("ekez".to_string()));
+    let mut test = Test::new(true, Some("ekez".to_string()), cw721_base_contract());
     // assert instantiation worked
     let (_, pauser) = test.query_pause_info();
     assert_eq!(pauser, Some(Addr::unchecked("ekez")));
