@@ -6,6 +6,7 @@ authors = ["ekez <ekez@withoutdoing.com>", "mr-t <mr-t@arkprotocol.io>", "Art3mi
 description = "an implementation of the ICS721 specification for transfering NFTs between blockchains"
 
 [dependencies]
+bech32 = { workspace = true }
 cosmwasm-std = { workspace = true, features = ["ibc3"] }
 cosmwasm-schema = { workspace = true }
 cw-ownable      = { workspace = true }

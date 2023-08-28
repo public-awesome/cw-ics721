@@ -687,6 +687,7 @@ dependencies = [
 name = "ics721"
 version = "0.0.1"
 dependencies = [
+ "bech32",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-cii",
@@ -972,6 +973,7 @@ name = "sg-ics721"
 version = "0.0.1"
 dependencies = [
  "bech32",
+ "cosmwasm-schema",
  "cosmwasm-std",
  "cw-cii",
  "cw-multi-test",

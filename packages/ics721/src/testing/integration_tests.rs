@@ -1,19 +1,26 @@
+use bech32::Variant;
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcTimeout, IbcTimeoutBlock, MessageInfo,
-    Reply, Response, StdResult, WasmMsg,
+    to_binary, Addr, Api, Binary, Deps, DepsMut, Empty, Env, GovMsg, IbcMsg, IbcQuery, IbcTimeout,
+    IbcTimeoutBlock, MessageInfo, Reply, Response, StdResult, Storage, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw721::ContractInfoResponse;
 use cw721_base::msg::QueryMsg as Cw721QueryMsg;
 use cw_cii::{Admin, ContractInstantiateInfo};
-use cw_multi_test::{App, Contract, ContractWrapper, Executor};
+use cw_multi_test::{
+    AddressGenerator, App, AppBuilder, BankKeeper, Contract, ContractWrapper, DistributionKeeper,
+    Executor, FailingModule, Router, StakeKeeper, WasmKeeper,
+};
 use cw_pause_once::PauseError;
+use cw_storage_plus::Item;
 
 use crate::{
     execute::Ics721Execute,
     ibc::Ics721Ibc,
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
+    state::ClassData,
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
     ContractError,
 };
@@ -21,6 +28,9 @@ use crate::{
 const COMMUNITY_POOL: &str = "community_pool";
 const CONTRACT_NAME: &str = "crates.io:ics721-base";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+const OWNER_SOURCE_CHAIN: &str = "juno1ke55z7catvdvnhvyyh0pkvs30t09me72vcxkh5";
+const TARGET_HRP: &str = "stars";
 
 #[derive(Default)]
 pub struct Ics721Contract {}
@@ -55,6 +65,53 @@ fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, Contrac
     Ics721Contract::default().migrate(deps, env, msg)
 }
 
+fn no_init(
+    _router: &mut Router<
+        BankKeeper,
+        FailingModule<Empty, Empty, Empty>,
+        WasmKeeper<Empty, Empty>,
+        StakeKeeper,
+        DistributionKeeper,
+        FailingModule<IbcMsg, IbcQuery, Empty>,
+        FailingModule<GovMsg, Empty, Empty>,
+    >,
+    _api: &dyn Api,
+    _storage: &mut dyn Storage,
+) {
+}
+
+#[derive(Debug)]
+struct Bech32AddressGenerator {
+    pub hrp: String,
+}
+
+const COUNT: Item<u8> = Item::new("count");
+
+impl Bech32AddressGenerator {
+    pub const fn new(hrp: String) -> Self {
+        Self { hrp }
+    }
+}
+
+#[cw_serde]
+pub struct CustomClassData {
+    pub foo: Option<String>,
+}
+
+impl AddressGenerator for Bech32AddressGenerator {
+    fn next_address(&self, storage: &mut dyn Storage) -> Addr {
+        let count = match COUNT.may_load(storage) {
+            Ok(Some(count)) => count,
+            _ => 0,
+        };
+        let data = bech32::u5::try_from_u8(count).unwrap();
+        let encoded_addr = bech32::encode(self.hrp.as_str(), vec![data], Variant::Bech32).unwrap();
+        let addr = Addr::unchecked(encoded_addr);
+        COUNT.save(storage, &(count + 1)).unwrap();
+        addr
+    }
+}
+
 struct Test {
     app: App,
     cw721_id: u64,
@@ -64,7 +121,13 @@ struct Test {
 
 impl Test {
     fn instantiate_ics721(proxy: bool, pauser: Option<String>) -> Self {
-        let mut app = App::default();
+        let mut app = AppBuilder::new()
+            .with_wasm::<FailingModule<Empty, Empty, Empty>, WasmKeeper<Empty, Empty>>(
+                WasmKeeper::new_with_custom_address_generator(Bech32AddressGenerator::new(
+                    TARGET_HRP.to_string(),
+                )),
+            )
+            .build(no_init);
         let cw721_id = app.store_code(cw721_base_contract());
         let ics721_id = app.store_code(ics721_contract());
 
@@ -260,7 +323,12 @@ fn test_do_instantiate_and_mint_weird_data() {
                     class: Class {
                         id: ClassId::new("bad kids"),
                         uri: None,
-                        data: None,
+                        data: Some(
+                            to_binary(&ClassData {
+                                owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                            })
+                            .unwrap(),
+                        ),
                     },
                     tokens: vec![Token {
                         id: TokenId::new("1"),
@@ -277,141 +345,427 @@ fn test_do_instantiate_and_mint_weird_data() {
 
 #[test]
 fn test_do_instantiate_and_mint() {
-    let mut test = Test::instantiate_ics721(false, None);
-
-    test.app
-        .execute_contract(
-            test.ics721.clone(),
-            test.ics721.clone(),
-            &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
-                receiver: "ekez".to_string(),
-                create: VoucherCreation {
-                    class: Class {
-                        id: ClassId::new("bad kids"),
-                        uri: Some("https://moonphase.is".to_string()),
-                        data: None,
+    // test case: instantiate cw721 with no ClassData
+    {
+        let mut test = Test::instantiate_ics721(false, None);
+        test.app
+            .execute_contract(
+                test.ics721.clone(),
+                test.ics721.clone(),
+                &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
+                    receiver: "ekez".to_string(),
+                    create: VoucherCreation {
+                        class: Class {
+                            id: ClassId::new("bad kids"),
+                            uri: Some("https://moonphase.is".to_string()),
+                            data: None, // no class data
+                        },
+                        tokens: vec![
+                            Token {
+                                id: TokenId::new("1"),
+                                uri: Some("https://moonphase.is/image.svg".to_string()),
+                                data: None,
+                            },
+                            Token {
+                                id: TokenId::new("2"),
+                                uri: Some("https://moonphase.is/image.svg".to_string()),
+                                data: None,
+                            },
+                        ],
                     },
-                    tokens: vec![
-                        Token {
-                            id: TokenId::new("1"),
-                            uri: Some("https://moonphase.is/image.svg".to_string()),
-                            data: None,
-                        },
-                        Token {
-                            id: TokenId::new("2"),
-                            uri: Some("https://moonphase.is/image.svg".to_string()),
-                            data: None,
-                        },
-                    ],
+                }),
+                &[],
+            )
+            .unwrap();
+        // Check entry added in CLASS_ID_TO_NFT_CONTRACT
+        let nft_contracts = test.query_nft_contracts();
+        assert_eq!(nft_contracts.len(), 1);
+        assert_eq!(nft_contracts[0].0, "bad kids");
+        // Get the address of the instantiated NFT.
+        let nft: Addr = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                test.ics721.clone(),
+                &QueryMsg::NftContract {
+                    class_id: "bad kids".to_string(),
                 },
-            }),
-            &[],
-        )
-        .unwrap();
-    // Check entry added in CLASS_ID_TO_NFT_CONTRACT
-    let nft_contracts = test.query_nft_contracts();
-    assert_eq!(nft_contracts.len(), 1);
-    assert_eq!(nft_contracts[0].0, "bad kids");
-    // Get the address of the instantiated NFT.
-    let nft: Addr = test
-        .app
-        .wrap()
-        .query_wasm_smart(
-            test.ics721.clone(),
-            &QueryMsg::NftContract {
-                class_id: "bad kids".to_string(),
-            },
-        )
-        .unwrap();
+            )
+            .unwrap();
 
-    // check contract info is properly set
-    let contract_info: ContractInfoResponse = test
-        .app
-        .wrap()
-        .query_wasm_smart(nft.clone(), &Cw721QueryMsg::<Empty>::ContractInfo {})
-        .unwrap();
-    assert_eq!(
-        contract_info,
-        ContractInfoResponse {
-            name: "bad kids".to_string(),
-            symbol: "bad kids".to_string()
-        }
-    );
+        // check contract info is properly set
+        let contract_info: ContractInfoResponse = test
+            .app
+            .wrap()
+            .query_wasm_smart(nft.clone(), &Cw721QueryMsg::<Empty>::ContractInfo {})
+            .unwrap();
+        assert_eq!(
+            contract_info,
+            ContractInfoResponse {
+                name: "bad kids".to_string(),
+                symbol: "bad kids".to_string()
+            }
+        );
 
-    // Check that token_uri was set properly.
-    let token_info: cw721::NftInfoResponse<Empty> = test
-        .app
-        .wrap()
-        .query_wasm_smart(
-            nft.clone(),
-            &cw721::Cw721QueryMsg::NftInfo {
-                token_id: "1".to_string(),
-            },
-        )
-        .unwrap();
+        // Check that token_uri was set properly.
+        let token_info: cw721::NftInfoResponse<Empty> = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                nft.clone(),
+                &cw721::Cw721QueryMsg::NftInfo {
+                    token_id: "1".to_string(),
+                },
+            )
+            .unwrap();
 
-    assert_eq!(
-        token_info.token_uri,
-        Some("https://moonphase.is/image.svg".to_string())
-    );
-    let token_info: cw721::NftInfoResponse<Empty> = test
-        .app
-        .wrap()
-        .query_wasm_smart(
-            nft.clone(),
-            &cw721::Cw721QueryMsg::NftInfo {
-                token_id: "2".to_string(),
-            },
-        )
-        .unwrap();
+        assert_eq!(
+            token_info.token_uri,
+            Some("https://moonphase.is/image.svg".to_string())
+        );
+        let token_info: cw721::NftInfoResponse<Empty> = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                nft.clone(),
+                &cw721::Cw721QueryMsg::NftInfo {
+                    token_id: "2".to_string(),
+                },
+            )
+            .unwrap();
 
-    assert_eq!(
-        token_info.token_uri,
-        Some("https://moonphase.is/image.svg".to_string())
-    );
+        assert_eq!(
+            token_info.token_uri,
+            Some("https://moonphase.is/image.svg".to_string())
+        );
 
-    // Check that we can transfer the NFT via the ICS721 interface.
-    test.app
-        .execute_contract(
-            Addr::unchecked("ekez"),
-            nft.clone(),
-            &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
-                recipient: nft.to_string(),
-                token_id: "1".to_string(),
-            },
-            &[],
-        )
-        .unwrap();
+        // Check that we can transfer the NFT via the ICS721 interface.
+        test.app
+            .execute_contract(
+                Addr::unchecked("ekez"),
+                nft.clone(),
+                &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
+                    recipient: nft.to_string(),
+                    token_id: "1".to_string(),
+                },
+                &[],
+            )
+            .unwrap();
 
-    let owner: cw721::OwnerOfResponse = test
-        .app
-        .wrap()
-        .query_wasm_smart(
-            test.ics721,
-            &QueryMsg::Owner {
-                token_id: "1".to_string(),
-                class_id: "bad kids".to_string(),
-            },
-        )
-        .unwrap();
+        let owner: cw721::OwnerOfResponse = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                test.ics721,
+                &QueryMsg::Owner {
+                    token_id: "1".to_string(),
+                    class_id: "bad kids".to_string(),
+                },
+            )
+            .unwrap();
 
-    assert_eq!(owner.owner, nft.to_string());
+        assert_eq!(owner.owner, nft.to_string());
 
-    // Check that this state matches the state of the underlying
-    // cw721.
-    let base_owner: cw721::OwnerOfResponse = test
-        .app
-        .wrap()
-        .query_wasm_smart(
-            nft,
-            &cw721::Cw721QueryMsg::OwnerOf {
-                token_id: "1".to_string(),
-                include_expired: None,
-            },
-        )
-        .unwrap();
+        // Check that this state matches the state of the underlying
+        // cw721.
+        let base_owner: cw721::OwnerOfResponse = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                nft,
+                &cw721::Cw721QueryMsg::OwnerOf {
+                    token_id: "1".to_string(),
+                    include_expired: None,
+                },
+            )
+            .unwrap();
 
-    assert_eq!(base_owner, owner);
+        assert_eq!(base_owner, owner);
+    }
+    // test case: instantiate cw721 with ClassData containing owner
+    {
+        let mut test = Test::instantiate_ics721(false, None);
+        test.app
+            .execute_contract(
+                test.ics721.clone(),
+                test.ics721.clone(),
+                &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
+                    receiver: "ekez".to_string(),
+                    create: VoucherCreation {
+                        class: Class {
+                            id: ClassId::new("bad kids"),
+                            uri: Some("https://moonphase.is".to_string()),
+                            data: Some(
+                                to_binary(&ClassData {
+                                    owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                                })
+                                .unwrap(),
+                            ),
+                        },
+                        tokens: vec![
+                            Token {
+                                id: TokenId::new("1"),
+                                uri: Some("https://moonphase.is/image.svg".to_string()),
+                                data: None,
+                            },
+                            Token {
+                                id: TokenId::new("2"),
+                                uri: Some("https://moonphase.is/image.svg".to_string()),
+                                data: None,
+                            },
+                        ],
+                    },
+                }),
+                &[],
+            )
+            .unwrap();
+        // Check entry added in CLASS_ID_TO_NFT_CONTRACT
+        let nft_contracts = test.query_nft_contracts();
+        assert_eq!(nft_contracts.len(), 1);
+        assert_eq!(nft_contracts[0].0, "bad kids");
+        // Get the address of the instantiated NFT.
+        let nft: Addr = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                test.ics721.clone(),
+                &QueryMsg::NftContract {
+                    class_id: "bad kids".to_string(),
+                },
+            )
+            .unwrap();
+
+        // check contract info is properly set
+        let contract_info: ContractInfoResponse = test
+            .app
+            .wrap()
+            .query_wasm_smart(nft.clone(), &Cw721QueryMsg::<Empty>::ContractInfo {})
+            .unwrap();
+        assert_eq!(
+            contract_info,
+            ContractInfoResponse {
+                name: "bad kids".to_string(),
+                symbol: "bad kids".to_string()
+            }
+        );
+
+        // Check that token_uri was set properly.
+        let token_info: cw721::NftInfoResponse<Empty> = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                nft.clone(),
+                &cw721::Cw721QueryMsg::NftInfo {
+                    token_id: "1".to_string(),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(
+            token_info.token_uri,
+            Some("https://moonphase.is/image.svg".to_string())
+        );
+        let token_info: cw721::NftInfoResponse<Empty> = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                nft.clone(),
+                &cw721::Cw721QueryMsg::NftInfo {
+                    token_id: "2".to_string(),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(
+            token_info.token_uri,
+            Some("https://moonphase.is/image.svg".to_string())
+        );
+
+        // Check that we can transfer the NFT via the ICS721 interface.
+        test.app
+            .execute_contract(
+                Addr::unchecked("ekez"),
+                nft.clone(),
+                &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
+                    recipient: nft.to_string(),
+                    token_id: "1".to_string(),
+                },
+                &[],
+            )
+            .unwrap();
+
+        let owner: cw721::OwnerOfResponse = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                test.ics721,
+                &QueryMsg::Owner {
+                    token_id: "1".to_string(),
+                    class_id: "bad kids".to_string(),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(owner.owner, nft.to_string());
+
+        // Check that this state matches the state of the underlying
+        // cw721.
+        let base_owner: cw721::OwnerOfResponse = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                nft,
+                &cw721::Cw721QueryMsg::OwnerOf {
+                    token_id: "1".to_string(),
+                    include_expired: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(base_owner, owner);
+    }
+    // test case: instantiate cw721 with different CustomClassData with no owner info
+    {
+        let mut test = Test::instantiate_ics721(false, None);
+        test.app
+            .execute_contract(
+                test.ics721.clone(),
+                test.ics721.clone(),
+                &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
+                    receiver: "ekez".to_string(),
+                    create: VoucherCreation {
+                        class: Class {
+                            id: ClassId::new("bad kids"),
+                            uri: Some("https://moonphase.is".to_string()),
+                            data: Some(
+                                to_binary(&CustomClassData {
+                                    foo: Some(OWNER_SOURCE_CHAIN.to_string()),
+                                })
+                                .unwrap(),
+                            ),
+                        },
+                        tokens: vec![
+                            Token {
+                                id: TokenId::new("1"),
+                                uri: Some("https://moonphase.is/image.svg".to_string()),
+                                data: None,
+                            },
+                            Token {
+                                id: TokenId::new("2"),
+                                uri: Some("https://moonphase.is/image.svg".to_string()),
+                                data: None,
+                            },
+                        ],
+                    },
+                }),
+                &[],
+            )
+            .unwrap();
+        // Check entry added in CLASS_ID_TO_NFT_CONTRACT
+        let nft_contracts = test.query_nft_contracts();
+        assert_eq!(nft_contracts.len(), 1);
+        assert_eq!(nft_contracts[0].0, "bad kids");
+        // Get the address of the instantiated NFT.
+        let nft: Addr = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                test.ics721.clone(),
+                &QueryMsg::NftContract {
+                    class_id: "bad kids".to_string(),
+                },
+            )
+            .unwrap();
+
+        // check contract info is properly set
+        let contract_info: ContractInfoResponse = test
+            .app
+            .wrap()
+            .query_wasm_smart(nft.clone(), &Cw721QueryMsg::<Empty>::ContractInfo {})
+            .unwrap();
+        assert_eq!(
+            contract_info,
+            ContractInfoResponse {
+                name: "bad kids".to_string(),
+                symbol: "bad kids".to_string()
+            }
+        );
+
+        // Check that token_uri was set properly.
+        let token_info: cw721::NftInfoResponse<Empty> = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                nft.clone(),
+                &cw721::Cw721QueryMsg::NftInfo {
+                    token_id: "1".to_string(),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(
+            token_info.token_uri,
+            Some("https://moonphase.is/image.svg".to_string())
+        );
+        let token_info: cw721::NftInfoResponse<Empty> = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                nft.clone(),
+                &cw721::Cw721QueryMsg::NftInfo {
+                    token_id: "2".to_string(),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(
+            token_info.token_uri,
+            Some("https://moonphase.is/image.svg".to_string())
+        );
+
+        // Check that we can transfer the NFT via the ICS721 interface.
+        test.app
+            .execute_contract(
+                Addr::unchecked("ekez"),
+                nft.clone(),
+                &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
+                    recipient: nft.to_string(),
+                    token_id: "1".to_string(),
+                },
+                &[],
+            )
+            .unwrap();
+
+        let owner: cw721::OwnerOfResponse = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                test.ics721,
+                &QueryMsg::Owner {
+                    token_id: "1".to_string(),
+                    class_id: "bad kids".to_string(),
+                },
+            )
+            .unwrap();
+
+        assert_eq!(owner.owner, nft.to_string());
+
+        // Check that this state matches the state of the underlying
+        // cw721.
+        let base_owner: cw721::OwnerOfResponse = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                nft,
+                &cw721::Cw721QueryMsg::OwnerOf {
+                    token_id: "1".to_string(),
+                    include_expired: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(base_owner, owner);
+    }
 }
 
 #[test]
@@ -430,7 +784,12 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                     class: Class {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
-                        data: None,
+                        data: Some(
+                            to_binary(&ClassData {
+                                owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                            })
+                            .unwrap(),
+                        ),
                     },
                     tokens: vec![Token {
                         id: TokenId::new("1"),
@@ -460,7 +819,12 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                     class: Class {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
-                        data: None,
+                        data: Some(
+                            to_binary(&ClassData {
+                                owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                            })
+                            .unwrap(),
+                        ),
                     },
                     tokens: vec![Token {
                         id: TokenId::new("2"),
@@ -521,7 +885,12 @@ fn test_do_instantiate_and_mint_permissions() {
                     class: Class {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
-                        data: None,
+                        data: Some(
+                            to_binary(&ClassData {
+                                owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                            })
+                            .unwrap(),
+                        ),
                     },
                     tokens: vec![Token {
                         id: TokenId::new("1"),
