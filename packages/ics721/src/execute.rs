@@ -320,6 +320,41 @@ where
         })
     }
 
+    /// Helper function in case creator is provided in `ClassData`. In this case, creator comes from another chain
+    /// and needs to be converted to the target chain.
+    fn get_creator(&self, env: &Env, class: &Class) -> StdResult<Option<String>> {
+        match class.data.clone() {
+            // in case no class data is provided, ics721 will be used as the creator
+            None => Ok(None),
+            Some(data) => {
+                // class data may be of type `ClassData` or some other custom class data.
+                let class_data_result: StdResult<ClassData> = from_binary(&data);
+                if class_data_result.is_err() {
+                    return Ok(None);
+                }
+                let class_data = class_data_result.unwrap();
+
+                match class_data.owner {
+                    // in case no owner is provided, ics721 will be used as the creator
+                    None => Ok(None),
+                    Some(source_owner) => {
+                        // convert the source owner (e.g. `juno1XXX`) to target owner (e.g. `stars1XXX`)
+                        let (_source_hrp, source_data, source_variant) =
+                            bech32::decode(source_owner.as_str()).unwrap();
+                        // detect target hrp (e.g. `stars`) using contract address
+                        let (target_hrp, _targete_data, _target_variant) =
+                            bech32::decode(env.contract.address.as_str()).unwrap();
+                        // convert source owner to target owner
+                        let target_owner =
+                            bech32::encode(target_hrp.as_str(), source_data, source_variant)
+                                .unwrap();
+                        Ok(Some(target_owner))
+                    }
+                }
+            }
+        }
+    }
+
     /// Performs a recemption of debt vouchers returning the corresponding
     /// tokens to the receiver.
     fn callback_redeem_vouchers(
