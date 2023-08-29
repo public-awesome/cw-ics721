@@ -1,10 +1,11 @@
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     from_binary,
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier, MOCK_CONTRACT_ADDR},
     to_binary, Addr, ContractResult, CosmosMsg, Empty, IbcMsg, IbcTimeout, Order, QuerierResult,
     StdResult, SubMsg, Timestamp, WasmQuery,
 };
-use cw721::{AllNftInfoResponse, NftInfoResponse};
+use cw721::{AllNftInfoResponse, NftInfoResponse, NumTokensResponse};
 use cw721_base::QueryMsg;
 use cw_ownable::Ownership;
 
@@ -25,6 +26,20 @@ pub struct Ics721Contract {}
 impl Ics721Execute<Empty> for Ics721Contract {}
 impl Ics721Ibc<Empty> for Ics721Contract {}
 impl Ics721Query for Ics721Contract {}
+
+// copy of cosmwasm_std::ContractInfoResponse (marked as non-exhaustive)
+#[cw_serde]
+pub struct ContractInfoResponse {
+    pub code_id: u64,
+    /// address that instantiated this contract
+    pub creator: String,
+    /// admin who can run migrations (if any)
+    pub admin: Option<String>,
+    /// if set, the contract is pinned to the cache, and thus uses less gas when called
+    pub pinned: bool,
+    /// set if this contract has bound an IBC port
+    pub ibc_port: Option<String>,
+}
 
 fn mock_querier(query: &WasmQuery) -> QuerierResult {
     match query {
@@ -53,8 +68,28 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
                 })
                 .unwrap(),
             )),
+            QueryMsg::ContractInfo {} => QuerierResult::Ok(ContractResult::Ok(
+                to_binary(&cw721::ContractInfoResponse {
+                    name: "name".to_string(),
+                    symbol: "symbol".to_string(),
+                })
+                .unwrap(),
+            )),
+            QueryMsg::NumTokens {} => QuerierResult::Ok(ContractResult::Ok(
+                to_binary(&NumTokensResponse { count: 1 }).unwrap(),
+            )),
             _ => unimplemented!(),
         },
+        cosmwasm_std::WasmQuery::ContractInfo { .. } => QuerierResult::Ok(ContractResult::Ok(
+            to_binary(&ContractInfoResponse {
+                code_id: 0,
+                creator: "creator".to_string(),
+                admin: None,
+                pinned: false,
+                ibc_port: None,
+            })
+            .unwrap(),
+        )),
         _ => unimplemented!(),
     }
 }
@@ -91,8 +126,28 @@ fn mock_querier_v16(query: &WasmQuery) -> QuerierResult {
                 )
                 .unwrap(),
             )),
+            QueryMsg::ContractInfo {} => QuerierResult::Ok(ContractResult::Ok(
+                to_binary(&cw721_016::ContractInfoResponse {
+                    name: "name".to_string(),
+                    symbol: "symbol".to_string(),
+                })
+                .unwrap(),
+            )),
+            QueryMsg::NumTokens {} => QuerierResult::Ok(ContractResult::Ok(
+                to_binary(&cw721_016::NumTokensResponse { count: 1 }).unwrap(),
+            )),
             _ => QuerierResult::Err(cosmwasm_std::SystemError::Unknown {}), // throws error for Ownership query
         },
+        cosmwasm_std::WasmQuery::ContractInfo { .. } => QuerierResult::Ok(ContractResult::Ok(
+            to_binary(&ContractInfoResponse {
+                code_id: 0,
+                creator: "creator".to_string(),
+                admin: None,
+                pinned: false,
+                ibc_port: None,
+            })
+            .unwrap(),
+        )),
         _ => unimplemented!(),
     }
 }
@@ -100,6 +155,17 @@ fn mock_querier_v16(query: &WasmQuery) -> QuerierResult {
 #[test]
 fn test_receive_nft() {
     // test case: receive nft from cw721-base
+    let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_binary(
+        &to_binary(&ContractInfoResponse {
+            code_id: 0,
+            creator: "creator".to_string(),
+            admin: None,
+            pinned: false,
+            ibc_port: None,
+        })
+        .unwrap(),
+    )
+    .unwrap();
     {
         let mut querier = MockQuerier::default();
         querier.update_wasm(mock_querier);
@@ -142,7 +208,11 @@ fn test_receive_nft() {
                     class_uri: None,
                     class_data: Some(
                         to_binary(&ClassData {
-                            owner: Some(OWNER.to_string())
+                            owner: Some(OWNER.to_string()),
+                            contract_info: expected_contract_info.clone(),
+                            name: "name".to_string(),
+                            symbol: "symbol".to_string(),
+                            num_tokens: 1,
                         })
                         .unwrap()
                     ),
@@ -220,7 +290,11 @@ fn test_receive_nft() {
                     class_uri: None,
                     class_data: Some(
                         to_binary(&ClassData {
-                            owner: Some(OWNER.to_string())
+                            owner: Some(OWNER.to_string()),
+                            contract_info: expected_contract_info,
+                            name: "name".to_string(),
+                            symbol: "symbol".to_string(),
+                            num_tokens: 1,
                         })
                         .unwrap()
                     ),
@@ -285,11 +359,26 @@ fn test_receive_sets_uri() {
         .load(deps.as_ref().storage, ClassId::new(NFT_ADDR))
         .unwrap();
     assert_eq!(class.uri, None);
+    let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_binary(
+        &to_binary(&ContractInfoResponse {
+            code_id: 0,
+            creator: "creator".to_string(),
+            admin: None,
+            pinned: false,
+            ibc_port: None,
+        })
+        .unwrap(),
+    )
+    .unwrap();
     assert_eq!(
         class.data,
         Some(
             to_binary(&ClassData {
-                owner: Some(OWNER.to_string())
+                owner: Some(OWNER.to_string()),
+                contract_info: expected_contract_info,
+                name: "name".to_string(),
+                symbol: "symbol".to_string(),
+                num_tokens: 1,
             })
             .unwrap()
         ),
