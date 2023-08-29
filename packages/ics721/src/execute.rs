@@ -2,16 +2,12 @@ use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, DepsMut, Empty, Env, IbcMsg, MessageInfo, Response,
     StdResult, SubMsg, WasmMsg,
 };
-use cw721_base::MinterResponse;
 use cw_ownable::Ownership;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
-    msg::{
-        CallbackMsg, Cw721LegacyMinterQueryMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg,
-        MigrateMsg,
-    },
+    msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg},
     state::{
         ClassData, UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
         CW721_CODE_ID, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY,
@@ -119,13 +115,11 @@ where
             .query_wasm_smart(sender, &cw721_base::msg::QueryMsg::Ownership::<Addr> {});
         if ownership.is_err() {
             // cw721 v0.16 and lower holds minter
-            let minter_response: MinterResponse = deps
+            let minter_response: cw721_base_016::msg::MinterResponse = deps
                 .querier
-                .query_wasm_smart(sender, &Cw721LegacyMinterQueryMsg {})?;
-            if let Some(minter) = minter_response.minter.clone() {
-                deps.api.addr_validate(&minter)?;
-            }
-            return Ok(minter_response.minter);
+                .query_wasm_smart(sender, &cw721_base_016::QueryMsg::Minter::<Empty> {})?;
+            deps.api.addr_validate(&minter_response.minter)?;
+            return Ok(Some(minter_response.minter));
         }
 
         Ok(ownership.unwrap().owner.map(|a| a.to_string()))
