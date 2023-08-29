@@ -11,7 +11,7 @@ use cw_ownable::Ownership;
 use crate::{
     execute::Ics721Execute,
     ibc::{Ics721Ibc, NonFungibleTokenPacketData},
-    msg::{Cw721LegacyMinterQueryMsg, IbcOutgoingMsg},
+    msg::IbcOutgoingMsg,
     query::Ics721Query,
     state::{ClassData, CLASS_ID_TO_CLASS, OUTGOING_CLASS_TOKEN_TO_CHANNEL},
     token_types::{ClassId, TokenId},
@@ -33,7 +33,8 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
             msg,
         } => {
             let cw721_base_query_msg = from_binary::<cw721_base::msg::QueryMsg<Empty>>(&msg);
-            let cw721_legacy_minter_query_msg = from_binary::<Cw721LegacyMinterQueryMsg>(&msg);
+            let cw721_legacy_minter_query_msg =
+                from_binary::<cw721_base_016::msg::QueryMsg<Empty>>(&msg);
             match (cw721_base_query_msg, cw721_legacy_minter_query_msg) {
                 (Ok(msg), _) => match msg {
                     QueryMsg::Ownership {} => QuerierResult::Ok(ContractResult::Ok(

@@ -937,7 +937,7 @@ fn test_do_instantiate_and_mint_permissions() {
     let err: ContractError = test
         .app
         .execute_contract(
-            Addr::unchecked("notics721"),
+            Addr::unchecked("notIcs721"),
             test.ics721,
             &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
                 receiver: "ekez".to_string(),
@@ -1064,47 +1064,96 @@ fn test_proxy_authorized() {
 
 #[test]
 fn test_receive_nft() {
-    let mut test = Test::new(false, None, cw721_base_contract());
-    // mint and escrowed/owned by ics721
-    let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
+    // test case: receive nft from cw721-base
+    {
+        {
+            let mut test = Test::new(false, None, cw721_base_contract());
+            // mint and escrowed/owned by ics721
+            let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
 
-    let res = test
-        .app
-        .execute_contract(
-            test.cw721.clone(),
-            test.ics721,
-            &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
-                sender: test.minter.to_string(),
-                token_id: token_id.clone(),
-                msg: to_binary(&IbcOutgoingMsg {
-                    receiver: "mr-t".to_string(),
-                    channel_id: "channel-0".to_string(),
-                    timeout: IbcTimeout::with_block(IbcTimeoutBlock {
-                        revision: 0,
-                        height: 10,
+            let res = test
+                .app
+                .execute_contract(
+                    test.cw721.clone(),
+                    test.ics721,
+                    &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+                        sender: test.minter.to_string(),
+                        token_id: token_id.clone(),
+                        msg: to_binary(&IbcOutgoingMsg {
+                            receiver: "mr-t".to_string(),
+                            channel_id: "channel-0".to_string(),
+                            timeout: IbcTimeout::with_block(IbcTimeoutBlock {
+                                revision: 0,
+                                height: 10,
+                            }),
+                            memo: None,
+                        })
+                        .unwrap(),
                     }),
-                    memo: None,
-                })
-                .unwrap(),
-            }),
-            &[],
-        )
-        .unwrap();
-    let event = res.events.into_iter().find(|e| e.ty == "wasm").unwrap();
-    let class_data_attribute = event
-        .attributes
-        .into_iter()
-        .find(|a| a.key == "class_data")
-        .unwrap();
-    assert_eq!(
-        class_data_attribute.value,
-        format!(
-            "{:?}",
-            ClassData {
-                owner: Some(test.minter.to_string())
-            }
-        )
-    );
+                    &[],
+                )
+                .unwrap();
+            let event = res.events.into_iter().find(|e| e.ty == "wasm").unwrap();
+            let class_data_attribute = event
+                .attributes
+                .into_iter()
+                .find(|a| a.key == "class_data")
+                .unwrap();
+            assert_eq!(
+                class_data_attribute.value,
+                format!(
+                    "{:?}",
+                    ClassData {
+                        owner: Some(test.minter.to_string())
+                    }
+                )
+            );
+        }
+    }
+    // test case: receive nft from old/v16 cw721-base
+    {
+        let mut test = Test::new(false, None, cw721_v16_base_contract());
+        // mint and escrowed/owned by ics721
+        let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
+
+        let res = test
+            .app
+            .execute_contract(
+                test.cw721.clone(),
+                test.ics721,
+                &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+                    sender: test.minter.to_string(),
+                    token_id: token_id.clone(),
+                    msg: to_binary(&IbcOutgoingMsg {
+                        receiver: "mr-t".to_string(),
+                        channel_id: "channel-0".to_string(),
+                        timeout: IbcTimeout::with_block(IbcTimeoutBlock {
+                            revision: 0,
+                            height: 10,
+                        }),
+                        memo: None,
+                    })
+                    .unwrap(),
+                }),
+                &[],
+            )
+            .unwrap();
+        let event = res.events.into_iter().find(|e| e.ty == "wasm").unwrap();
+        let class_data_attribute = event
+            .attributes
+            .into_iter()
+            .find(|a| a.key == "class_data")
+            .unwrap();
+        assert_eq!(
+            class_data_attribute.value,
+            format!(
+                "{:?}",
+                ClassData {
+                    owner: Some(test.minter.to_string())
+                }
+            )
+        );
+    }
 }
 
 /// Tests that receiving a NFT via a regular receive fails when a

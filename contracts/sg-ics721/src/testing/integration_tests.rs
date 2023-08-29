@@ -1157,47 +1157,50 @@ fn test_proxy_authorized() {
 
 #[test]
 fn test_receive_nft() {
-    let mut test = Test::new(false, None, sg721_base_contract());
-    // mint and escrowed/owned by ics721
-    let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
+    // test case: receive nft from sg721-base
+    {
+        let mut test = Test::new(false, None, sg721_base_contract());
+        // mint and escrowed/owned by ics721
+        let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
 
-    let res = test
-        .app
-        .execute_contract(
-            test.cw721.clone(),
-            test.ics721,
-            &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
-                sender: test.minter.to_string(),
-                token_id: token_id.clone(),
-                msg: to_binary(&IbcOutgoingMsg {
-                    receiver: "mr-t".to_string(),
-                    channel_id: "channel-0".to_string(),
-                    timeout: IbcTimeout::with_block(IbcTimeoutBlock {
-                        revision: 0,
-                        height: 10,
-                    }),
-                    memo: None,
-                })
-                .unwrap(),
-            }),
-            &[],
-        )
-        .unwrap();
-    let event = res.events.into_iter().find(|e| e.ty == "wasm").unwrap();
-    let class_data_attribute = event
-        .attributes
-        .into_iter()
-        .find(|a| a.key == "class_data")
-        .unwrap();
-    assert_eq!(
-        class_data_attribute.value,
-        format!(
-            "{:?}",
-            ClassData {
-                owner: Some(test.minter.to_string())
-            }
-        )
-    );
+        let res = test
+            .app
+            .execute_contract(
+                test.cw721.clone(),
+                test.ics721,
+                &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+                    sender: test.minter.to_string(),
+                    token_id: token_id.clone(),
+                    msg: to_binary(&IbcOutgoingMsg {
+                        receiver: "mr-t".to_string(),
+                        channel_id: "channel-0".to_string(),
+                        timeout: IbcTimeout::with_block(IbcTimeoutBlock {
+                            revision: 0,
+                            height: 10,
+                        }),
+                        memo: None,
+                    })
+                    .unwrap(),
+                }),
+                &[],
+            )
+            .unwrap();
+        let event = res.events.into_iter().find(|e| e.ty == "wasm").unwrap();
+        let class_data_attribute = event
+            .attributes
+            .into_iter()
+            .find(|a| a.key == "class_data")
+            .unwrap();
+        assert_eq!(
+            class_data_attribute.value,
+            format!(
+                "{:?}",
+                ClassData {
+                    owner: Some(test.minter.to_string())
+                }
+            )
+        );
+    }
 }
 
 /// Tests that receiving a NFT via a regular receive fails when a

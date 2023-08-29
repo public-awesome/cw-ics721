@@ -14,6 +14,7 @@ cw-storage-plus = { workspace = true }
 cw-utils = { workspace = true }
 cw721 = { workspace = true }
 cw721-base = { workspace = true, features = ["library"] }
+cw721-base-016  = { workspace = true, features = ["library"] }
 thiserror = { workspace = true }
 serde = { workspace = true }
 cw-paginate-storage = { workspace = true }
@@ -24,7 +25,6 @@ zip-optional = { workspace = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }
-cw721-base-016 = { workspace = true }
 cw-multi-test = { workspace = true }
 cw2 = { workspace = true }
 cw721-rate-limited-proxy = { workspace = true }
