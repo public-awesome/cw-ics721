@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Binary, Empty};
+use cosmwasm_std::{Addr, Binary, ContractInfoResponse, Empty};
 use cw_pause_once::PauseOrchestrator;
 use cw_storage_plus::{Item, Map};
 use serde::Deserialize;
@@ -53,6 +53,10 @@ pub struct UniversalNftInfoResponse {
 #[cw_serde]
 pub struct ClassData {
     pub owner: Option<String>,
+    pub contract_info: ContractInfoResponse,
+    pub name: String,
+    pub symbol: String,
+    pub num_tokens: u64,
 }
 
 #[derive(Deserialize)]

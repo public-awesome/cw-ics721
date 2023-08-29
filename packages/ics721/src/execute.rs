@@ -2,6 +2,7 @@ use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, DepsMut, Empty, Env, IbcMsg, MessageInfo, Response,
     StdResult, SubMsg, WasmMsg,
 };
+use cw721::{ContractInfoResponse, NumTokensResponse};
 use cw_ownable::Ownership;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -108,21 +109,37 @@ where
         Ok(res.add_attribute("method", "execute_receive_proxy_nft"))
     }
 
-    fn get_owner(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Option<String>> {
+    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<ClassData> {
         // cw721 v0.17 and higher holds ownership in the contract
         let ownership: StdResult<Ownership<Addr>> = deps
             .querier
             .query_wasm_smart(sender, &cw721_base::msg::QueryMsg::Ownership::<Addr> {});
-        if ownership.is_err() {
-            // cw721 v0.16 and lower holds minter
-            let minter_response: cw721_base_016::msg::MinterResponse = deps
-                .querier
-                .query_wasm_smart(sender, &cw721_base_016::QueryMsg::Minter::<Empty> {})?;
-            deps.api.addr_validate(&minter_response.minter)?;
-            return Ok(Some(minter_response.minter));
-        }
+        let owner = match ownership {
+            Ok(ownership) => ownership.owner.map(|a| a.to_string()),
+            Err(_) => {
+                // cw721 v0.16 and lower holds minter
+                let minter_response: cw721_base_016::msg::MinterResponse = deps
+                    .querier
+                    .query_wasm_smart(sender, &cw721_base_016::QueryMsg::Minter::<Empty> {})?;
+                deps.api.addr_validate(&minter_response.minter)?;
+                Some(minter_response.minter)
+            }
+        };
+        let contract_info = deps.querier.query_wasm_contract_info(sender)?;
+        let ContractInfoResponse { name, symbol } = deps
+            .querier
+            .query_wasm_smart(sender, &cw721_base::msg::QueryMsg::<Empty>::ContractInfo {})?;
+        let NumTokensResponse { count } = deps
+            .querier
+            .query_wasm_smart(sender, &cw721_base::msg::QueryMsg::<Empty>::NumTokens {})?;
 
-        Ok(ownership.unwrap().owner.map(|a| a.to_string()))
+        Ok(ClassData {
+            owner,
+            contract_info,
+            name,
+            symbol,
+            num_tokens: count,
+        })
     }
 
     fn receive_nft(
@@ -142,14 +159,14 @@ where
             // No class ID being present means that this is a local NFT
             // that has never been sent out of this contract.
             None => {
-                let owner = self.get_owner(&deps, &info.sender)?;
+                let class_data = self.get_class_data(&deps, &info.sender)?;
                 let class = Class {
                     id: ClassId::new(info.sender.to_string()),
                     // There is no collection-level uri nor data in the
                     // cw721 specification so we set those values to
                     // `None` for local, cw721 NFTs.
                     uri: None,
-                    data: Some(to_binary(&ClassData { owner })?),
+                    data: Some(to_binary(&class_data)?),
                 };
 
                 NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, info.sender.clone(), &class.id)?;

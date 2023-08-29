@@ -1,12 +1,12 @@
 use bech32::Variant;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
+    from_binary,
     testing::{mock_env, MockApi},
     to_binary, Addr, Api, Binary, Deps, DepsMut, Empty, Env, GovMsg, IbcTimeout, IbcTimeoutBlock,
     MemoryStorage, MessageInfo, Reply, Response, StdResult, Storage, WasmMsg,
 };
 use cw2::set_contract_version;
-use cw721::ContractInfoResponse;
 use cw721_base::msg::QueryMsg as Cw721QueryMsg;
 use cw_cii::{Admin, ContractInstantiateInfo};
 use cw_multi_test::{
@@ -34,6 +34,20 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const OWNER_SOURCE_CHAIN: &str = "juno1ke55z7catvdvnhvyyh0pkvs30t09me72vcxkh5";
 const TARGET_HRP: &str = "stars";
+
+// copy of cosmwasm_std::ContractInfoResponse (marked as non-exhaustive)
+#[cw_serde]
+pub struct ContractInfoResponse {
+    pub code_id: u64,
+    /// address that instantiated this contract
+    pub creator: String,
+    /// admin who can run migrations (if any)
+    pub admin: Option<String>,
+    /// if set, the contract is pinned to the cache, and thus uses less gas when called
+    pub pinned: bool,
+    /// set if this contract has bound an IBC port
+    pub ibc_port: Option<String>,
+}
 
 fn instantiate(
     deps: DepsMut,
@@ -404,6 +418,10 @@ fn test_do_instantiate_and_mint_weird_data() {
                         data: Some(
                             to_binary(&ClassData {
                                 owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                                contract_info: Default::default(),
+                                name: "name".to_string(),
+                                symbol: "symbol".to_string(),
+                                num_tokens: 1,
                             })
                             .unwrap(),
                         ),
@@ -473,14 +491,14 @@ fn test_do_instantiate_and_mint() {
             .unwrap();
 
         // check contract info is properly set
-        let contract_info: ContractInfoResponse = test
+        let contract_info: cw721::ContractInfoResponse = test
             .app
             .wrap()
             .query_wasm_smart(nft.clone(), &Cw721QueryMsg::<Empty>::ContractInfo {})
             .unwrap();
         assert_eq!(
             contract_info,
-            ContractInfoResponse {
+            cw721::ContractInfoResponse {
                 name: "bad kids".to_string(),
                 symbol: "bad kids".to_string()
             }
@@ -598,6 +616,10 @@ fn test_do_instantiate_and_mint() {
                             data: Some(
                                 to_binary(&ClassData {
                                     owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                                    contract_info: Default::default(),
+                                    name: "name".to_string(),
+                                    symbol: "symbol".to_string(),
+                                    num_tokens: 1,
                                 })
                                 .unwrap(),
                             ),
@@ -636,14 +658,14 @@ fn test_do_instantiate_and_mint() {
             .unwrap();
 
         // check contract info is properly set
-        let contract_info: ContractInfoResponse = test
+        let contract_info: cw721::ContractInfoResponse = test
             .app
             .wrap()
             .query_wasm_smart(nft.clone(), &Cw721QueryMsg::<Empty>::ContractInfo {})
             .unwrap();
         assert_eq!(
             contract_info,
-            ContractInfoResponse {
+            cw721::ContractInfoResponse {
                 name: "bad kids".to_string(),
                 symbol: "bad kids".to_string()
             }
@@ -802,14 +824,14 @@ fn test_do_instantiate_and_mint() {
             .unwrap();
 
         // check contract info is properly set
-        let contract_info: ContractInfoResponse = test
+        let contract_info: cw721::ContractInfoResponse = test
             .app
             .wrap()
             .query_wasm_smart(nft.clone(), &Cw721QueryMsg::<Empty>::ContractInfo {})
             .unwrap();
         assert_eq!(
             contract_info,
-            ContractInfoResponse {
+            cw721::ContractInfoResponse {
                 name: "bad kids".to_string(),
                 symbol: "bad kids".to_string()
             }
@@ -931,6 +953,10 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                         data: Some(
                             to_binary(&ClassData {
                                 owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                                contract_info: Default::default(),
+                                name: "name".to_string(),
+                                symbol: "symbol".to_string(),
+                                num_tokens: 1,
                             })
                             .unwrap(),
                         ),
@@ -966,6 +992,10 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                         data: Some(
                             to_binary(&ClassData {
                                 owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                                contract_info: Default::default(),
+                                name: "name".to_string(),
+                                symbol: "symbol".to_string(),
+                                num_tokens: 1,
                             })
                             .unwrap(),
                         ),
@@ -1032,6 +1062,10 @@ fn test_do_instantiate_and_mint_permissions() {
                         data: Some(
                             to_binary(&ClassData {
                                 owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                                contract_info: Default::default(),
+                                name: "name".to_string(),
+                                symbol: "symbol".to_string(),
+                                num_tokens: 1,
                             })
                             .unwrap(),
                         ),
@@ -1191,12 +1225,27 @@ fn test_receive_nft() {
             .into_iter()
             .find(|a| a.key == "class_data")
             .unwrap();
+        let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_binary(
+            &to_binary(&ContractInfoResponse {
+                code_id: test.cw721_id,
+                creator: test.minter.to_string(),
+                admin: None,
+                pinned: false,
+                ibc_port: None,
+            })
+            .unwrap(),
+        )
+        .unwrap();
         assert_eq!(
             class_data_attribute.value,
             format!(
                 "{:?}",
                 ClassData {
-                    owner: Some(test.minter.to_string())
+                    owner: Some(test.minter.to_string()),
+                    contract_info: expected_contract_info,
+                    name: "name".to_string(),
+                    symbol: "symbol".to_string(),
+                    num_tokens: 1,
                 }
             )
         );
