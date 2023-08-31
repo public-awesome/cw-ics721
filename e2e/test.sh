@@ -4,4 +4,4 @@ WORKSPACE_DIR=$(cd $SCRIPT_DIR/.. && pwd)
 echo "!!! NOTE: for a clean test it is recommended to delete wasm files: sudo rm -rf $WORKSPACE_DIR/artifacts) !!!"
 $WORKSPACE_DIR/ts-relayer-tests/build.sh
 echo "running tests..."
-go test .
+go test $SCRIPT_DIR
