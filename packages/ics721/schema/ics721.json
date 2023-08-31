@@ -6,7 +6,9 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "InstantiateMsg",
     "type": "object",
-    "required": ["cw721_base_code_id"],
+    "required": [
+      "cw721_base_code_id"
+    ],
     "properties": {
       "cw721_base_code_id": {
         "description": "Code ID of cw721-ics contract. A new cw721-ics will be instantiated for each new IBCd NFT classID.\n\nNOTE: this _must_ correspond to the cw721-base contract. Using a regular cw721 may cause the ICS 721 interface implemented by this contract to stop working, and IBCd away NFTs to be unreturnable as cw721 does not have a mint method in the spec.",
@@ -16,7 +18,10 @@
       },
       "pauser": {
         "description": "Address that may pause the contract. PAUSER may pause the contract a single time; in pausing the contract they burn the right to do so again. A new pauser may be later nominated by the CosmWasm level admin via a migration.",
-        "type": ["string", "null"]
+        "type": [
+          "string",
+          "null"
+        ]
       },
       "proxy": {
         "description": "An optional proxy contract. If a proxy is set the contract will only accept NFTs from that proxy. The proxy is expected to implement the cw721 proxy interface defined in the cw721-proxy crate.",
@@ -36,11 +41,15 @@
         "oneOf": [
           {
             "type": "object",
-            "required": ["address"],
+            "required": [
+              "address"
+            ],
             "properties": {
               "address": {
                 "type": "object",
-                "required": ["addr"],
+                "required": [
+                  "addr"
+                ],
                 "properties": {
                   "addr": {
                     "type": "string"
@@ -53,7 +62,9 @@
           },
           {
             "type": "object",
-            "required": ["instantiator"],
+            "required": [
+              "instantiator"
+            ],
             "properties": {
               "instantiator": {
                 "type": "object",
@@ -70,7 +81,11 @@
       },
       "ContractInstantiateInfo": {
         "type": "object",
-        "required": ["code_id", "label", "msg"],
+        "required": [
+          "code_id",
+          "label",
+          "msg"
+        ],
         "properties": {
           "admin": {
             "anyOf": [
@@ -105,7 +120,9 @@
       {
         "description": "Receives a NFT to be IBC transfered away. The `msg` field must be a binary encoded `IbcOutgoingMsg`.",
         "type": "object",
-        "required": ["receive_nft"],
+        "required": [
+          "receive_nft"
+        ],
         "properties": {
           "receive_nft": {
             "$ref": "#/definitions/Cw721ReceiveMsg"
@@ -114,9 +131,11 @@
         "additionalProperties": false
       },
       {
-        "description": "Pauses the bridge. Only the pauser may call this. In pausing the contract, the pauser burns the right to do so again.",
+        "description": "Pauses the ICS721 contract. Only the pauser may call this. In pausing the contract, the pauser burns the right to do so again.",
         "type": "object",
-        "required": ["pause"],
+        "required": [
+          "pause"
+        ],
         "properties": {
           "pause": {
             "type": "object",
@@ -128,7 +147,9 @@
       {
         "description": "Mesages used internally by the contract. These may only be called by the contract itself.",
         "type": "object",
-        "required": ["callback"],
+        "required": [
+          "callback"
+        ],
         "properties": {
           "callback": {
             "$ref": "#/definitions/CallbackMsg"
@@ -138,11 +159,16 @@
       },
       {
         "type": "object",
-        "required": ["receive_proxy_nft"],
+        "required": [
+          "receive_proxy_nft"
+        ],
         "properties": {
           "receive_proxy_nft": {
             "type": "object",
-            "required": ["eyeball", "msg"],
+            "required": [
+              "eyeball",
+              "msg"
+            ],
             "properties": {
               "eyeball": {
                 "type": "string"
@@ -166,11 +192,16 @@
         "oneOf": [
           {
             "type": "object",
-            "required": ["create_vouchers"],
+            "required": [
+              "create_vouchers"
+            ],
             "properties": {
               "create_vouchers": {
                 "type": "object",
-                "required": ["create", "receiver"],
+                "required": [
+                  "create",
+                  "receiver"
+                ],
                 "properties": {
                   "create": {
                     "description": "Information about the vouchers being created.",
@@ -192,11 +223,16 @@
           },
           {
             "type": "object",
-            "required": ["redeem_vouchers"],
+            "required": [
+              "redeem_vouchers"
+            ],
             "properties": {
               "redeem_vouchers": {
                 "type": "object",
-                "required": ["receiver", "redeem"],
+                "required": [
+                  "receiver",
+                  "redeem"
+                ],
                 "properties": {
                   "receiver": {
                     "description": "The address that should receive the tokens.",
@@ -219,11 +255,17 @@
           {
             "description": "Mints a NFT of collection class_id for receiver with the provided id and metadata. Only callable by this contract.",
             "type": "object",
-            "required": ["mint"],
+            "required": [
+              "mint"
+            ],
             "properties": {
               "mint": {
                 "type": "object",
-                "required": ["class_id", "receiver", "tokens"],
+                "required": [
+                  "class_id",
+                  "receiver",
+                  "tokens"
+                ],
                 "properties": {
                   "class_id": {
                     "description": "The class_id to mint for. This must have previously been created with `SaveClass`.",
@@ -253,11 +295,15 @@
           {
             "description": "In submessage terms, say a message that results in an error \"returns false\" and one that succedes \"returns true\". Returns the logical conjunction (&&) of all the messages in operands.\n\nUnder the hood this just executes them in order. We use this to respond with a single ACK when a message calls for the execution of both `CreateVouchers` and `RedeemVouchers`.",
             "type": "object",
-            "required": ["conjunction"],
+            "required": [
+              "conjunction"
+            ],
             "properties": {
               "conjunction": {
                 "type": "object",
-                "required": ["operands"],
+                "required": [
+                  "operands"
+                ],
                 "properties": {
                   "operands": {
                     "type": "array",
@@ -275,7 +321,9 @@
       },
       "Class": {
         "type": "object",
-        "required": ["id"],
+        "required": [
+          "id"
+        ],
         "properties": {
           "data": {
             "description": "Optional base64 encoded metadata about the class.",
@@ -298,7 +346,10 @@
           },
           "uri": {
             "description": "Optional URI pointing to off-chain metadata about the class.",
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "additionalProperties": false
@@ -309,7 +360,10 @@
       },
       "Coin": {
         "type": "object",
-        "required": ["amount", "denom"],
+        "required": [
+          "amount",
+          "denom"
+        ],
         "properties": {
           "amount": {
             "$ref": "#/definitions/Uint128"
@@ -322,7 +376,11 @@
       "Cw721ReceiveMsg": {
         "description": "Cw721ReceiveMsg should be de/serialized under `Receive()` variant in a ExecuteMsg",
         "type": "object",
-        "required": ["msg", "sender", "token_id"],
+        "required": [
+          "msg",
+          "sender",
+          "token_id"
+        ],
         "properties": {
           "msg": {
             "$ref": "#/definitions/Binary"
@@ -339,7 +397,9 @@
       "Token": {
         "description": "A token according to the ICS-721 spec.",
         "type": "object",
-        "required": ["id"],
+        "required": [
+          "id"
+        ],
         "properties": {
           "data": {
             "description": "Optional base64 encoded metadata about the token.",
@@ -362,7 +422,10 @@
           },
           "uri": {
             "description": "Optional URI pointing to off-chain metadata about the token.",
-            "type": ["string", "null"]
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "additionalProperties": false
@@ -377,7 +440,10 @@
       },
       "VoucherCreation": {
         "type": "object",
-        "required": ["class", "tokens"],
+        "required": [
+          "class",
+          "tokens"
+        ],
         "properties": {
           "class": {
             "description": "The class that these vouchers are being created for.",
@@ -399,7 +465,10 @@
       },
       "VoucherRedemption": {
         "type": "object",
-        "required": ["class", "token_ids"],
+        "required": [
+          "class",
+          "token_ids"
+        ],
         "properties": {
           "class": {
             "description": "The class that these vouchers are being redeemed from.",
@@ -425,11 +494,17 @@
           {
             "description": "Dispatches a call to another contract at a known address (with known ABI).\n\nThis is translated to a [MsgExecuteContract](https://github.com/CosmWasm/wasmd/blob/v0.14.0/x/wasm/internal/types/tx.proto#L68-L78). `sender` is automatically filled with the current contract's address.",
             "type": "object",
-            "required": ["execute"],
+            "required": [
+              "execute"
+            ],
             "properties": {
               "execute": {
                 "type": "object",
-                "required": ["contract_addr", "funds", "msg"],
+                "required": [
+                  "contract_addr",
+                  "funds",
+                  "msg"
+                ],
                 "properties": {
                   "contract_addr": {
                     "type": "string"
@@ -456,14 +531,24 @@
           {
             "description": "Instantiates a new contracts from previously uploaded Wasm code.\n\nThe contract address is non-predictable. But it is guaranteed that when emitting the same Instantiate message multiple times, multiple instances on different addresses will be generated. See also Instantiate2.\n\nThis is translated to a [MsgInstantiateContract](https://github.com/CosmWasm/wasmd/blob/v0.29.2/proto/cosmwasm/wasm/v1/tx.proto#L53-L71). `sender` is automatically filled with the current contract's address.",
             "type": "object",
-            "required": ["instantiate"],
+            "required": [
+              "instantiate"
+            ],
             "properties": {
               "instantiate": {
                 "type": "object",
-                "required": ["code_id", "funds", "label", "msg"],
+                "required": [
+                  "code_id",
+                  "funds",
+                  "label",
+                  "msg"
+                ],
                 "properties": {
                   "admin": {
-                    "type": ["string", "null"]
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "code_id": {
                     "type": "integer",
@@ -496,11 +581,17 @@
           {
             "description": "Migrates a given contracts to use new wasm code. Passes a MigrateMsg to allow us to customize behavior.\n\nOnly the contract admin (as defined in wasmd), if any, is able to make this call.\n\nThis is translated to a [MsgMigrateContract](https://github.com/CosmWasm/wasmd/blob/v0.14.0/x/wasm/internal/types/tx.proto#L86-L96). `sender` is automatically filled with the current contract's address.",
             "type": "object",
-            "required": ["migrate"],
+            "required": [
+              "migrate"
+            ],
             "properties": {
               "migrate": {
                 "type": "object",
-                "required": ["contract_addr", "msg", "new_code_id"],
+                "required": [
+                  "contract_addr",
+                  "msg",
+                  "new_code_id"
+                ],
                 "properties": {
                   "contract_addr": {
                     "type": "string"
@@ -527,11 +618,16 @@
           {
             "description": "Sets a new admin (for migrate) on the given contract. Fails if this contract is not currently admin of the target contract.",
             "type": "object",
-            "required": ["update_admin"],
+            "required": [
+              "update_admin"
+            ],
             "properties": {
               "update_admin": {
                 "type": "object",
-                "required": ["admin", "contract_addr"],
+                "required": [
+                  "admin",
+                  "contract_addr"
+                ],
                 "properties": {
                   "admin": {
                     "type": "string"
@@ -547,11 +643,15 @@
           {
             "description": "Clears the admin on the given contract, so no more migration possible. Fails if this contract is not currently admin of the target contract.",
             "type": "object",
-            "required": ["clear_admin"],
+            "required": [
+              "clear_admin"
+            ],
             "properties": {
               "clear_admin": {
                 "type": "object",
-                "required": ["contract_addr"],
+                "required": [
+                  "contract_addr"
+                ],
                 "properties": {
                   "contract_addr": {
                     "type": "string"
@@ -572,11 +672,15 @@
       {
         "description": "Gets the classID this contract has stored for a given NFT contract. If there is no class ID for the provided contract, returns None.",
         "type": "object",
-        "required": ["class_id"],
+        "required": [
+          "class_id"
+        ],
         "properties": {
           "class_id": {
             "type": "object",
-            "required": ["contract"],
+            "required": [
+              "contract"
+            ],
             "properties": {
               "contract": {
                 "type": "string"
@@ -590,11 +694,15 @@
       {
         "description": "Gets the NFT contract associated wtih the provided class ID. If no such contract exists, returns None. Returns Option<Addr>.",
         "type": "object",
-        "required": ["nft_contract"],
+        "required": [
+          "nft_contract"
+        ],
         "properties": {
           "nft_contract": {
             "type": "object",
-            "required": ["class_id"],
+            "required": [
+              "class_id"
+            ],
             "properties": {
               "class_id": {
                 "type": "string"
@@ -608,11 +716,15 @@
       {
         "description": "Gets the class level metadata URI for the provided class_id. If there is no metadata, returns None. Returns `Option<Class>`.",
         "type": "object",
-        "required": ["class_metadata"],
+        "required": [
+          "class_metadata"
+        ],
         "properties": {
           "class_metadata": {
             "type": "object",
-            "required": ["class_id"],
+            "required": [
+              "class_id"
+            ],
             "properties": {
               "class_id": {
                 "type": "string"
@@ -625,11 +737,16 @@
       },
       {
         "type": "object",
-        "required": ["token_metadata"],
+        "required": [
+          "token_metadata"
+        ],
         "properties": {
           "token_metadata": {
             "type": "object",
-            "required": ["class_id", "token_id"],
+            "required": [
+              "class_id",
+              "token_id"
+            ],
             "properties": {
               "class_id": {
                 "type": "string"
@@ -646,11 +763,16 @@
       {
         "description": "Gets the owner of the NFT identified by CLASS_ID and TOKEN_ID. Errors if no such NFT exists. Returns `cw721::OwnerOfResonse`.",
         "type": "object",
-        "required": ["owner"],
+        "required": [
+          "owner"
+        ],
         "properties": {
           "owner": {
             "type": "object",
-            "required": ["class_id", "token_id"],
+            "required": [
+              "class_id",
+              "token_id"
+            ],
             "properties": {
               "class_id": {
                 "type": "string"
@@ -667,7 +789,9 @@
       {
         "description": "Gets the address that may pause this contract if one is set.",
         "type": "object",
-        "required": ["pauser"],
+        "required": [
+          "pauser"
+        ],
         "properties": {
           "pauser": {
             "type": "object",
@@ -679,7 +803,9 @@
       {
         "description": "Gets the current pause status.",
         "type": "object",
-        "required": ["paused"],
+        "required": [
+          "paused"
+        ],
         "properties": {
           "paused": {
             "type": "object",
@@ -691,7 +817,9 @@
       {
         "description": "Gets this contract's cw721-proxy if one is set.",
         "type": "object",
-        "required": ["proxy"],
+        "required": [
+          "proxy"
+        ],
         "properties": {
           "proxy": {
             "type": "object",
@@ -703,7 +831,9 @@
       {
         "description": "Gets the code used for instantiating new cw721s.",
         "type": "object",
-        "required": ["cw721_code_id"],
+        "required": [
+          "cw721_code_id"
+        ],
         "properties": {
           "cw721_code_id": {
             "type": "object",
@@ -715,13 +845,18 @@
       {
         "description": "Gets a list of classID as key (from NonFungibleTokenPacketData) and cw721 contract as value (instantiated for that classID).",
         "type": "object",
-        "required": ["nft_contracts"],
+        "required": [
+          "nft_contracts"
+        ],
         "properties": {
           "nft_contracts": {
             "type": "object",
             "properties": {
               "limit": {
-                "type": ["integer", "null"],
+                "type": [
+                  "integer",
+                  "null"
+                ],
                 "format": "uint32",
                 "minimum": 0.0
               },
@@ -744,13 +879,18 @@
       {
         "description": "Gets a list of classID, tokenID, and local channelID. Used to determine the local channel that NFTs have been sent out on.",
         "type": "object",
-        "required": ["outgoing_channels"],
+        "required": [
+          "outgoing_channels"
+        ],
         "properties": {
           "outgoing_channels": {
             "type": "object",
             "properties": {
               "limit": {
-                "type": ["integer", "null"],
+                "type": [
+                  "integer",
+                  "null"
+                ],
                 "format": "uint32",
                 "minimum": 0.0
               },
@@ -773,13 +913,18 @@
       {
         "description": "Gets a list of classID, tokenID, and local channel ID. Used to determine the local channel that NFTs have arrived at this contract.",
         "type": "object",
-        "required": ["incoming_channels"],
+        "required": [
+          "incoming_channels"
+        ],
         "properties": {
           "incoming_channels": {
             "type": "object",
             "properties": {
               "limit": {
-                "type": ["integer", "null"],
+                "type": [
+                  "integer",
+                  "null"
+                ],
                 "format": "uint32",
                 "minimum": 0.0
               },
@@ -807,7 +952,10 @@
       },
       "ClassToken": {
         "type": "object",
-        "required": ["class_id", "token_id"],
+        "required": [
+          "class_id",
+          "token_id"
+        ],
         "properties": {
           "class_id": {
             "$ref": "#/definitions/ClassId"
@@ -863,7 +1011,9 @@
         },
         "Class": {
           "type": "object",
-          "required": ["id"],
+          "required": [
+            "id"
+          ],
           "properties": {
             "data": {
               "description": "Optional base64 encoded metadata about the class.",
@@ -886,7 +1036,10 @@
             },
             "uri": {
               "description": "Optional URI pointing to off-chain metadata about the class.",
-              "type": ["string", "null"]
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false
@@ -1030,7 +1183,10 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "OwnerOfResponse",
       "type": "object",
-      "required": ["approvals", "owner"],
+      "required": [
+        "approvals",
+        "owner"
+      ],
       "properties": {
         "approvals": {
           "description": "If set this address is approved to transfer/send the token as well",
@@ -1048,7 +1204,10 @@
       "definitions": {
         "Approval": {
           "type": "object",
-          "required": ["expires", "spender"],
+          "required": [
+            "expires",
+            "spender"
+          ],
           "properties": {
             "expires": {
               "description": "When the Approval expires (maybe Expiration::never)",
@@ -1071,7 +1230,9 @@
             {
               "description": "AtHeight will expire when `env.block.height` >= height",
               "type": "object",
-              "required": ["at_height"],
+              "required": [
+                "at_height"
+              ],
               "properties": {
                 "at_height": {
                   "type": "integer",
@@ -1084,7 +1245,9 @@
             {
               "description": "AtTime will expire when `env.block.time` >= time",
               "type": "object",
-              "required": ["at_time"],
+              "required": [
+                "at_time"
+              ],
               "properties": {
                 "at_time": {
                   "$ref": "#/definitions/Timestamp"
@@ -1095,7 +1258,9 @@
             {
               "description": "Never will never expire. Used to express the empty variant",
               "type": "object",
-              "required": ["never"],
+              "required": [
+                "never"
+              ],
               "properties": {
                 "never": {
                   "type": "object",
@@ -1180,7 +1345,9 @@
         "Token": {
           "description": "A token according to the ICS-721 spec.",
           "type": "object",
-          "required": ["id"],
+          "required": [
+            "id"
+          ],
           "properties": {
             "data": {
               "description": "Optional base64 encoded metadata about the token.",
@@ -1203,7 +1370,10 @@
             },
             "uri": {
               "description": "Optional URI pointing to off-chain metadata about the token.",
-              "type": ["string", "null"]
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "additionalProperties": false
