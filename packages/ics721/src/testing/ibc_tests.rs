@@ -17,9 +17,11 @@ use crate::{
     msg::{InstantiateMsg, QueryMsg},
     query::Ics721Query,
     state::{
-        CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, PO,
+        CollectionData, CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL,
+        NFT_CONTRACT_TO_CLASS_ID, PO,
     },
     token_types::{ClassId, TokenId},
+    utils::get_collection_data,
     ContractError,
 };
 
@@ -35,7 +37,13 @@ const CW721_CODE_ID: u64 = 0;
 
 #[derive(Default)]
 pub struct Ics721Contract {}
-impl Ics721Execute<Empty> for Ics721Contract {}
+impl Ics721Execute<Empty> for Ics721Contract {
+    type ClassData = CollectionData;
+
+    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Self::ClassData> {
+        get_collection_data(deps, sender)
+    }
+}
 impl Ics721Ibc<Empty> for Ics721Contract {}
 impl Ics721Query for Ics721Contract {}
 

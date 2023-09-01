@@ -50,8 +50,10 @@ pub struct UniversalNftInfoResponse {
     extension: Empty,
 }
 
+/// Collection data provided by the (source) cw721 contract. This is pass as optional class data during interchain transfer to target chain.
+/// ICS721 on target chain is free to use this data or not. Lik in case of `sg721-base` it uses owner for defining creator in collection info.
 #[cw_serde]
-pub struct ClassData {
+pub struct CollectionData {
     pub owner: Option<String>,
     pub contract_info: ContractInfoResponse,
     pub name: String,

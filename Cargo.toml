@@ -29,8 +29,9 @@ thiserror = "1"
 # Stargaze libs
 sg-std = "3.0"
 sg-multi-test = "^3.1"
-sg721-base = "^3.1"
 sg721 = "^3.1"
+sg721-base = "^3.1"
+sg721-base-240 = { version = "^2.4", package = "sg721-base" }
 # packages and contracts
 cw-cii = { path = "./packages/cw-cii" }
 cw-pause-once = { path = "./packages/cw-pause-once" }
