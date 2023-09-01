@@ -2,8 +2,8 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     from_binary,
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier, MOCK_CONTRACT_ADDR},
-    to_binary, Addr, ContractResult, CosmosMsg, Empty, IbcMsg, IbcTimeout, Order, QuerierResult,
-    StdResult, SubMsg, Timestamp, WasmQuery,
+    to_binary, Addr, ContractResult, CosmosMsg, DepsMut, Empty, IbcMsg, IbcTimeout, Order,
+    QuerierResult, StdResult, SubMsg, Timestamp, WasmQuery,
 };
 use cw721::{AllNftInfoResponse, NftInfoResponse, NumTokensResponse};
 use cw721_base::QueryMsg;
@@ -14,8 +14,9 @@ use crate::{
     ibc::{Ics721Ibc, NonFungibleTokenPacketData},
     msg::IbcOutgoingMsg,
     query::Ics721Query,
-    state::{ClassData, CLASS_ID_TO_CLASS, OUTGOING_CLASS_TOKEN_TO_CHANNEL},
+    state::{CollectionData, CLASS_ID_TO_CLASS, OUTGOING_CLASS_TOKEN_TO_CHANNEL},
     token_types::{ClassId, TokenId},
+    utils::get_collection_data,
 };
 
 const NFT_ADDR: &str = "nft";
@@ -23,7 +24,13 @@ const OWNER: &str = "owner";
 
 #[derive(Default)]
 pub struct Ics721Contract {}
-impl Ics721Execute<Empty> for Ics721Contract {}
+impl Ics721Execute<Empty> for Ics721Contract {
+    type ClassData = CollectionData;
+
+    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Self::ClassData> {
+        get_collection_data(deps, sender)
+    }
+}
 impl Ics721Ibc<Empty> for Ics721Contract {}
 impl Ics721Query for Ics721Contract {}
 
@@ -207,7 +214,7 @@ fn test_receive_nft() {
                     class_id: ClassId::new(NFT_ADDR),
                     class_uri: None,
                     class_data: Some(
-                        to_binary(&ClassData {
+                        to_binary(&CollectionData {
                             owner: Some(OWNER.to_string()),
                             contract_info: expected_contract_info.clone(),
                             name: "name".to_string(),
@@ -289,7 +296,7 @@ fn test_receive_nft() {
                     class_id: ClassId::new(NFT_ADDR),
                     class_uri: None,
                     class_data: Some(
-                        to_binary(&ClassData {
+                        to_binary(&CollectionData {
                             owner: Some(OWNER.to_string()),
                             contract_info: expected_contract_info,
                             name: "name".to_string(),
@@ -373,7 +380,7 @@ fn test_receive_sets_uri() {
     assert_eq!(
         class.data,
         Some(
-            to_binary(&ClassData {
+            to_binary(&CollectionData {
                 owner: Some(OWNER.to_string()),
                 contract_info: expected_contract_info,
                 name: "name".to_string(),

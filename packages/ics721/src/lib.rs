@@ -7,6 +7,7 @@ pub mod msg;
 pub mod query;
 pub mod state;
 pub mod token_types;
+pub mod utils;
 
 pub use crate::error::ContractError;
 

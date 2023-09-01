@@ -20,13 +20,13 @@ use ics721::{
     ibc::Ics721Ibc,
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
-    state::ClassData,
+    state::CollectionData,
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
 };
 use sg721::InstantiateMsg as Sg721InstantiateMsg;
 use sg721_base::msg::{CollectionInfoResponse, QueryMsg as Sg721QueryMsg};
 
-use crate::{ContractError, SgIcs721Contract};
+use crate::{state::SgCollectionData, ContractError, SgIcs721Contract};
 
 const COMMUNITY_POOL: &str = "community_pool";
 const CONTRACT_NAME: &str = "crates.io:sg-ics721";
@@ -408,7 +408,7 @@ fn test_do_instantiate_and_mint_weird_data() {
     test.app
         .execute_contract(
             test.ics721.clone(),
-            test.ics721,
+            test.ics721.clone(),
             &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
                 receiver: "mr-t".to_string(),
                 create: VoucherCreation {
@@ -416,7 +416,8 @@ fn test_do_instantiate_and_mint_weird_data() {
                         id: ClassId::new("bad kids"),
                         uri: None,
                         data: Some(
-                            to_binary(&ClassData {
+                            // data comes from source chain, so it can't be SgCollectionData
+                            to_binary(&CollectionData {
                                 owner: Some(OWNER_SOURCE_CHAIN.to_string()),
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
@@ -614,7 +615,8 @@ fn test_do_instantiate_and_mint() {
                             id: ClassId::new("bad kids"),
                             uri: Some("https://moonphase.is".to_string()),
                             data: Some(
-                                to_binary(&ClassData {
+                                // data comes from source chain, so it can't be SgCollectionData
+                                to_binary(&CollectionData {
                                     owner: Some(OWNER_SOURCE_CHAIN.to_string()),
                                     contract_info: Default::default(),
                                     name: "name".to_string(),
@@ -951,7 +953,8 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
                         data: Some(
-                            to_binary(&ClassData {
+                            // data comes from source chain, so it can't be SgCollectionData
+                            to_binary(&CollectionData {
                                 owner: Some(OWNER_SOURCE_CHAIN.to_string()),
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
@@ -990,7 +993,8 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
                         data: Some(
-                            to_binary(&ClassData {
+                            // data comes from source chain, so it can't be SgCollectionData
+                            to_binary(&CollectionData {
                                 owner: Some(OWNER_SOURCE_CHAIN.to_string()),
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
@@ -1052,7 +1056,7 @@ fn test_do_instantiate_and_mint_permissions() {
         .app
         .execute_contract(
             Addr::unchecked("notIcs721"),
-            test.ics721,
+            test.ics721.clone(),
             &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
                 receiver: "mr-t".to_string(),
                 create: VoucherCreation {
@@ -1060,7 +1064,7 @@ fn test_do_instantiate_and_mint_permissions() {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
                         data: Some(
-                            to_binary(&ClassData {
+                            to_binary(&CollectionData {
                                 owner: Some(OWNER_SOURCE_CHAIN.to_string()),
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
@@ -1201,7 +1205,7 @@ fn test_receive_nft() {
             .app
             .execute_contract(
                 test.cw721.clone(),
-                test.ics721,
+                test.ics721.clone(),
                 &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
                     sender: test.minter.to_string(),
                     token_id: token_id.clone(),
@@ -1240,12 +1244,22 @@ fn test_receive_nft() {
             class_data_attribute.value,
             format!(
                 "{:?}",
-                ClassData {
+                // outbound, transfer from SG to another chain
+                SgCollectionData {
                     owner: Some(test.minter.to_string()),
                     contract_info: expected_contract_info,
                     name: "name".to_string(),
                     symbol: "symbol".to_string(),
                     num_tokens: 1,
+                    collection_info: CollectionInfoResponse {
+                        creator: test.ics721.to_string(),
+                        description: "".to_string(),
+                        image: "https://arkprotocol.io".to_string(),
+                        external_link: None,
+                        explicit_content: None,
+                        start_trading_time: None,
+                        royalty_info: None,
+                    },
                 }
             )
         );

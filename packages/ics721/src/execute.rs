@@ -1,18 +1,17 @@
+use std::fmt::Debug;
+
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, DepsMut, Empty, Env, IbcMsg, MessageInfo, Response,
     StdResult, SubMsg, WasmMsg,
 };
-use cw721::{ContractInfoResponse, NumTokensResponse};
-use cw_ownable::Ownership;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg},
     state::{
-        ClassData, UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
-        CW721_CODE_ID, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY,
-        TOKEN_METADATA,
+        UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
+        NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY, TOKEN_METADATA,
     },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
     ContractError,
@@ -22,6 +21,8 @@ pub trait Ics721Execute<T = Empty>
 where
     T: Serialize + DeserializeOwned + Clone,
 {
+    type ClassData: Serialize + DeserializeOwned + Clone + Debug;
+
     fn instantiate(
         &self,
         deps: DepsMut,
@@ -109,38 +110,7 @@ where
         Ok(res.add_attribute("method", "execute_receive_proxy_nft"))
     }
 
-    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<ClassData> {
-        // cw721 v0.17 and higher holds ownership in the contract
-        let ownership: StdResult<Ownership<Addr>> = deps
-            .querier
-            .query_wasm_smart(sender, &cw721_base::msg::QueryMsg::Ownership::<Addr> {});
-        let owner = match ownership {
-            Ok(ownership) => ownership.owner.map(|a| a.to_string()),
-            Err(_) => {
-                // cw721 v0.16 and lower holds minter
-                let minter_response: cw721_base_016::msg::MinterResponse = deps
-                    .querier
-                    .query_wasm_smart(sender, &cw721_base_016::QueryMsg::Minter::<Empty> {})?;
-                deps.api.addr_validate(&minter_response.minter)?;
-                Some(minter_response.minter)
-            }
-        };
-        let contract_info = deps.querier.query_wasm_contract_info(sender)?;
-        let ContractInfoResponse { name, symbol } = deps
-            .querier
-            .query_wasm_smart(sender, &cw721_base::msg::QueryMsg::<Empty>::ContractInfo {})?;
-        let NumTokensResponse { count } = deps
-            .querier
-            .query_wasm_smart(sender, &cw721_base::msg::QueryMsg::<Empty>::NumTokens {})?;
-
-        Ok(ClassData {
-            owner,
-            contract_info,
-            name,
-            symbol,
-            num_tokens: count,
-        })
-    }
+    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Self::ClassData>;
 
     fn receive_nft(
         &self,
@@ -219,7 +189,7 @@ where
             (class.id.clone(), token_id.clone()),
             &msg.channel_id,
         )?;
-        let class_data: ClassData = from_binary(&class.data.unwrap())?;
+        let class_data: Self::ClassData = from_binary(&class.data.unwrap())?;
 
         Ok(Response::default()
             .add_attribute("method", "execute_receive_nft")
@@ -331,41 +301,6 @@ where
             symbol: class.id.clone().into(),
             minter: env.contract.address.to_string(),
         })
-    }
-
-    /// Helper function in case creator is provided in `ClassData`. In this case, creator comes from another chain
-    /// and needs to be converted to the target chain.
-    fn get_creator(&self, env: &Env, class: &Class) -> StdResult<Option<String>> {
-        match class.data.clone() {
-            // in case no class data is provided, ics721 will be used as the creator
-            None => Ok(None),
-            Some(data) => {
-                // class data may be of type `ClassData` or some other custom class data.
-                let class_data_result: StdResult<ClassData> = from_binary(&data);
-                if class_data_result.is_err() {
-                    return Ok(None);
-                }
-                let class_data = class_data_result.unwrap();
-
-                match class_data.owner {
-                    // in case no owner is provided, ics721 will be used as the creator
-                    None => Ok(None),
-                    Some(source_owner) => {
-                        // convert the source owner (e.g. `juno1XXX`) to target owner (e.g. `stars1XXX`)
-                        let (_source_hrp, source_data, source_variant) =
-                            bech32::decode(source_owner.as_str()).unwrap();
-                        // detect target hrp (e.g. `stars`) using contract address
-                        let (target_hrp, _targete_data, _target_variant) =
-                            bech32::decode(env.contract.address.as_str()).unwrap();
-                        // convert source owner to target owner
-                        let target_owner =
-                            bech32::encode(target_hrp.as_str(), source_data, source_variant)
-                                .unwrap();
-                        Ok(Some(target_owner))
-                    }
-                }
-            }
-        }
     }
 
     /// Performs a recemption of debt vouchers returning the corresponding

@@ -20,8 +20,9 @@ use crate::{
     ibc::Ics721Ibc,
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
-    state::ClassData,
+    state::CollectionData,
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
+    utils::get_collection_data,
     ContractError,
 };
 
@@ -48,7 +49,13 @@ pub struct ContractInfoResponse {
 
 #[derive(Default)]
 pub struct Ics721Contract {}
-impl Ics721Execute<Empty> for Ics721Contract {}
+impl Ics721Execute<Empty> for Ics721Contract {
+    type ClassData = CollectionData;
+
+    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Self::ClassData> {
+        get_collection_data(deps, sender)
+    }
+}
 impl Ics721Ibc<Empty> for Ics721Contract {}
 impl Ics721Query for Ics721Contract {}
 
@@ -398,7 +405,7 @@ fn test_do_instantiate_and_mint_weird_data() {
                         id: ClassId::new("bad kids"),
                         uri: None,
                         data: Some(
-                            to_binary(&ClassData {
+                            to_binary(&CollectionData {
                                 owner: Some(OWNER_SOURCE_CHAIN.to_string()),
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
@@ -574,7 +581,7 @@ fn test_do_instantiate_and_mint() {
                             id: ClassId::new("bad kids"),
                             uri: Some("https://moonphase.is".to_string()),
                             data: Some(
-                                to_binary(&ClassData {
+                                to_binary(&CollectionData {
                                     owner: Some(OWNER_SOURCE_CHAIN.to_string()),
                                     contract_info: Default::default(),
                                     name: "name".to_string(),
@@ -867,7 +874,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
                         data: Some(
-                            to_binary(&ClassData {
+                            to_binary(&CollectionData {
                                 owner: Some(OWNER_SOURCE_CHAIN.to_string()),
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
@@ -906,7 +913,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
                         data: Some(
-                            to_binary(&ClassData {
+                            to_binary(&CollectionData {
                                 owner: Some(OWNER_SOURCE_CHAIN.to_string()),
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
@@ -976,7 +983,7 @@ fn test_do_instantiate_and_mint_permissions() {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
                         data: Some(
-                            to_binary(&ClassData {
+                            to_binary(&CollectionData {
                                 owner: Some(OWNER_SOURCE_CHAIN.to_string()),
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
@@ -1147,7 +1154,7 @@ fn test_receive_nft() {
             class_data_attribute.value,
             format!(
                 "{:?}",
-                ClassData {
+                CollectionData {
                     owner: Some(test.minter.to_string()),
                     contract_info: expected_contract_info,
                     name: "name".to_string(),
@@ -1206,7 +1213,7 @@ fn test_receive_nft() {
             class_data_attribute.value,
             format!(
                 "{:?}",
-                ClassData {
+                CollectionData {
                     owner: Some(test.minter.to_string()),
                     contract_info: expected_contract_info,
                     name: "name".to_string(),

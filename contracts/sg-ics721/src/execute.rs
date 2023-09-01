@@ -1,13 +1,60 @@
-use cosmwasm_std::{to_binary, Binary, Env, StdResult};
-use ics721::{execute::Ics721Execute, token_types::Class};
+use cosmwasm_std::{from_binary, to_binary, Addr, Binary, DepsMut, Env, StdResult};
+use ics721::{
+    execute::Ics721Execute,
+    state::CollectionData,
+    token_types::Class,
+    utils::{convert_owner_chain_address, get_collection_data},
+};
+use sg721_base::msg::{CollectionInfoResponse, QueryMsg};
 
-use crate::state::SgIcs721Contract;
+use crate::state::{SgCollectionData, SgIcs721Contract};
 
 impl Ics721Execute for SgIcs721Contract {
+    type ClassData = SgCollectionData;
+
+    /// sg-ics721 sends custom SgCollectionData, basically it extends ics721-base::state::CollectionData with additional collection_info.
+    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Self::ClassData> {
+        let CollectionData {
+            owner,
+            contract_info,
+            name,
+            symbol,
+            num_tokens,
+        } = get_collection_data(deps, sender)?;
+        let collection_info: CollectionInfoResponse = deps
+            .querier
+            .query_wasm_smart(sender, &QueryMsg::CollectionInfo {})?;
+
+        Ok(SgCollectionData {
+            owner,
+            contract_info,
+            name,
+            symbol,
+            num_tokens,
+            collection_info,
+        })
+    }
+
     fn init_msg(&self, env: &Env, class: &Class) -> StdResult<Binary> {
-        let creator = self
-            .get_creator(env, class)?
-            .unwrap_or(env.contract.address.to_string());
+        let creator = match class.data.clone() {
+            // in case no class data is provided, ics721 will be used as the creator.
+            None => env.contract.address.to_string(),
+            Some(data) => {
+                // class data may be any custom type. Check whether it is `ics721::state::CollectionData` or not.
+                let class_data_result: StdResult<CollectionData> = from_binary(&data);
+                if class_data_result.is_err() {
+                    // this happens only for unknown class data, like source chain uses nft-transfer module
+                    env.contract.address.to_string()
+                } else {
+                    let class_data = class_data_result.unwrap();
+
+                    match class_data.owner {
+                        Some(owner) => convert_owner_chain_address(env, owner.as_str())?,
+                        None => env.contract.address.to_string(),
+                    }
+                }
+            }
+        };
         to_binary(&sg721::InstantiateMsg {
             // Name of the collection MUST be class_id as this is how
             // we create a map entry on reply.
