@@ -361,6 +361,32 @@ fn sg721_base_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
+fn sg721_v240_base_contract() -> Box<dyn Contract<Empty>> {
+    // sg721_base's execute and instantiate function deals Response<StargazeMsgWrapper>
+    // but App multi test deals Response<Empty>
+    // so we need to wrap sg721_base's execute and instantiate function
+    fn exececute_fn(
+        deps: DepsMut,
+        env: Env,
+        info: MessageInfo,
+        msg: sg721_240::ExecuteMsg<Option<Empty>, Empty>,
+    ) -> Result<Response, sg721_base_240::ContractError> {
+        sg721_base_240::entry::execute(deps, env, info, msg)
+            .and_then(|_| Ok::<Response, sg721_base_240::ContractError>(Response::default()))
+    }
+    fn instantiate_fn(
+        deps: DepsMut,
+        env: Env,
+        info: MessageInfo,
+        msg: sg721_240::InstantiateMsg,
+    ) -> Result<Response, sg721_base_240::ContractError> {
+        sg721_base_240::entry::instantiate(deps, env, info, msg)
+            .and_then(|_| Ok::<Response, sg721_base_240::ContractError>(Response::default()))
+    }
+    let contract = ContractWrapper::new(exececute_fn, instantiate_fn, sg721_base_240::entry::query);
+    Box::new(contract)
+}
+
 fn ics721_contract() -> Box<dyn Contract<Empty>> {
     // need to wrap method in function for testing
     fn ibc_reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
@@ -515,6 +541,7 @@ fn test_do_instantiate_and_mint() {
         assert_eq!(
             collection_info,
             CollectionInfoResponse {
+                // creator is ics721 contract, since no owner in ClassData provided
                 creator: test.ics721.to_string(),
                 description: "".to_string(),
                 image: "https://arkprotocol.io".to_string(),
@@ -617,6 +644,7 @@ fn test_do_instantiate_and_mint() {
                             data: Some(
                                 // data comes from source chain, so it can't be SgCollectionData
                                 to_binary(&CollectionData {
+                                    // owner as defined by collection in source chain
                                     owner: Some(OWNER_SOURCE_CHAIN.to_string()),
                                     contract_info: Default::default(),
                                     name: "name".to_string(),
@@ -686,6 +714,7 @@ fn test_do_instantiate_and_mint() {
         assert_eq!(
             collection_info,
             CollectionInfoResponse {
+                // creator based on owner from collection in soure chain
                 creator: target_owner, // creator is set to owner as defined by ClassData
                 description: "".to_string(),
                 image: "https://arkprotocol.io".to_string(),
@@ -785,6 +814,7 @@ fn test_do_instantiate_and_mint() {
                         class: Class {
                             id: ClassId::new("bad kids"),
                             uri: Some("https://moonphase.is".to_string()),
+                            // CustomClassData with no owner info
                             data: Some(
                                 to_binary(&CustomClassData {
                                     foo: Some(OWNER_SOURCE_CHAIN.to_string()),
@@ -849,7 +879,8 @@ fn test_do_instantiate_and_mint() {
         assert_eq!(
             collection_info,
             CollectionInfoResponse {
-                creator: test.ics721.to_string(), // ics721 is creator, since ClassData does not contain owner
+                // creator is ics721 contract, since no owner in ClassData provided
+                creator: test.ics721.to_string(),
                 description: "".to_string(),
                 image: "https://arkprotocol.io".to_string(),
                 external_link: None,
@@ -954,6 +985,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                         uri: Some("https://moonphase.is".to_string()),
                         data: Some(
                             // data comes from source chain, so it can't be SgCollectionData
+                            // owner as defined by collection in source chain
                             to_binary(&CollectionData {
                                 owner: Some(OWNER_SOURCE_CHAIN.to_string()),
                                 contract_info: Default::default(),
@@ -1024,12 +1056,35 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         .app
         .wrap()
         .query_wasm_smart(
-            test.ics721,
+            test.ics721.clone(),
             &QueryMsg::NftContract {
                 class_id: "bad kids".to_string(),
             },
         )
         .unwrap();
+
+    // check collection info is properly set
+    let collection_info: CollectionInfoResponse = test
+        .app
+        .wrap()
+        .query_wasm_smart(nft.clone(), &Sg721QueryMsg::CollectionInfo {})
+        .unwrap();
+    let (_source_hrp, source_data, source_variant) = bech32::decode(OWNER_SOURCE_CHAIN).unwrap();
+    let target_owner = bech32::encode(TARGET_HRP, source_data, source_variant).unwrap();
+
+    assert_eq!(
+        collection_info,
+        CollectionInfoResponse {
+            // creator based on owner from collection in soure chain
+            creator: target_owner, // creator is set to owner as defined by ClassData
+            description: "".to_string(),
+            image: "https://arkprotocol.io".to_string(),
+            external_link: None,
+            explicit_content: None,
+            start_trading_time: None,
+            royalty_info: None,
+        }
+    );
 
     // Make sure we have our tokens.
     let tokens: cw721::TokensResponse = test
@@ -1198,6 +1253,75 @@ fn test_receive_nft() {
     // test case: receive nft from sg721-base
     {
         let mut test = Test::new(false, None, sg721_base_contract());
+        // mint and escrowed/owned by ics721
+        let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
+
+        let res = test
+            .app
+            .execute_contract(
+                test.cw721.clone(),
+                test.ics721.clone(),
+                &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+                    sender: test.minter.to_string(),
+                    token_id: token_id.clone(),
+                    msg: to_binary(&IbcOutgoingMsg {
+                        receiver: "mr-t".to_string(),
+                        channel_id: "channel-0".to_string(),
+                        timeout: IbcTimeout::with_block(IbcTimeoutBlock {
+                            revision: 0,
+                            height: 10,
+                        }),
+                        memo: None,
+                    })
+                    .unwrap(),
+                }),
+                &[],
+            )
+            .unwrap();
+        let event = res.events.into_iter().find(|e| e.ty == "wasm").unwrap();
+        let class_data_attribute = event
+            .attributes
+            .into_iter()
+            .find(|a| a.key == "class_data")
+            .unwrap();
+        let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_binary(
+            &to_binary(&ContractInfoResponse {
+                code_id: test.cw721_id,
+                creator: test.minter.to_string(),
+                admin: None,
+                pinned: false,
+                ibc_port: None,
+            })
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            class_data_attribute.value,
+            format!(
+                "{:?}",
+                // outbound, transfer from SG to another chain
+                SgCollectionData {
+                    owner: Some(test.minter.to_string()),
+                    contract_info: expected_contract_info,
+                    name: "name".to_string(),
+                    symbol: "symbol".to_string(),
+                    num_tokens: 1,
+                    collection_info: CollectionInfoResponse {
+                        creator: test.ics721.to_string(),
+                        description: "".to_string(),
+                        image: "https://arkprotocol.io".to_string(),
+                        external_link: None,
+                        explicit_content: None,
+                        start_trading_time: None,
+                        royalty_info: None,
+                    },
+                }
+            )
+        );
+    }
+    // test case: receive nft from old/v240 sg721-base
+    {
+        let mut test = Test::new(false, None, sg721_v240_base_contract());
         // mint and escrowed/owned by ics721
         let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
 

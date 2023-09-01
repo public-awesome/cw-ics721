@@ -101,7 +101,7 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
     }
 }
 
-fn mock_querier_v16(query: &WasmQuery) -> QuerierResult {
+fn mock_querier_v016(query: &WasmQuery) -> QuerierResult {
     match query {
         cosmwasm_std::WasmQuery::Smart {
             contract_addr: _,
@@ -110,7 +110,7 @@ fn mock_querier_v16(query: &WasmQuery) -> QuerierResult {
             // unwrap using latest (not old) cw721-base, since it is backwards compatible
             cw721_base::msg::QueryMsg::Minter {} => QuerierResult::Ok(ContractResult::Ok(
                 to_binary(
-                    // return v16 response
+                    // return v016 response
                     &cw721_base_016::msg::MinterResponse {
                         minter: OWNER.to_string(),
                     },
@@ -119,7 +119,7 @@ fn mock_querier_v16(query: &WasmQuery) -> QuerierResult {
             )),
             cw721_base::msg::QueryMsg::AllNftInfo { .. } => QuerierResult::Ok(ContractResult::Ok(
                 to_binary(
-                    // return v16 response
+                    // return v016 response
                     &cw721_016::AllNftInfoResponse::<Option<Empty>> {
                         access: cw721_016::OwnerOfResponse {
                             owner: MOCK_CONTRACT_ADDR.to_string(),
@@ -254,10 +254,10 @@ fn test_receive_nft() {
             channel_id
         )
     }
-    // test case: receive nft from old/v16 cw721-base
+    // test case: receive nft from old/v016 cw721-base
     {
         let mut querier = MockQuerier::default();
-        querier.update_wasm(mock_querier_v16);
+        querier.update_wasm(mock_querier_v016);
 
         let mut deps = mock_dependencies();
         deps.querier = querier;

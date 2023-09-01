@@ -22,9 +22,10 @@ use crate::{
     query::Ics721Query,
     state::CollectionData,
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
-    utils::get_collection_data,
     ContractError,
 };
+
+use super::contract::Ics721Contract;
 
 const COMMUNITY_POOL: &str = "community_pool";
 const CONTRACT_NAME: &str = "crates.io:ics721-base";
@@ -46,18 +47,6 @@ pub struct ContractInfoResponse {
     /// set if this contract has bound an IBC port
     pub ibc_port: Option<String>,
 }
-
-#[derive(Default)]
-pub struct Ics721Contract {}
-impl Ics721Execute<Empty> for Ics721Contract {
-    type ClassData = CollectionData;
-
-    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Self::ClassData> {
-        get_collection_data(deps, sender)
-    }
-}
-impl Ics721Ibc<Empty> for Ics721Contract {}
-impl Ics721Query for Ics721Contract {}
 
 fn instantiate(
     deps: DepsMut,
@@ -344,12 +333,12 @@ fn cw721_base_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
-fn cw721_v16_base_contract() -> Box<dyn Contract<Empty>> {
-    use cw721_base_016 as v16;
+fn cw721_v016_base_contract() -> Box<dyn Contract<Empty>> {
+    use cw721_base_016 as v016;
     let contract = ContractWrapper::new(
-        v16::entry::execute,
-        v16::entry::instantiate,
-        v16::entry::query,
+        v016::entry::execute,
+        v016::entry::instantiate,
+        v016::entry::query,
     );
     Box::new(contract)
 }
@@ -1164,9 +1153,9 @@ fn test_receive_nft() {
             )
         );
     }
-    // test case: receive nft from old/v16 cw721-base
+    // test case: receive nft from old/v016 cw721-base
     {
-        let mut test = Test::new(false, None, cw721_v16_base_contract());
+        let mut test = Test::new(false, None, cw721_v016_base_contract());
         // mint and escrowed/owned by ics721
         let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
 
