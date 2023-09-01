@@ -46,7 +46,7 @@ impl Ics721Execute for SgIcs721Contract {
                     // this happens only for unknown class data, like source chain uses nft-transfer module
                     env.contract.address.to_string()
                 } else {
-                    let class_data = class_data_result.unwrap();
+                    let class_data = class_data_result?;
 
                     match class_data.owner {
                         Some(owner) => convert_owner_chain_address(env, owner.as_str())?,
