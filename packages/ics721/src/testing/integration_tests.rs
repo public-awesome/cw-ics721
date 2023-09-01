@@ -901,16 +901,9 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                     class: Class {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
-                        data: Some(
-                            to_binary(&CollectionData {
-                                owner: Some(OWNER_SOURCE_CHAIN.to_string()),
-                                contract_info: Default::default(),
-                                name: "name".to_string(),
-                                symbol: "symbol".to_string(),
-                                num_tokens: 1,
-                            })
-                            .unwrap(),
-                        ),
+                        // unlike above in 1st transfer, here on 2nd transfer no classdata is provided!
+                        // this won't affect collection since it's already instantiated
+                        data: None,
                     },
                     tokens: vec![Token {
                         id: TokenId::new("2"),
