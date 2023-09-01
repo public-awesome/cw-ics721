@@ -19,7 +19,7 @@ cw2 = { workspace = true }
 ics721 = { workspace = true }
 sg-std = { workspace = true}
 sg721 = { workspace = true }
-sg721-base = { workspace = true }
+sg721-base = { workspace = true, features = ["library"] }
 
 [dev-dependencies]
 anyhow = { workspace = true }
