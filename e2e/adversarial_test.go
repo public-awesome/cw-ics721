@@ -9,8 +9,8 @@ import (
 	wasmibctesting "github.com/CosmWasm/wasmd/x/wasm/ibctesting"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	channeltypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	ibctesting "github.com/cosmos/ibc-go/v3/testing"
+	channeltypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	ibctesting "github.com/cosmos/ibc-go/v4/testing"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -171,7 +171,7 @@ func (suite *AdversarialTestSuite) TestUnexpectedClose() {
 	mintNFT(suite.T(), suite.chainA, suite.cw721A.String(), "bad kid 2", newAcc.Address)
 
 	msg = getCw721SendIbcAwayMessage(suite.pathAC, suite.coordinator, "bad kid 2", suite.bridgeA, suite.chainC.SenderAccount.GetAddress(), suite.coordinator.CurrentTime.Add(time.Second*4).UnixNano())
-	_, err = SendMsgsFromAccount(suite.T(), suite.chainA, newAcc, false, &wasmtypes.MsgExecuteContract{
+	_, err = SendMsgsFromAccount(suite.T(), suite.chainA, newAcc, &wasmtypes.MsgExecuteContract{
 		Sender:   newAcc.Address.String(),
 		Contract: suite.cw721A.String(),
 		Msg:      []byte(msg),
