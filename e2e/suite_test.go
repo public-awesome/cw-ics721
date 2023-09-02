@@ -11,8 +11,8 @@ import (
 	wasmibctesting "github.com/CosmWasm/wasmd/x/wasm/ibctesting"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	channeltypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	ibctesting "github.com/cosmos/ibc-go/v3/testing"
+	channeltypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	ibctesting "github.com/cosmos/ibc-go/v4/testing"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -527,8 +527,8 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 
 	// Generate a new account and transfer the NFT to it.  For
 	// reasons entirely beyond me, the first account we create
-	// has an account number of ten. The second has 11.
-	newAccount := CreateAndFundAccount(suite.T(), suite.chainB, 10)
+	// has an account number of ten. The second has 18.
+	newAccount := CreateAndFundAccount(suite.T(), suite.chainB, 18)
 	transferNft(suite.T(), suite.chainB, chainBNft, "bad kid 1", suite.chainB.SenderAccount.GetAddress(), newAccount.Address)
 
 	// IBC away the transfered NFT.
@@ -536,7 +536,7 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 	ibcAwayEncoded := b64.StdEncoding.EncodeToString([]byte(ibcAway))
 
 	// Send the NFT away.
-	_, err := SendMsgsFromAccount(suite.T(), suite.chainB, newAccount, true, &wasmtypes.MsgExecuteContract{
+	_, err := SendMsgsFromAccount(suite.T(), suite.chainB, newAccount, &wasmtypes.MsgExecuteContract{
 		Sender:   newAccount.Address.String(),
 		Contract: chainBNft,
 		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "bad kid 1", "msg": "%s" } }`, suite.chainBBridge.String(), ibcAwayEncoded)),
@@ -550,11 +550,11 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 	require.ErrorContains(suite.T(), err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>> not found")
 
 	// Make another account on chain B and transfer to the new account.
-	anotherAcount := CreateAndFundAccount(suite.T(), suite.chainB, 11)
+	anotherAcount := CreateAndFundAccount(suite.T(), suite.chainB, 19)
 	ics721Nft(suite.T(), suite.chainA, path, suite.coordinator, chainANft.String(), suite.chainABridge, suite.chainA.SenderAccount.GetAddress(), anotherAcount.Address)
 
 	// Transfer it back to chain A using this new account.
-	_, err = SendMsgsFromAccount(suite.T(), suite.chainB, anotherAcount, true, &wasmtypes.MsgExecuteContract{
+	_, err = SendMsgsFromAccount(suite.T(), suite.chainB, anotherAcount, &wasmtypes.MsgExecuteContract{
 		Sender:   anotherAcount.Address.String(),
 		Contract: chainBNft,
 		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "bad kid 1", "msg": "%s" } }`, suite.chainBBridge.String(), ibcAwayEncoded)),
@@ -629,13 +629,14 @@ func TestCloseRejected(t *testing.T) {
 	// attempts to close it. We should reject this and keep the
 	// channel open.
 
-	// For this version we are account number 9. Why not 10? Why
+	// For this version we are account number 17. Why not 10? Why
 	// not 1? These are some of the world's great mysteries.
-	newAccount := CreateAndFundAccount(t, chainA, 9)
+	newAccount := CreateAndFundAccount(t, chainA, 17)
 
 	// Make sure ChanCloseInit is rejected.
 	msg := channeltypes.NewMsgChannelCloseInit(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID, newAccount.Address.String())
 	chainA.Coordinator.UpdateTimeForChain(chainA)
+
 	_, _, err = wasmd.SignAndDeliver(
 		t,
 		chainA.TxConfig,
@@ -645,8 +646,8 @@ func TestCloseRejected(t *testing.T) {
 		chainA.ChainID,
 		[]uint64{newAccount.Acc.GetAccountNumber()},
 		[]uint64{newAccount.Acc.GetSequence()},
-		false, false, newAccount.PrivKey)
-
+		newAccount.PrivKey)
+	require.Error(t, err)
 	require.ErrorContains(t, err, "ICS 721 channels may not be closed")
 
 	chainA.NextBlock()
