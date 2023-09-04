@@ -1132,18 +1132,17 @@ fn test_receive_nft() {
             .unwrap(),
         )
         .unwrap();
+        let expected_collection_data = to_binary(&CollectionData {
+            owner: Some(test.minter.to_string()),
+            contract_info: expected_contract_info,
+            name: "name".to_string(),
+            symbol: "symbol".to_string(),
+            num_tokens: 1,
+        })
+        .unwrap();
         assert_eq!(
             class_data_attribute.value,
-            format!(
-                "{:?}",
-                CollectionData {
-                    owner: Some(test.minter.to_string()),
-                    contract_info: expected_contract_info,
-                    name: "name".to_string(),
-                    symbol: "symbol".to_string(),
-                    num_tokens: 1,
-                }
-            )
+            format!("{:?}", expected_collection_data)
         );
     }
     // test case: receive nft from old/v016 cw721-base
@@ -1191,18 +1190,17 @@ fn test_receive_nft() {
             .unwrap(),
         )
         .unwrap();
+        let expected_collection_data = to_binary(&CollectionData {
+            owner: Some(test.minter.to_string()),
+            contract_info: expected_contract_info,
+            name: "name".to_string(),
+            symbol: "symbol".to_string(),
+            num_tokens: 1,
+        })
+        .unwrap();
         assert_eq!(
             class_data_attribute.value,
-            format!(
-                "{:?}",
-                CollectionData {
-                    owner: Some(test.minter.to_string()),
-                    contract_info: expected_contract_info,
-                    name: "name".to_string(),
-                    symbol: "symbol".to_string(),
-                    num_tokens: 1,
-                }
-            )
+            format!("{:?}", expected_collection_data)
         );
     }
 }

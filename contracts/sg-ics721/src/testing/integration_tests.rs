@@ -1287,28 +1287,26 @@ fn test_receive_nft() {
             .unwrap(),
         )
         .unwrap();
+        let expected_collection_data = to_binary(&SgCollectionData {
+            owner: Some(test.minter.to_string()),
+            contract_info: expected_contract_info,
+            name: "name".to_string(),
+            symbol: "symbol".to_string(),
+            num_tokens: 1,
+            collection_info: CollectionInfoResponse {
+                creator: test.ics721.to_string(),
+                description: "".to_string(),
+                image: "https://arkprotocol.io".to_string(),
+                external_link: None,
+                explicit_content: None,
+                start_trading_time: None,
+                royalty_info: None,
+            },
+        })
+        .unwrap();
         assert_eq!(
             class_data_attribute.value,
-            format!(
-                "{:?}",
-                // outbound, transfer from SG to another chain
-                SgCollectionData {
-                    owner: Some(test.minter.to_string()),
-                    contract_info: expected_contract_info,
-                    name: "name".to_string(),
-                    symbol: "symbol".to_string(),
-                    num_tokens: 1,
-                    collection_info: CollectionInfoResponse {
-                        creator: test.ics721.to_string(),
-                        description: "".to_string(),
-                        image: "https://arkprotocol.io".to_string(),
-                        external_link: None,
-                        explicit_content: None,
-                        start_trading_time: None,
-                        royalty_info: None,
-                    },
-                }
-            )
+            format!("{:?}", expected_collection_data)
         );
     }
     // test case: receive nft from old/v240 sg721-base
@@ -1356,28 +1354,26 @@ fn test_receive_nft() {
             .unwrap(),
         )
         .unwrap();
+        let expected_collection_data = to_binary(&SgCollectionData {
+            owner: Some(test.minter.to_string()),
+            contract_info: expected_contract_info,
+            name: "name".to_string(),
+            symbol: "symbol".to_string(),
+            num_tokens: 1,
+            collection_info: CollectionInfoResponse {
+                creator: test.ics721.to_string(),
+                description: "".to_string(),
+                image: "https://arkprotocol.io".to_string(),
+                external_link: None,
+                explicit_content: None,
+                start_trading_time: None,
+                royalty_info: None,
+            },
+        })
+        .unwrap();
         assert_eq!(
             class_data_attribute.value,
-            format!(
-                "{:?}",
-                // outbound, transfer from SG to another chain
-                SgCollectionData {
-                    owner: Some(test.minter.to_string()),
-                    contract_info: expected_contract_info,
-                    name: "name".to_string(),
-                    symbol: "symbol".to_string(),
-                    num_tokens: 1,
-                    collection_info: CollectionInfoResponse {
-                        creator: test.ics721.to_string(),
-                        description: "".to_string(),
-                        image: "https://arkprotocol.io".to_string(),
-                        external_link: None,
-                        explicit_content: None,
-                        start_trading_time: None,
-                        royalty_info: None,
-                    },
-                }
-            )
+            format!("{:?}", expected_collection_data)
         );
     }
 }

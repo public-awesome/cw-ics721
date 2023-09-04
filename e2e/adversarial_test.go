@@ -287,7 +287,11 @@ func (suite *AdversarialTestSuite) TestEmptyClassId() {
 	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
 		Contract: suite.bridgeC.String(),
-		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s"],"tokenUris":["https://metadata-url.com/my-metadata1"],"sender":"%s","receiver":"%s"} }}`, suite.pathAC.Invert().EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())),
+		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s"],"tokenUris":["https://metadata-url.com/my-metadata1"],"sender":"%s","receiver":"%s"} }}`,
+		suite.pathAC.Invert().EndpointA.ChannelID,
+		suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(),
+		suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(),
+		suite.chainA.SenderAccount.GetAddress().String())),
 		Funds:    []sdk.Coin{},
 	})
 	require.NoError(suite.T(), err)
@@ -358,7 +362,9 @@ func (suite *AdversarialTestSuite) TestMetadataForwarding() {
 	require.NoError(suite.T(), err)
 	suite.T().Log("class:", class_metadata)
 	require.NotNil(suite.T(), class_metadata.URI)
+	suite.T().Log("class URI:", class_metadata.URI)
 	require.NotNil(suite.T(), class_metadata.Data)
+	suite.T().Log("class data:", class_metadata.Data)
 	require.Equal(suite.T(), "https://metadata-url.com/my-metadata", *class_metadata.URI)
 	require.Equal(suite.T(), "e30K", *class_metadata.Data)
 

@@ -130,10 +130,7 @@ where
             // that has never been sent out of this contract.
             None => {
                 let class_data = self.get_class_data(&deps, &info.sender)?;
-                let data = class_data
-                    .as_ref()
-                    .map(|data| to_binary(data))
-                    .transpose()?;
+                let data = class_data.as_ref().map(to_binary).transpose()?;
                 let class = Class {
                     id: ClassId::new(info.sender.to_string()),
                     // There is no collection-level uri nor data in the
@@ -193,14 +190,11 @@ where
             (class.id.clone(), token_id.clone()),
             &msg.channel_id,
         )?;
+        // class_data might be collection data (if it comes from ICS721 contract) or some custome data (e.g. comming from nft-transfer module)
+        // so only can output binary here
         let class_data_string = class
             .data
-            .as_ref()
-            .map(|data| from_binary(data))
-            .transpose()?
-            .map_or("none".to_string(), |data: Self::ClassData| {
-                format!("{:?}", data)
-            });
+            .map_or("none".to_string(), |data| format!("{:?}", data));
 
         Ok(Response::default()
             .add_attribute("method", "execute_receive_nft")
