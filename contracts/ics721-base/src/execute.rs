@@ -7,7 +7,7 @@ impl Ics721Execute for Ics721Contract {
     type ClassData = CollectionData;
 
     /// Default ics721-base contract collections collection data from cw721 contract.
-    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Self::ClassData> {
-        get_collection_data(deps, sender)
+    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Option<Self::ClassData>> {
+        get_collection_data(deps, sender).map(Option::Some)
     }
 }

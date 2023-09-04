@@ -13,7 +13,7 @@ impl Ics721Execute for SgIcs721Contract {
     type ClassData = SgCollectionData;
 
     /// sg-ics721 sends custom SgCollectionData, basically it extends ics721-base::state::CollectionData with additional collection_info.
-    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Self::ClassData> {
+    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Option<Self::ClassData>> {
         let CollectionData {
             owner,
             contract_info,
@@ -25,14 +25,14 @@ impl Ics721Execute for SgIcs721Contract {
             .querier
             .query_wasm_smart(sender, &QueryMsg::CollectionInfo {})?;
 
-        Ok(SgCollectionData {
+        Ok(Some(SgCollectionData {
             owner,
             contract_info,
             name,
             symbol,
             num_tokens,
             collection_info,
-        })
+        }))
     }
 
     fn init_msg(&self, env: &Env, class: &Class) -> StdResult<Binary> {

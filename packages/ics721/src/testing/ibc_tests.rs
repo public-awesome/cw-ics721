@@ -40,8 +40,8 @@ pub struct Ics721Contract {}
 impl Ics721Execute<Empty> for Ics721Contract {
     type ClassData = CollectionData;
 
-    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Self::ClassData> {
-        get_collection_data(deps, sender)
+    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Option<Self::ClassData>> {
+        get_collection_data(deps, sender).map(Option::Some)
     }
 }
 impl Ics721Ibc<Empty> for Ics721Contract {}

@@ -27,12 +27,28 @@ pub struct Ics721Contract {}
 impl Ics721Execute<Empty> for Ics721Contract {
     type ClassData = CollectionData;
 
-    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Self::ClassData> {
-        get_collection_data(deps, sender)
+    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Option<Self::ClassData>> {
+        get_collection_data(deps, sender).map(Option::Some)
     }
 }
 impl Ics721Ibc<Empty> for Ics721Contract {}
 impl Ics721Query for Ics721Contract {}
+
+#[derive(Default)]
+pub struct Ics721ContractNoClassData {}
+impl Ics721Execute<Empty> for Ics721ContractNoClassData {
+    type ClassData = CollectionData;
+
+    fn get_class_data(
+        &self,
+        _deps: &DepsMut,
+        _sender: &Addr,
+    ) -> StdResult<Option<Self::ClassData>> {
+        Ok(None)
+    }
+}
+impl Ics721Ibc<Empty> for Ics721ContractNoClassData {}
+impl Ics721Query for Ics721ContractNoClassData {}
 
 // copy of cosmwasm_std::ContractInfoResponse (marked as non-exhaustive)
 #[cw_serde]
@@ -305,6 +321,79 @@ fn test_receive_nft() {
                         })
                         .unwrap()
                     ),
+                    token_data: None,
+                    token_ids: vec![TokenId::new(token_id)],
+                    token_uris: Some(vec!["https://moonphase.is/image.svg".to_string()]),
+                    sender,
+                    receiver: "callum".to_string(),
+                    memo: None,
+                })
+                .unwrap()
+            }))
+        );
+
+        // check outgoing classID and tokenID
+        let keys = OUTGOING_CLASS_TOKEN_TO_CHANNEL
+            .keys(deps.as_mut().storage, None, None, Order::Ascending)
+            .into_iter()
+            .collect::<StdResult<Vec<(String, String)>>>()
+            .unwrap();
+        assert_eq!(keys, [(NFT_ADDR.to_string(), token_id.to_string())]);
+
+        // check channel
+        let key = (
+            ClassId::new(keys[0].clone().0),
+            TokenId::new(keys[0].clone().1),
+        );
+        assert_eq!(
+            OUTGOING_CLASS_TOKEN_TO_CHANNEL
+                .load(deps.as_mut().storage, key)
+                .unwrap(),
+            channel_id
+        )
+    }
+    // test case: receive nft with no class data
+    {
+        let mut querier = MockQuerier::default();
+        querier.update_wasm(mock_querier_v016);
+
+        let mut deps = mock_dependencies();
+        deps.querier = querier;
+        let env = mock_env();
+
+        let info = mock_info(NFT_ADDR, &[]);
+        let token_id = "1";
+        let sender = "ekez".to_string();
+        let msg = to_binary(&IbcOutgoingMsg {
+            receiver: "callum".to_string(),
+            channel_id: "channel-1".to_string(),
+            timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
+            memo: None,
+        })
+        .unwrap();
+
+        let res: cosmwasm_std::Response<_> = Ics721ContractNoClassData::default()
+            .receive_nft(
+                deps.as_mut(),
+                env,
+                info,
+                TokenId::new(token_id),
+                sender.clone(),
+                msg,
+            )
+            .unwrap();
+        assert_eq!(res.messages.len(), 1);
+
+        let channel_id = "channel-1".to_string();
+        assert_eq!(
+            res.messages[0],
+            SubMsg::new(CosmosMsg::<Empty>::Ibc(IbcMsg::SendPacket {
+                channel_id: channel_id.clone(),
+                timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
+                data: to_binary(&NonFungibleTokenPacketData {
+                    class_id: ClassId::new(NFT_ADDR),
+                    class_uri: None,
+                    class_data: None,
                     token_data: None,
                     token_ids: vec![TokenId::new(token_id)],
                     token_uris: Some(vec!["https://moonphase.is/image.svg".to_string()]),

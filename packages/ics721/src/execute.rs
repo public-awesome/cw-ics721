@@ -110,7 +110,7 @@ where
         Ok(res.add_attribute("method", "execute_receive_proxy_nft"))
     }
 
-    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Self::ClassData>;
+    fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Option<Self::ClassData>>;
 
     fn receive_nft(
         &self,
@@ -130,13 +130,17 @@ where
             // that has never been sent out of this contract.
             None => {
                 let class_data = self.get_class_data(&deps, &info.sender)?;
+                let data = class_data
+                    .as_ref()
+                    .map(|data| to_binary(data))
+                    .transpose()?;
                 let class = Class {
                     id: ClassId::new(info.sender.to_string()),
                     // There is no collection-level uri nor data in the
                     // cw721 specification so we set those values to
                     // `None` for local, cw721 NFTs.
                     uri: None,
-                    data: Some(to_binary(&class_data)?),
+                    data,
                 };
 
                 NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, info.sender.clone(), &class.id)?;
@@ -189,13 +193,20 @@ where
             (class.id.clone(), token_id.clone()),
             &msg.channel_id,
         )?;
-        let class_data: Self::ClassData = from_binary(&class.data.unwrap())?;
+        let class_data_string = class
+            .data
+            .as_ref()
+            .map(|data| from_binary(data))
+            .transpose()?
+            .map_or("none".to_string(), |data: Self::ClassData| {
+                format!("{:?}", data)
+            });
 
         Ok(Response::default()
             .add_attribute("method", "execute_receive_nft")
             .add_attribute("token_id", token_id)
             .add_attribute("class_id", class.id)
-            .add_attribute("class_data", format!("{:?}", class_data))
+            .add_attribute("class_data", class_data_string)
             .add_attribute("channel_id", msg.channel_id)
             .add_message(ibc_message))
     }
