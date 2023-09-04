@@ -190,7 +190,7 @@ where
             (class.id.clone(), token_id.clone()),
             &msg.channel_id,
         )?;
-        // class_data might be collection data (if it comes from ICS721 contract) or some custome data (e.g. comming from nft-transfer module)
+        // class_data might be collection data (if it comes from ICS721 contract) or some custom data (e.g. coming from nft-transfer module)
         // so only can output binary here
         let class_data_string = class
             .data
