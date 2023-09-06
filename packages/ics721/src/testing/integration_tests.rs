@@ -27,7 +27,7 @@ use crate::{
 
 use super::contract::Ics721Contract;
 
-const COMMUNITY_POOL: &str = "community_pool";
+const ICS721_CREATOR: &str = "ics721-creator";
 const CONTRACT_NAME: &str = "crates.io:ics721-base";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -175,7 +175,7 @@ impl Test {
         let ics721 = app
             .instantiate_contract(
                 ics721_id,
-                Addr::unchecked(COMMUNITY_POOL),
+                Addr::unchecked(ICS721_CREATOR),
                 &InstantiateMsg {
                     cw721_base_code_id: cw721_id,
                     proxy: proxy.clone(),

@@ -1,4 +1,4 @@
-use cosmwasm_std::{from_binary, to_binary, Addr, Binary, DepsMut, Env, StdResult};
+use cosmwasm_std::{from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, StdResult};
 use ics721::{
     execute::Ics721Execute,
     state::CollectionData,
@@ -35,10 +35,15 @@ impl Ics721Execute for SgIcs721Contract {
         }))
     }
 
-    fn init_msg(&self, env: &Env, class: &Class) -> StdResult<Binary> {
+    fn init_msg(&self, deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
         let creator = match class.data.clone() {
-            // in case no class data is provided, ics721 will be used as the creator.
-            None => env.contract.address.to_string(),
+            None => {
+                // in case no class data is provided (e.g. due to nft-transfer module), ics721 creator is used.
+                let contract_info = deps
+                    .querier
+                    .query_wasm_contract_info(env.contract.address.to_string())?;
+                contract_info.creator
+            }
             Some(data) => {
                 // class data may be any custom type. Check whether it is `ics721::state::CollectionData` or not.
                 let class_data_result: StdResult<CollectionData> = from_binary(&data);

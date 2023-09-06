@@ -28,7 +28,7 @@ use sg721_base::msg::{CollectionInfoResponse, QueryMsg as Sg721QueryMsg};
 
 use crate::{state::SgCollectionData, ContractError, SgIcs721Contract};
 
-const COMMUNITY_POOL: &str = "community_pool";
+const ICS721_CREATOR: &str = "ics721-creator";
 const CONTRACT_NAME: &str = "crates.io:sg-ics721";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -176,7 +176,7 @@ impl Test {
         let ics721 = app
             .instantiate_contract(
                 ics721_id,
-                Addr::unchecked(COMMUNITY_POOL),
+                Addr::unchecked(ICS721_CREATOR),
                 &InstantiateMsg {
                     cw721_base_code_id: cw721_id,
                     proxy: proxy.clone(),
@@ -541,8 +541,8 @@ fn test_do_instantiate_and_mint() {
         assert_eq!(
             collection_info,
             CollectionInfoResponse {
-                // creator is ics721 contract, since no owner in ClassData provided
-                creator: test.ics721.to_string(),
+                // creator of ics721 contract is also creator of collection, since no owner in ClassData provided
+                creator: ICS721_CREATOR.to_string(),
                 description: "".to_string(),
                 image: "https://arkprotocol.io".to_string(),
                 external_link: None,

@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Binary, DepsMut, Empty, Env, IbcMsg, MessageInfo, Response,
+    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcMsg, MessageInfo, Response,
     StdResult, SubMsg, WasmMsg,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -262,7 +262,7 @@ where
                 WasmMsg::Instantiate {
                     admin: None,
                     code_id: CW721_CODE_ID.load(deps.storage)?,
-                    msg: self.init_msg(&env, &class)?,
+                    msg: self.init_msg(deps.as_ref(), &env, &class)?,
                     funds: vec![],
                     // Attempting to fit the class ID in the label field
                     // can make this field too long which causes data
@@ -298,7 +298,7 @@ where
     }
 
     /// Default implementation using `cw721_base::msg::InstantiateMsg`
-    fn init_msg(&self, env: &Env, class: &Class) -> StdResult<Binary> {
+    fn init_msg(&self, _deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
         to_binary(&cw721_base::msg::InstantiateMsg {
             // Name of the collection MUST be class_id as this is how
             // we create a map entry on reply.
