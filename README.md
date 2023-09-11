@@ -80,7 +80,7 @@ configured to use. If a proxy is configured, the ICS721 contract will only
 accept NFTs delivered by the proxy address. This proxy interface is
 very minimal and enables very flexible rate limiting and
 filtering. Currently, per-collection rate limiting is
-implemented. Users of this ICS721 contract are enchouraged to implement their
+implemented. Users of this ICS721 contract are encouraged to implement their
 own filtering regimes and may add them to the [proxy
 repository](https://github.com/arkprotocol/cw721-proxy) so that others may
 use them.
