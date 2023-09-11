@@ -22,7 +22,7 @@ This contract deals in debt-vouchers.
 
 ![debt-vouchers](https://user-images.githubusercontent.com/30676292/210026430-ab673969-23b7-4ffd-964c-d22453e5adeb.png)
 
-To sent a NFT from chain A to chan B:
+To send a NFT from chain A to chain B:
 
 1. The NFT is locked on chain A.
 2. A message is delivered over IBC to the destination chain describing
@@ -63,7 +63,7 @@ Pause functionality is designed to allow for quick pauses by a trusted
 group, without conceding the ability to lock the contract to that
 group. To this end, the admin of this contract may appoint a subDAO
 which may pause the contract a _single time_. In pausing the contract,
-the subDAO looses the ability to pause again until it is reauthorized
+the subDAO loses the ability to pause again until it is reauthorized
 by governance.
 
 After a pause, the bridge will remain paused until governance chooses
@@ -80,12 +80,12 @@ configured to use. If a proxy is configured, the bridge will only
 accept NFTs delivered by the proxy address. This proxy interface is
 very minimal and enables very flexible rate limiting and
 filtering. Currently, per-collection rate limiting is
-implemented. Users of this bridge are enchouraged to implement their
+implemented. Users of this bridge are encouraged to implement their
 own filtering regimes and may add them to the [proxy
 repository](https://github.com/0xekez/cw721-proxy) so that others may
 use them.
 
-## Failure handling eratta
+## Failure handling errata
 
 This contract will never close an IBC channel between itself and
 another bridge. If the other side of a channel closes the connection,
