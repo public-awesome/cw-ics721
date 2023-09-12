@@ -6,25 +6,42 @@ resolver = "2"
 edition    = "2021"
 
 [workspace.dependencies]
+# common libs
 anyhow = "1.0"
+bech32 = "^0.9"
 cosmwasm-std = "1.2"
 cosmwasm-schema = "1.2"
 cosmwasm-storage = "1.2"
+cw-ownable      = "0.5.0"
+cw-paginate-storage = { version = "2.2.0", git = "https://github.com/DA0-DA0/dao-contracts.git" }
 cw-storage-plus = "1.1"
 cw2 = "1.1"
 cw721 = "0.18"
+cw721-016 = { version = "0.16.0", package = "cw721" }
 cw721-base = "0.18"
+cw721-base-016  = { version = "0.16.0", package = "cw721-base" }
+cw721-proxy-derive = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.7" }
+cw721-rate-limited-proxy = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.7" }
 cw-multi-test = "0.16"
 cw-utils = "1.0"
-thiserror = "1"
 serde = "1.0"
-cw-paginate-storage = { version = "2.2.0", git = "https://github.com/DA0-DA0/dao-contracts.git" }
-cw721-proxy-derive = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.6" }
-cw721-rate-limited-proxy = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.6" }
-cw-pause-once = { path = "./packages/cw-pause-once" }
+thiserror = "1"
+# Stargaze libs
+sg-std = "3.0"
+sg-multi-test = "^3.1"
+sg721 = "^3.1"
+sg721-240 = { version = "^2.4", package = "sg721" }
+sg721-base = "^3.1"
+sg721-base-240 = { version = "^2.4", package = "sg721-base" }
+# packages and contracts
 cw-cii = { path = "./packages/cw-cii" }
+cw-pause-once = { path = "./packages/cw-pause-once" }
+ics721 = { path = "./packages/ics721" }
 zip-optional = { path = "./packages/zip-optional" }
-cw-ics721-bridge = { path = "./contracts/cw-ics721-bridge"}
+ics721-base = { path = "./contracts/ics721-base"}
+ics721-base-tester = { path = "./contracts/cw-ics721-base-tester"}
+cw721-tester = { path = "./contracts/cw721-tester"}
+sg-ics721 = { path = "./contracts/sg-ics721"}
 
 [profile.release]
 codegen-units = 1

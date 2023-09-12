@@ -1,0 +1,31 @@
+[package]
+name = "ics721"
+version = "0.0.1"
+edition = "2021"
+authors = ["ekez <ekez@withoutdoing.com>", "mr-t <mr-t@arkprotocol.io>", "Art3mix <art3mix.90@gmail.com>"]
+description = "an implementation of the ICS721 specification for transfering NFTs between blockchains"
+
+[dependencies]
+bech32 = { workspace = true }
+cosmwasm-std = { workspace = true, features = ["ibc3"] }
+cosmwasm-schema = { workspace = true }
+cw-ownable      = { workspace = true }
+cw-storage-plus = { workspace = true }
+cw-utils = { workspace = true }
+cw721 = { workspace = true }
+cw721-base = { workspace = true, features = ["library"] }
+cw721-base-016  = { workspace = true, features = ["library"] }
+thiserror = { workspace = true }
+serde = { workspace = true }
+cw-paginate-storage = { workspace = true }
+cw721-proxy-derive = { workspace = true }
+cw-pause-once = { workspace = true }
+cw-cii = { workspace = true }
+zip-optional = { workspace = true }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+cw-multi-test = { workspace = true }
+cw2 = { workspace = true }
+cw721-016 = { workspace = true }
+cw721-rate-limited-proxy = { workspace = true }

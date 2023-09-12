@@ -9,8 +9,8 @@ import (
 	wasmibctesting "github.com/CosmWasm/wasmd/x/wasm/ibctesting"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	channeltypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	ibctesting "github.com/cosmos/ibc-go/v3/testing"
+	channeltypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	ibctesting "github.com/cosmos/ibc-go/v4/testing"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -20,7 +20,7 @@ import (
 //
 //	      +----------------+
 //	      |                |
-//	      | bridge-tester  |
+//	      | ics721-tester  |
 //	      | chain: C       |
 //	      |                |
 //	      +----------------+
@@ -29,7 +29,7 @@ import (
 //		         v
 //		+----------------+             +-----------------+
 //		|                |             |                 |
-//		| bridge         |             | bridge          |
+//		| ics721         |             | ics721          |
 //		| chain: A       |<----------->| chain: B        |
 //		| nftA           |             |                 |
 //		+----------------+             +-----------------+
@@ -64,13 +64,13 @@ func (suite *AdversarialTestSuite) SetupTest() {
 	suite.chainC = suite.coordinator.GetChain(wasmibctesting.GetChainID(2))
 
 	storeCodes := func(chain *wasmibctesting.TestChain, bridge *sdk.AccAddress) {
-		resp := chain.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
+		resp := chain.StoreCodeFile("../artifacts/ics721_base.wasm")
 		require.Equal(suite.T(), uint64(1), resp.CodeID)
 
 		resp = chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
 		require.Equal(suite.T(), uint64(2), resp.CodeID)
 
-		resp = chain.StoreCodeFile("../artifacts/cw_ics721_bridge_tester.wasm")
+		resp = chain.StoreCodeFile("../artifacts/ics721_base_tester.wasm")
 		require.Equal(suite.T(), uint64(3), resp.CodeID)
 
 		instantiateBridge := InstantiateICS721Bridge{
@@ -122,7 +122,7 @@ func (suite *AdversarialTestSuite) SetupTest() {
 	suite.pathAC = makePath(suite.chainA, suite.chainC, suite.bridgeA, suite.bridgeC)
 }
 
-// How does the ics721-bridge contract respond if the other side
+// How does the ics721-base contract respond if the other side
 // closes the connection?
 //
 // It should:
@@ -171,7 +171,7 @@ func (suite *AdversarialTestSuite) TestUnexpectedClose() {
 	mintNFT(suite.T(), suite.chainA, suite.cw721A.String(), "bad kid 2", newAcc.Address)
 
 	msg = getCw721SendIbcAwayMessage(suite.pathAC, suite.coordinator, "bad kid 2", suite.bridgeA, suite.chainC.SenderAccount.GetAddress(), suite.coordinator.CurrentTime.Add(time.Second*4).UnixNano())
-	_, err = SendMsgsFromAccount(suite.T(), suite.chainA, newAcc, false, &wasmtypes.MsgExecuteContract{
+	_, err = SendMsgsFromAccount(suite.T(), suite.chainA, newAcc, &wasmtypes.MsgExecuteContract{
 		Sender:   newAcc.Address.String(),
 		Contract: suite.cw721A.String(),
 		Msg:      []byte(msg),
@@ -180,7 +180,7 @@ func (suite *AdversarialTestSuite) TestUnexpectedClose() {
 	require.Error(suite.T(), err)
 }
 
-// How does the ics721-bridge contract respond if the other side sends
+// How does the ics721-base contract respond if the other side sends
 // a class ID corresponding to a class ID that is valid on a different
 // channel but not on its channel?
 //
@@ -215,7 +215,7 @@ func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
 	suite.coordinator.UpdateTime()
 	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
 
-	// NFT should still be owned by the bridge on chain A.
+	// NFT should still be owned by the ICS721 contract on chain A.
 	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String())
 	require.Equal(suite.T(), suite.bridgeA.String(), chainAOwner)
 
@@ -271,7 +271,7 @@ func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
 	require.Equal(suite.T(), "https://moonphase.is", *metadata.URI)
 }
 
-// How does the ics721-bridge contract respond if the other side sends
+// How does the ics721-base contract respond if the other side sends
 // IBC messages where the class ID is empty?
 //
 // It should:
@@ -287,7 +287,11 @@ func (suite *AdversarialTestSuite) TestEmptyClassId() {
 	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
 		Contract: suite.bridgeC.String(),
-		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s"],"tokenUris":["https://metadata-url.com/my-metadata1"],"sender":"%s","receiver":"%s"} }}`, suite.pathAC.Invert().EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())),
+		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s"],"tokenUris":["https://metadata-url.com/my-metadata1"],"sender":"%s","receiver":"%s"} }}`,
+		suite.pathAC.Invert().EndpointA.ChannelID,
+		suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(),
+		suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(),
+		suite.chainA.SenderAccount.GetAddress().String())),
 		Funds:    []sdk.Coin{},
 	})
 	require.NoError(suite.T(), err)
@@ -314,17 +318,17 @@ func (suite *AdversarialTestSuite) TestEmptyClassId() {
 //  2. `class_data` - on-chain, base64 encoded metadata
 //  3. `token_data` - on-chain, base64 encoded metadata
 //
-// How does the ics721-bridge contract respond if the other side sends
+// How does the ics721-base contract respond if the other side sends
 // metadata not present in the CW-721 specification?
 //
 // It should:
 //   - Accept the transfer request.
-//   - Make the additional metadata fields queryable from the bridge.
+//   - Make the additional metadata fields queryable from the ICS721 contract.
 //   - Forward the data when debt-vouchers for NFTs with additional
 //     metadata are sent to other chains.
 //   - Clear metadata for redeemed debt vouchers.
 func (suite *AdversarialTestSuite) TestMetadataForwarding() {
-	// Send two NFTs with additional metadata to the bridge.
+	// Send two NFTs with additional metadata to the ICS721 contract.
 	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
 		Contract: suite.bridgeC.String(),
@@ -358,7 +362,9 @@ func (suite *AdversarialTestSuite) TestMetadataForwarding() {
 	require.NoError(suite.T(), err)
 	suite.T().Log("class:", class_metadata)
 	require.NotNil(suite.T(), class_metadata.URI)
+	suite.T().Log("class URI:", class_metadata.URI)
 	require.NotNil(suite.T(), class_metadata.Data)
+	suite.T().Log("class data:", class_metadata.Data)
 	require.Equal(suite.T(), "https://metadata-url.com/my-metadata", *class_metadata.URI)
 	require.Equal(suite.T(), "e30K", *class_metadata.Data)
 
@@ -432,7 +438,7 @@ func (suite *AdversarialTestSuite) TestMetadataForwarding() {
 
 	// Return the token to chain A.
 	//
-	// The bridge should remove the token's metadata from storage
+	// The ICS721 contract should remove the token's metadata from storage
 	// and burn the token.
 	var chainBAddress string
 	err = suite.chainB.SmartQuery(suite.bridgeB.String(), NftContractQuery{
@@ -486,7 +492,7 @@ func (suite *AdversarialTestSuite) TestMetadataForwarding() {
 //
 // Sends a message with an invalid receiver and then checks that the
 // testing contract can process the ack. The testing contract uses the
-// same ACK processing logic as the bridge contract so this tests that
+// same ACK processing logic as the ICS721 contract so this tests that
 // by proxy.
 func (suite *AdversarialTestSuite) TestSimpleAckFail() {
 	// Send a NFT with an invalid receiver address.
@@ -511,7 +517,7 @@ func (suite *AdversarialTestSuite) TestSimpleAckFail() {
 //
 // Sends a valid message and then checks that the testing contract can
 // process the ack. The testing contract uses the same ACK processing
-// logic as the bridge contract so this tests that by proxy.
+// logic as the ICS721 contract so this tests that by proxy.
 func (suite *AdversarialTestSuite) TestSimpleAckSuccess() {
 	// Send a valid NFT message.
 	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
@@ -531,7 +537,7 @@ func (suite *AdversarialTestSuite) TestSimpleAckSuccess() {
 	require.Equal(suite.T(), "success", lastAck)
 }
 
-// How does the ics721-bridge contract respond if the other side sends
+// How does the ics721-base contract respond if the other side sends
 // IBC messages where the token URIs and IDs have different lengths?
 //
 // It should:
@@ -555,7 +561,7 @@ func (suite *AdversarialTestSuite) TestDifferentUriAndIdLengths() {
 	require.Equal(suite.T(), "error", lastAck)
 }
 
-// How does the ics721-bridge contract respond if a token is sent for
+// How does the ics721-base contract respond if a token is sent for
 // which the uri and data fields are empty strings?
 //
 // It should:
@@ -585,7 +591,7 @@ func (suite *AdversarialTestSuite) TestZeroLengthUriAndData() {
 	require.Equal(suite.T(), "success", lastAck)
 }
 
-// How does the ics721-bridge contract respond if two identical
+// How does the ics721-base contract respond if two identical
 // transfer messages are sent to the source chain?
 //
 // It should:
@@ -633,7 +639,7 @@ func (suite *AdversarialTestSuite) TestSendReplayAttack() {
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
 }
 
-// How does the ics721-bridge contract respond if the same token is
+// How does the ics721-base contract respond if the same token is
 // sent twice in one transfer message?
 //
 // It should:
@@ -690,10 +696,10 @@ func (suite *AdversarialTestSuite) TestReceiveMultipleNtsDifferentActions() {
 	// 2. Remote chian says that there are two NFTs belonging to
 	//    the same collection with the same token ID.
 	//
-	// Bridge contract is a based and does not care what other
-	// chain's NFT rules are. Only rule is that NFTs on bridge
+	// ICS721 contract is a based and does not care what other
+	// chain's NFT rules are. Only rule is that NFTs on ICS721
 	// contract's chain follow bridge contract's chain's NFT
-	// rules. Bridge contract says:
+	// rules. ICS721 contract says:
 	//
 	// > I know one of those tokens is valid and corresponds to the
 	// > NFT I previously sent away so I will return that one to

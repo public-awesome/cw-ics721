@@ -11,8 +11,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/public-awesome/stargaze/v6/app"
-	"github.com/public-awesome/stargaze/v6/testutil/simapp"
+	"github.com/public-awesome/stargaze/v12/app"
+	"github.com/public-awesome/stargaze/v12/testutil/simapp"
 	"github.com/stretchr/testify/require"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 )
@@ -95,7 +95,7 @@ func storeWasmFile(t *testing.T, file string, creator sdk.AccAddress, ctx sdk.Co
 }
 
 func StoreICS721Bridge(t *testing.T, creator sdk.AccAddress, ctx sdk.Context, app *app.App) uint64 {
-	return storeWasmFile(t, "../artifacts/cw_ics721_bridge.wasm", creator, ctx, app)
+	return storeWasmFile(t, "../artifacts/ics721_base.wasm", creator, ctx, app)
 }
 
 func StoreCw721Base(t *testing.T, creator sdk.AccAddress, ctx sdk.Context, app *app.App) uint64 {

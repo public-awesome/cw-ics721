@@ -1,0 +1,36 @@
+[package]
+name = "sg-ics721"
+version = "0.0.1"
+authors = ["mr-t <mr-t@arkprotocol.io>"]
+edition = "2021"
+description = "an implementation of the ICS721 specification for transfering NFTs between blockchains"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+backtraces = ["cosmwasm-std/backtraces"]
+library = []
+
+[dependencies]
+cosmwasm-std = { workspace = true, features = ["ibc3"] }
+cosmwasm-schema = { workspace = true }
+cw2 = { workspace = true }
+ics721 = { workspace = true }
+sg-std = { workspace = true}
+sg721 = { workspace = true }
+sg721-base = { workspace = true, features = ["library"] }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+bech32 = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cw-cii = { workspace = true }
+cw-multi-test = { workspace = true }
+cw-pause-once = { workspace = true }
+cw-storage-plus = { workspace = true }
+cw721 = { workspace = true}
+cw721-rate-limited-proxy = { workspace = true }
+cw721-base = { workspace = true}
+sg721-240  = { workspace = true}
+sg721-base-240  = { workspace = true, features = ["library"] }

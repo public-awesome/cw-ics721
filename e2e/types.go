@@ -45,7 +45,7 @@ type OwnerOfResponse struct {
 	// about it so we just don't unmarshal.
 }
 
-// Owner query for bridge contract.
+// Owner query for ICS721 contract.
 type OwnerQueryData struct {
 	TokenID string `json:"token_id"`
 	ClassID string `json:"class_id"`
@@ -54,7 +54,7 @@ type OwnerQuery struct {
 	Owner OwnerQueryData `json:"owner"`
 }
 
-// Bridge query for obtaining a NFT contract address given a class ID.
+// ICS721 contract query for obtaining a NFT contract address given a class ID.
 type NftContractQueryData struct {
 	ClassID string `json:"class_id"`
 }
@@ -70,7 +70,7 @@ type ClassIdQuery struct {
 	ClassIdForNFTContract ClassIdQueryData `json:"class_id"`
 }
 
-// Query for getting metadata for a class ID from the bridge.
+// Query for getting metadata for a class ID from the ICS721 contract.
 type ClassMetadataQueryData struct {
 	ClassId string `json:"class_id"`
 }

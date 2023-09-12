@@ -1,0 +1,552 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExecuteMsg",
+  "oneOf": [
+    {
+      "description": "Receives a NFT to be IBC transfered away. The `msg` field must be a binary encoded `IbcOutgoingMsg`.",
+      "type": "object",
+      "required": [
+        "receive_nft"
+      ],
+      "properties": {
+        "receive_nft": {
+          "$ref": "#/definitions/Cw721ReceiveMsg"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Pauses the ICS721 contract. Only the pauser may call this. In pausing the contract, the pauser burns the right to do so again.",
+      "type": "object",
+      "required": [
+        "pause"
+      ],
+      "properties": {
+        "pause": {
+          "type": "object",
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Mesages used internally by the contract. These may only be called by the contract itself.",
+      "type": "object",
+      "required": [
+        "callback"
+      ],
+      "properties": {
+        "callback": {
+          "$ref": "#/definitions/CallbackMsg"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "receive_proxy_nft"
+      ],
+      "properties": {
+        "receive_proxy_nft": {
+          "type": "object",
+          "required": [
+            "eyeball",
+            "msg"
+          ],
+          "properties": {
+            "eyeball": {
+              "type": "string"
+            },
+            "msg": {
+              "$ref": "#/definitions/Cw721ReceiveMsg"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  ],
+  "definitions": {
+    "Binary": {
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+      "type": "string"
+    },
+    "CallbackMsg": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "create_vouchers"
+          ],
+          "properties": {
+            "create_vouchers": {
+              "type": "object",
+              "required": [
+                "create",
+                "receiver"
+              ],
+              "properties": {
+                "create": {
+                  "description": "Information about the vouchers being created.",
+                  "allOf": [
+                    {
+                      "$ref": "#/definitions/VoucherCreation"
+                    }
+                  ]
+                },
+                "receiver": {
+                  "description": "The address that ought to receive the NFT. This is a local address, not a bech32 public key.",
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "redeem_vouchers"
+          ],
+          "properties": {
+            "redeem_vouchers": {
+              "type": "object",
+              "required": [
+                "receiver",
+                "redeem"
+              ],
+              "properties": {
+                "receiver": {
+                  "description": "The address that should receive the tokens.",
+                  "type": "string"
+                },
+                "redeem": {
+                  "description": "Information about the vouchers been redeemed.",
+                  "allOf": [
+                    {
+                      "$ref": "#/definitions/VoucherRedemption"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Mints a NFT of collection class_id for receiver with the provided id and metadata. Only callable by this contract.",
+          "type": "object",
+          "required": [
+            "mint"
+          ],
+          "properties": {
+            "mint": {
+              "type": "object",
+              "required": [
+                "class_id",
+                "receiver",
+                "tokens"
+              ],
+              "properties": {
+                "class_id": {
+                  "description": "The class_id to mint for. This must have previously been created with `SaveClass`.",
+                  "allOf": [
+                    {
+                      "$ref": "#/definitions/ClassId"
+                    }
+                  ]
+                },
+                "receiver": {
+                  "description": "The address that ought to receive the NFTs. This is a local address, not a bech32 public key.",
+                  "type": "string"
+                },
+                "tokens": {
+                  "description": "The tokens to mint on the collection.",
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/Token"
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "In submessage terms, say a message that results in an error \"returns false\" and one that succedes \"returns true\". Returns the logical conjunction (&&) of all the messages in operands.\n\nUnder the hood this just executes them in order. We use this to respond with a single ACK when a message calls for the execution of both `CreateVouchers` and `RedeemVouchers`.",
+          "type": "object",
+          "required": [
+            "conjunction"
+          ],
+          "properties": {
+            "conjunction": {
+              "type": "object",
+              "required": [
+                "operands"
+              ],
+              "properties": {
+                "operands": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/WasmMsg"
+                  }
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Class": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "data": {
+          "description": "Optional base64 encoded metadata about the class.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "description": "A unique (from the source chain's perspective) identifier for the class.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/ClassId"
+            }
+          ]
+        },
+        "uri": {
+          "description": "Optional URI pointing to off-chain metadata about the class.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "ClassId": {
+      "description": "A class ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+      "type": "string"
+    },
+    "Coin": {
+      "type": "object",
+      "required": [
+        "amount",
+        "denom"
+      ],
+      "properties": {
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        },
+        "denom": {
+          "type": "string"
+        }
+      }
+    },
+    "Cw721ReceiveMsg": {
+      "description": "Cw721ReceiveMsg should be de/serialized under `Receive()` variant in a ExecuteMsg",
+      "type": "object",
+      "required": [
+        "msg",
+        "sender",
+        "token_id"
+      ],
+      "properties": {
+        "msg": {
+          "$ref": "#/definitions/Binary"
+        },
+        "sender": {
+          "type": "string"
+        },
+        "token_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Token": {
+      "description": "A token according to the ICS-721 spec.",
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "data": {
+          "description": "Optional base64 encoded metadata about the token.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "description": "A unique identifier for the token.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/TokenId"
+            }
+          ]
+        },
+        "uri": {
+          "description": "Optional URI pointing to off-chain metadata about the token.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "TokenId": {
+      "description": "A token ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+      "type": "string"
+    },
+    "Uint128": {
+      "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+      "type": "string"
+    },
+    "VoucherCreation": {
+      "type": "object",
+      "required": [
+        "class",
+        "tokens"
+      ],
+      "properties": {
+        "class": {
+          "description": "The class that these vouchers are being created for.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Class"
+            }
+          ]
+        },
+        "tokens": {
+          "description": "The tokens to create debt-vouchers for.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Token"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "VoucherRedemption": {
+      "type": "object",
+      "required": [
+        "class",
+        "token_ids"
+      ],
+      "properties": {
+        "class": {
+          "description": "The class that these vouchers are being redeemed from.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Class"
+            }
+          ]
+        },
+        "token_ids": {
+          "description": "The tokens belonging to `class` that ought to be redeemed.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TokenId"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "WasmMsg": {
+      "description": "The message types of the wasm module.\n\nSee https://github.com/CosmWasm/wasmd/blob/v0.14.0/x/wasm/internal/types/tx.proto",
+      "oneOf": [
+        {
+          "description": "Dispatches a call to another contract at a known address (with known ABI).\n\nThis is translated to a [MsgExecuteContract](https://github.com/CosmWasm/wasmd/blob/v0.14.0/x/wasm/internal/types/tx.proto#L68-L78). `sender` is automatically filled with the current contract's address.",
+          "type": "object",
+          "required": [
+            "execute"
+          ],
+          "properties": {
+            "execute": {
+              "type": "object",
+              "required": [
+                "contract_addr",
+                "funds",
+                "msg"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "type": "string"
+                },
+                "funds": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/Coin"
+                  }
+                },
+                "msg": {
+                  "description": "msg is the json-encoded ExecuteMsg struct (as raw Binary)",
+                  "allOf": [
+                    {
+                      "$ref": "#/definitions/Binary"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Instantiates a new contracts from previously uploaded Wasm code.\n\nThe contract address is non-predictable. But it is guaranteed that when emitting the same Instantiate message multiple times, multiple instances on different addresses will be generated. See also Instantiate2.\n\nThis is translated to a [MsgInstantiateContract](https://github.com/CosmWasm/wasmd/blob/v0.29.2/proto/cosmwasm/wasm/v1/tx.proto#L53-L71). `sender` is automatically filled with the current contract's address.",
+          "type": "object",
+          "required": [
+            "instantiate"
+          ],
+          "properties": {
+            "instantiate": {
+              "type": "object",
+              "required": [
+                "code_id",
+                "funds",
+                "label",
+                "msg"
+              ],
+              "properties": {
+                "admin": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "code_id": {
+                  "type": "integer",
+                  "format": "uint64",
+                  "minimum": 0.0
+                },
+                "funds": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/Coin"
+                  }
+                },
+                "label": {
+                  "description": "A human-readbale label for the contract",
+                  "type": "string"
+                },
+                "msg": {
+                  "description": "msg is the JSON-encoded InstantiateMsg struct (as raw Binary)",
+                  "allOf": [
+                    {
+                      "$ref": "#/definitions/Binary"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Migrates a given contracts to use new wasm code. Passes a MigrateMsg to allow us to customize behavior.\n\nOnly the contract admin (as defined in wasmd), if any, is able to make this call.\n\nThis is translated to a [MsgMigrateContract](https://github.com/CosmWasm/wasmd/blob/v0.14.0/x/wasm/internal/types/tx.proto#L86-L96). `sender` is automatically filled with the current contract's address.",
+          "type": "object",
+          "required": [
+            "migrate"
+          ],
+          "properties": {
+            "migrate": {
+              "type": "object",
+              "required": [
+                "contract_addr",
+                "msg",
+                "new_code_id"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "type": "string"
+                },
+                "msg": {
+                  "description": "msg is the json-encoded MigrateMsg struct that will be passed to the new code",
+                  "allOf": [
+                    {
+                      "$ref": "#/definitions/Binary"
+                    }
+                  ]
+                },
+                "new_code_id": {
+                  "description": "the code_id of the new logic to place in the given contract",
+                  "type": "integer",
+                  "format": "uint64",
+                  "minimum": 0.0
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Sets a new admin (for migrate) on the given contract. Fails if this contract is not currently admin of the target contract.",
+          "type": "object",
+          "required": [
+            "update_admin"
+          ],
+          "properties": {
+            "update_admin": {
+              "type": "object",
+              "required": [
+                "admin",
+                "contract_addr"
+              ],
+              "properties": {
+                "admin": {
+                  "type": "string"
+                },
+                "contract_addr": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Clears the admin on the given contract, so no more migration possible. Fails if this contract is not currently admin of the target contract.",
+          "type": "object",
+          "required": [
+            "clear_admin"
+          ],
+          "properties": {
+            "clear_admin": {
+              "type": "object",
+              "required": [
+                "contract_addr"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

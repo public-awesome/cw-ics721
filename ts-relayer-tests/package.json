@@ -1,11 +1,11 @@
 {
-  "name": "ibc-tests-simple-ica",
+  "name": "ics721-tests",
   "version": "0.1.0",
-  "description": "integration tests using ts-relayer as a library to test cw-ics721-bridge contract",
+  "description": "integration tests using ts-relayer as a library to test ics721-base contract",
   "browserslist": [
     "maintained node versions"
   ],
-  "author": "Tai Truong <mr-t@arkprotocol.io>",
+  "author": "mr-t <mr-t@arkprotocol.io>",
   "license": "Apache-2.0",
   "private": false,
   "scripts": {

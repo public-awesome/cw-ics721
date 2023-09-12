@@ -11,8 +11,8 @@ import (
 	wasmibctesting "github.com/CosmWasm/wasmd/x/wasm/ibctesting"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	channeltypes "github.com/cosmos/ibc-go/v3/modules/core/04-channel/types"
-	ibctesting "github.com/cosmos/ibc-go/v3/testing"
+	channeltypes "github.com/cosmos/ibc-go/v4/modules/core/04-channel/types"
+	ibctesting "github.com/cosmos/ibc-go/v4/testing"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -36,10 +36,10 @@ func (suite *TransferTestSuite) SetupTest() {
 	suite.chainB = suite.coordinator.GetChain(wasmibctesting.GetChainID(1))
 	// suite.coordinator.CommitBlock(suite.chainA, suite.chainB)
 
-	// Store the bridge contract.
-	chainAStoreResp := suite.chainA.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
+	// Store the ICS721 contract.
+	chainAStoreResp := suite.chainA.StoreCodeFile("../artifacts/ics721_base.wasm")
 	require.Equal(suite.T(), uint64(1), chainAStoreResp.CodeID)
-	chainBStoreResp := suite.chainB.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
+	chainBStoreResp := suite.chainB.StoreCodeFile("../artifacts/ics721_base.wasm")
 	require.Equal(suite.T(), uint64(1), chainBStoreResp.CodeID)
 
 	// Store the cw721 contract.
@@ -256,14 +256,14 @@ func TestIBC(t *testing.T) {
 	suite.Run(t, new(TransferTestSuite))
 }
 
-// Instantiates a bridge contract on CHAIN. Returns the address of the
+// Instantiates a ICS721 contract on CHAIN. Returns the address of the
 // instantiated contract.
 func instantiateBridge(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAddress {
 	// Store the contracts.
-	bridgeresp := chain.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
+	bridgeresp := chain.StoreCodeFile("../artifacts/ics721_base.wasm")
 	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
 
-	// Instantiate the bridge contract.
+	// Instantiate the ICS721 contract.
 	instantiateICS721 := InstantiateICS721Bridge{
 		cw721resp.CodeID,
 		nil,
@@ -359,7 +359,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	chainB := coordinator.GetChain(wasmibctesting.GetChainID(1))
 	chainC := coordinator.GetChain(wasmibctesting.GetChainID(2))
 
-	// Chains are identical, so only one bridge address.
+	// Chains are identical, so only one ICS721 contract address.
 	bridge := instantiateBridge(t, chainA)
 	instantiateBridge(t, chainB)
 	instantiateBridge(t, chainC)
@@ -418,7 +418,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	ownerB := queryGetOwnerOf(t, chainB, chainBNft)
 	require.Equal(t, chainB.SenderAccount.GetAddress().String(), ownerB)
 
-	// Make sure chain A has the NFT in its bridge contract.
+	// Make sure chain A has the NFT in its ICS721 contract.
 	ownerA := queryGetOwnerOf(t, chainA, chainANft)
 	require.Equal(t, ownerA, bridge.String())
 
@@ -433,7 +433,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	ownerC := queryGetOwnerOf(t, chainC, chainCNft)
 	require.Equal(t, chainC.SenderAccount.GetAddress().String(), ownerC)
 
-	// Make sure the NFT is locked in the bridge contract on chain B.
+	// Make sure the NFT is locked in the ICS721 contract on chain B.
 	ownerB = queryGetOwnerOf(t, chainB, chainBNft)
 	require.Equal(t, bridge.String(), ownerB)
 
@@ -449,7 +449,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	ownerA = queryGetOwnerOf(t, chainA, chainANftDerivative)
 	require.Equal(t, chainA.SenderAccount.GetAddress().String(), ownerA)
 
-	// Make sure that the NFT is held in the bridge contract now.
+	// Make sure that the NFT is held in the ICS721 contract now.
 	ownerC = queryGetOwnerOf(t, chainC, chainCNft)
 	require.Equal(t, bridge.String(), ownerC)
 
@@ -494,7 +494,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	require.ErrorContains(t, err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>> not found")
 
 	// Hooray! We have completed the journey between three
-	// identical blockchains using our bridge contract.
+	// identical blockchains using our ICS721 contract.
 }
 
 func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
@@ -527,8 +527,8 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 
 	// Generate a new account and transfer the NFT to it.  For
 	// reasons entirely beyond me, the first account we create
-	// has an account number of ten. The second has 11.
-	newAccount := CreateAndFundAccount(suite.T(), suite.chainB, 10)
+	// has an account number of ten. The second has 18.
+	newAccount := CreateAndFundAccount(suite.T(), suite.chainB, 18)
 	transferNft(suite.T(), suite.chainB, chainBNft, "bad kid 1", suite.chainB.SenderAccount.GetAddress(), newAccount.Address)
 
 	// IBC away the transfered NFT.
@@ -536,7 +536,7 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 	ibcAwayEncoded := b64.StdEncoding.EncodeToString([]byte(ibcAway))
 
 	// Send the NFT away.
-	_, err := SendMsgsFromAccount(suite.T(), suite.chainB, newAccount, true, &wasmtypes.MsgExecuteContract{
+	_, err := SendMsgsFromAccount(suite.T(), suite.chainB, newAccount, &wasmtypes.MsgExecuteContract{
 		Sender:   newAccount.Address.String(),
 		Contract: chainBNft,
 		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "bad kid 1", "msg": "%s" } }`, suite.chainBBridge.String(), ibcAwayEncoded)),
@@ -550,11 +550,11 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 	require.ErrorContains(suite.T(), err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>> not found")
 
 	// Make another account on chain B and transfer to the new account.
-	anotherAcount := CreateAndFundAccount(suite.T(), suite.chainB, 11)
+	anotherAcount := CreateAndFundAccount(suite.T(), suite.chainB, 19)
 	ics721Nft(suite.T(), suite.chainA, path, suite.coordinator, chainANft.String(), suite.chainABridge, suite.chainA.SenderAccount.GetAddress(), anotherAcount.Address)
 
 	// Transfer it back to chain A using this new account.
-	_, err = SendMsgsFromAccount(suite.T(), suite.chainB, anotherAcount, true, &wasmtypes.MsgExecuteContract{
+	_, err = SendMsgsFromAccount(suite.T(), suite.chainB, anotherAcount, &wasmtypes.MsgExecuteContract{
 		Sender:   anotherAcount.Address.String(),
 		Contract: chainBNft,
 		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "bad kid 1", "msg": "%s" } }`, suite.chainBBridge.String(), ibcAwayEncoded)),
@@ -579,10 +579,10 @@ func TestCloseRejected(t *testing.T) {
 	chainA := coordinator.GetChain(wasmibctesting.GetChainID(0))
 	chainB := coordinator.GetChain(wasmibctesting.GetChainID(1))
 
-	// Store the bridge contract.
-	chainAStoreResp := chainA.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
+	// Store the ICS721 contract.
+	chainAStoreResp := chainA.StoreCodeFile("../artifacts/ics721_base.wasm")
 	require.Equal(t, uint64(1), chainAStoreResp.CodeID)
-	chainBStoreResp := chainB.StoreCodeFile("../artifacts/cw_ics721_bridge.wasm")
+	chainBStoreResp := chainB.StoreCodeFile("../artifacts/ics721_base.wasm")
 	require.Equal(t, uint64(1), chainBStoreResp.CodeID)
 
 	// Store the cw721 contract.
@@ -629,13 +629,14 @@ func TestCloseRejected(t *testing.T) {
 	// attempts to close it. We should reject this and keep the
 	// channel open.
 
-	// For this version we are account number 9. Why not 10? Why
+	// For this version we are account number 17. Why not 10? Why
 	// not 1? These are some of the world's great mysteries.
-	newAccount := CreateAndFundAccount(t, chainA, 9)
+	newAccount := CreateAndFundAccount(t, chainA, 17)
 
 	// Make sure ChanCloseInit is rejected.
 	msg := channeltypes.NewMsgChannelCloseInit(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID, newAccount.Address.String())
 	chainA.Coordinator.UpdateTimeForChain(chainA)
+
 	_, _, err = wasmd.SignAndDeliver(
 		t,
 		chainA.TxConfig,
@@ -645,8 +646,8 @@ func TestCloseRejected(t *testing.T) {
 		chainA.ChainID,
 		[]uint64{newAccount.Acc.GetAccountNumber()},
 		[]uint64{newAccount.Acc.GetSequence()},
-		false, false, newAccount.PrivKey)
-
+		newAccount.PrivKey)
+	require.Error(t, err)
 	require.ErrorContains(t, err, "ICS 721 channels may not be closed")
 
 	chainA.NextBlock()
@@ -721,7 +722,7 @@ func (suite *TransferTestSuite) TestPacketTimeoutCausesRefund() {
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), owner)
 }
 
-// Tests that the NFT transfered to the bridge is returned to sender
+// Tests that the NFT transfered to the ICS721 contract is returned to sender
 // if the counterparty returns an ack fail while handling the
 // transfer.
 func (suite *TransferTestSuite) TestRefundOnAckFail() {

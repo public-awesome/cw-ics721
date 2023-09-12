@@ -1,0 +1,1388 @@
+{
+  "contract_name": "ics721",
+  "contract_version": "0.0.1",
+  "idl_version": "1.0.0",
+  "instantiate": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "InstantiateMsg",
+    "type": "object",
+    "required": [
+      "cw721_base_code_id"
+    ],
+    "properties": {
+      "cw721_base_code_id": {
+        "description": "Code ID of cw721-ics contract. A new cw721-ics will be instantiated for each new IBCd NFT classID.\n\nNOTE: this _must_ correspond to the cw721-base contract. Using a regular cw721 may cause the ICS 721 interface implemented by this contract to stop working, and IBCd away NFTs to be unreturnable as cw721 does not have a mint method in the spec.",
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0.0
+      },
+      "pauser": {
+        "description": "Address that may pause the contract. PAUSER may pause the contract a single time; in pausing the contract they burn the right to do so again. A new pauser may be later nominated by the CosmWasm level admin via a migration.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "proxy": {
+        "description": "An optional proxy contract. If a proxy is set the contract will only accept NFTs from that proxy. The proxy is expected to implement the cw721 proxy interface defined in the cw721-proxy crate.",
+        "anyOf": [
+          {
+            "$ref": "#/definitions/ContractInstantiateInfo"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "additionalProperties": false,
+    "definitions": {
+      "Admin": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "address"
+            ],
+            "properties": {
+              "address": {
+                "type": "object",
+                "required": [
+                  "addr"
+                ],
+                "properties": {
+                  "addr": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "instantiator"
+            ],
+            "properties": {
+              "instantiator": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "Binary": {
+        "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+        "type": "string"
+      },
+      "ContractInstantiateInfo": {
+        "type": "object",
+        "required": [
+          "code_id",
+          "label",
+          "msg"
+        ],
+        "properties": {
+          "admin": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Admin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "code_id": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          "label": {
+            "type": "string"
+          },
+          "msg": {
+            "$ref": "#/definitions/Binary"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "execute": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ExecuteMsg",
+    "oneOf": [
+      {
+        "description": "Receives a NFT to be IBC transfered away. The `msg` field must be a binary encoded `IbcOutgoingMsg`.",
+        "type": "object",
+        "required": [
+          "receive_nft"
+        ],
+        "properties": {
+          "receive_nft": {
+            "$ref": "#/definitions/Cw721ReceiveMsg"
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Pauses the ICS721 contract. Only the pauser may call this. In pausing the contract, the pauser burns the right to do so again.",
+        "type": "object",
+        "required": [
+          "pause"
+        ],
+        "properties": {
+          "pause": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Mesages used internally by the contract. These may only be called by the contract itself.",
+        "type": "object",
+        "required": [
+          "callback"
+        ],
+        "properties": {
+          "callback": {
+            "$ref": "#/definitions/CallbackMsg"
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "receive_proxy_nft"
+        ],
+        "properties": {
+          "receive_proxy_nft": {
+            "type": "object",
+            "required": [
+              "eyeball",
+              "msg"
+            ],
+            "properties": {
+              "eyeball": {
+                "type": "string"
+              },
+              "msg": {
+                "$ref": "#/definitions/Cw721ReceiveMsg"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    ],
+    "definitions": {
+      "Binary": {
+        "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+        "type": "string"
+      },
+      "CallbackMsg": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "create_vouchers"
+            ],
+            "properties": {
+              "create_vouchers": {
+                "type": "object",
+                "required": [
+                  "create",
+                  "receiver"
+                ],
+                "properties": {
+                  "create": {
+                    "description": "Information about the vouchers being created.",
+                    "allOf": [
+                      {
+                        "$ref": "#/definitions/VoucherCreation"
+                      }
+                    ]
+                  },
+                  "receiver": {
+                    "description": "The address that ought to receive the NFT. This is a local address, not a bech32 public key.",
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "redeem_vouchers"
+            ],
+            "properties": {
+              "redeem_vouchers": {
+                "type": "object",
+                "required": [
+                  "receiver",
+                  "redeem"
+                ],
+                "properties": {
+                  "receiver": {
+                    "description": "The address that should receive the tokens.",
+                    "type": "string"
+                  },
+                  "redeem": {
+                    "description": "Information about the vouchers been redeemed.",
+                    "allOf": [
+                      {
+                        "$ref": "#/definitions/VoucherRedemption"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "description": "Mints a NFT of collection class_id for receiver with the provided id and metadata. Only callable by this contract.",
+            "type": "object",
+            "required": [
+              "mint"
+            ],
+            "properties": {
+              "mint": {
+                "type": "object",
+                "required": [
+                  "class_id",
+                  "receiver",
+                  "tokens"
+                ],
+                "properties": {
+                  "class_id": {
+                    "description": "The class_id to mint for. This must have previously been created with `SaveClass`.",
+                    "allOf": [
+                      {
+                        "$ref": "#/definitions/ClassId"
+                      }
+                    ]
+                  },
+                  "receiver": {
+                    "description": "The address that ought to receive the NFTs. This is a local address, not a bech32 public key.",
+                    "type": "string"
+                  },
+                  "tokens": {
+                    "description": "The tokens to mint on the collection.",
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/definitions/Token"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "description": "In submessage terms, say a message that results in an error \"returns false\" and one that succedes \"returns true\". Returns the logical conjunction (&&) of all the messages in operands.\n\nUnder the hood this just executes them in order. We use this to respond with a single ACK when a message calls for the execution of both `CreateVouchers` and `RedeemVouchers`.",
+            "type": "object",
+            "required": [
+              "conjunction"
+            ],
+            "properties": {
+              "conjunction": {
+                "type": "object",
+                "required": [
+                  "operands"
+                ],
+                "properties": {
+                  "operands": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/definitions/WasmMsg"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "Class": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "data": {
+            "description": "Optional base64 encoded metadata about the class.",
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Binary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "description": "A unique (from the source chain's perspective) identifier for the class.",
+            "allOf": [
+              {
+                "$ref": "#/definitions/ClassId"
+              }
+            ]
+          },
+          "uri": {
+            "description": "Optional URI pointing to off-chain metadata about the class.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ClassId": {
+        "description": "A class ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+        "type": "string"
+      },
+      "Coin": {
+        "type": "object",
+        "required": [
+          "amount",
+          "denom"
+        ],
+        "properties": {
+          "amount": {
+            "$ref": "#/definitions/Uint128"
+          },
+          "denom": {
+            "type": "string"
+          }
+        }
+      },
+      "Cw721ReceiveMsg": {
+        "description": "Cw721ReceiveMsg should be de/serialized under `Receive()` variant in a ExecuteMsg",
+        "type": "object",
+        "required": [
+          "msg",
+          "sender",
+          "token_id"
+        ],
+        "properties": {
+          "msg": {
+            "$ref": "#/definitions/Binary"
+          },
+          "sender": {
+            "type": "string"
+          },
+          "token_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Token": {
+        "description": "A token according to the ICS-721 spec.",
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "data": {
+            "description": "Optional base64 encoded metadata about the token.",
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Binary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "description": "A unique identifier for the token.",
+            "allOf": [
+              {
+                "$ref": "#/definitions/TokenId"
+              }
+            ]
+          },
+          "uri": {
+            "description": "Optional URI pointing to off-chain metadata about the token.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "TokenId": {
+        "description": "A token ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+        "type": "string"
+      },
+      "Uint128": {
+        "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+        "type": "string"
+      },
+      "VoucherCreation": {
+        "type": "object",
+        "required": [
+          "class",
+          "tokens"
+        ],
+        "properties": {
+          "class": {
+            "description": "The class that these vouchers are being created for.",
+            "allOf": [
+              {
+                "$ref": "#/definitions/Class"
+              }
+            ]
+          },
+          "tokens": {
+            "description": "The tokens to create debt-vouchers for.",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/Token"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "VoucherRedemption": {
+        "type": "object",
+        "required": [
+          "class",
+          "token_ids"
+        ],
+        "properties": {
+          "class": {
+            "description": "The class that these vouchers are being redeemed from.",
+            "allOf": [
+              {
+                "$ref": "#/definitions/Class"
+              }
+            ]
+          },
+          "token_ids": {
+            "description": "The tokens belonging to `class` that ought to be redeemed.",
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/TokenId"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "WasmMsg": {
+        "description": "The message types of the wasm module.\n\nSee https://github.com/CosmWasm/wasmd/blob/v0.14.0/x/wasm/internal/types/tx.proto",
+        "oneOf": [
+          {
+            "description": "Dispatches a call to another contract at a known address (with known ABI).\n\nThis is translated to a [MsgExecuteContract](https://github.com/CosmWasm/wasmd/blob/v0.14.0/x/wasm/internal/types/tx.proto#L68-L78). `sender` is automatically filled with the current contract's address.",
+            "type": "object",
+            "required": [
+              "execute"
+            ],
+            "properties": {
+              "execute": {
+                "type": "object",
+                "required": [
+                  "contract_addr",
+                  "funds",
+                  "msg"
+                ],
+                "properties": {
+                  "contract_addr": {
+                    "type": "string"
+                  },
+                  "funds": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/definitions/Coin"
+                    }
+                  },
+                  "msg": {
+                    "description": "msg is the json-encoded ExecuteMsg struct (as raw Binary)",
+                    "allOf": [
+                      {
+                        "$ref": "#/definitions/Binary"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "description": "Instantiates a new contracts from previously uploaded Wasm code.\n\nThe contract address is non-predictable. But it is guaranteed that when emitting the same Instantiate message multiple times, multiple instances on different addresses will be generated. See also Instantiate2.\n\nThis is translated to a [MsgInstantiateContract](https://github.com/CosmWasm/wasmd/blob/v0.29.2/proto/cosmwasm/wasm/v1/tx.proto#L53-L71). `sender` is automatically filled with the current contract's address.",
+            "type": "object",
+            "required": [
+              "instantiate"
+            ],
+            "properties": {
+              "instantiate": {
+                "type": "object",
+                "required": [
+                  "code_id",
+                  "funds",
+                  "label",
+                  "msg"
+                ],
+                "properties": {
+                  "admin": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "code_id": {
+                    "type": "integer",
+                    "format": "uint64",
+                    "minimum": 0.0
+                  },
+                  "funds": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/definitions/Coin"
+                    }
+                  },
+                  "label": {
+                    "description": "A human-readbale label for the contract",
+                    "type": "string"
+                  },
+                  "msg": {
+                    "description": "msg is the JSON-encoded InstantiateMsg struct (as raw Binary)",
+                    "allOf": [
+                      {
+                        "$ref": "#/definitions/Binary"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "description": "Migrates a given contracts to use new wasm code. Passes a MigrateMsg to allow us to customize behavior.\n\nOnly the contract admin (as defined in wasmd), if any, is able to make this call.\n\nThis is translated to a [MsgMigrateContract](https://github.com/CosmWasm/wasmd/blob/v0.14.0/x/wasm/internal/types/tx.proto#L86-L96). `sender` is automatically filled with the current contract's address.",
+            "type": "object",
+            "required": [
+              "migrate"
+            ],
+            "properties": {
+              "migrate": {
+                "type": "object",
+                "required": [
+                  "contract_addr",
+                  "msg",
+                  "new_code_id"
+                ],
+                "properties": {
+                  "contract_addr": {
+                    "type": "string"
+                  },
+                  "msg": {
+                    "description": "msg is the json-encoded MigrateMsg struct that will be passed to the new code",
+                    "allOf": [
+                      {
+                        "$ref": "#/definitions/Binary"
+                      }
+                    ]
+                  },
+                  "new_code_id": {
+                    "description": "the code_id of the new logic to place in the given contract",
+                    "type": "integer",
+                    "format": "uint64",
+                    "minimum": 0.0
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "description": "Sets a new admin (for migrate) on the given contract. Fails if this contract is not currently admin of the target contract.",
+            "type": "object",
+            "required": [
+              "update_admin"
+            ],
+            "properties": {
+              "update_admin": {
+                "type": "object",
+                "required": [
+                  "admin",
+                  "contract_addr"
+                ],
+                "properties": {
+                  "admin": {
+                    "type": "string"
+                  },
+                  "contract_addr": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "description": "Clears the admin on the given contract, so no more migration possible. Fails if this contract is not currently admin of the target contract.",
+            "type": "object",
+            "required": [
+              "clear_admin"
+            ],
+            "properties": {
+              "clear_admin": {
+                "type": "object",
+                "required": [
+                  "contract_addr"
+                ],
+                "properties": {
+                  "contract_addr": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "query": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "QueryMsg",
+    "oneOf": [
+      {
+        "description": "Gets the classID this contract has stored for a given NFT contract. If there is no class ID for the provided contract, returns None.",
+        "type": "object",
+        "required": [
+          "class_id"
+        ],
+        "properties": {
+          "class_id": {
+            "type": "object",
+            "required": [
+              "contract"
+            ],
+            "properties": {
+              "contract": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Gets the NFT contract associated wtih the provided class ID. If no such contract exists, returns None. Returns Option<Addr>.",
+        "type": "object",
+        "required": [
+          "nft_contract"
+        ],
+        "properties": {
+          "nft_contract": {
+            "type": "object",
+            "required": [
+              "class_id"
+            ],
+            "properties": {
+              "class_id": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Gets the class level metadata URI for the provided class_id. If there is no metadata, returns None. Returns `Option<Class>`.",
+        "type": "object",
+        "required": [
+          "class_metadata"
+        ],
+        "properties": {
+          "class_metadata": {
+            "type": "object",
+            "required": [
+              "class_id"
+            ],
+            "properties": {
+              "class_id": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "token_metadata"
+        ],
+        "properties": {
+          "token_metadata": {
+            "type": "object",
+            "required": [
+              "class_id",
+              "token_id"
+            ],
+            "properties": {
+              "class_id": {
+                "type": "string"
+              },
+              "token_id": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Gets the owner of the NFT identified by CLASS_ID and TOKEN_ID. Errors if no such NFT exists. Returns `cw721::OwnerOfResonse`.",
+        "type": "object",
+        "required": [
+          "owner"
+        ],
+        "properties": {
+          "owner": {
+            "type": "object",
+            "required": [
+              "class_id",
+              "token_id"
+            ],
+            "properties": {
+              "class_id": {
+                "type": "string"
+              },
+              "token_id": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Gets the address that may pause this contract if one is set.",
+        "type": "object",
+        "required": [
+          "pauser"
+        ],
+        "properties": {
+          "pauser": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Gets the current pause status.",
+        "type": "object",
+        "required": [
+          "paused"
+        ],
+        "properties": {
+          "paused": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Gets this contract's cw721-proxy if one is set.",
+        "type": "object",
+        "required": [
+          "proxy"
+        ],
+        "properties": {
+          "proxy": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Gets the code used for instantiating new cw721s.",
+        "type": "object",
+        "required": [
+          "cw721_code_id"
+        ],
+        "properties": {
+          "cw721_code_id": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Gets a list of classID as key (from NonFungibleTokenPacketData) and cw721 contract as value (instantiated for that classID).",
+        "type": "object",
+        "required": [
+          "nft_contracts"
+        ],
+        "properties": {
+          "nft_contracts": {
+            "type": "object",
+            "properties": {
+              "limit": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint32",
+                "minimum": 0.0
+              },
+              "start_after": {
+                "anyOf": [
+                  {
+                    "$ref": "#/definitions/ClassId"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Gets a list of classID, tokenID, and local channelID. Used to determine the local channel that NFTs have been sent out on.",
+        "type": "object",
+        "required": [
+          "outgoing_channels"
+        ],
+        "properties": {
+          "outgoing_channels": {
+            "type": "object",
+            "properties": {
+              "limit": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint32",
+                "minimum": 0.0
+              },
+              "start_after": {
+                "anyOf": [
+                  {
+                    "$ref": "#/definitions/ClassToken"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Gets a list of classID, tokenID, and local channel ID. Used to determine the local channel that NFTs have arrived at this contract.",
+        "type": "object",
+        "required": [
+          "incoming_channels"
+        ],
+        "properties": {
+          "incoming_channels": {
+            "type": "object",
+            "properties": {
+              "limit": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint32",
+                "minimum": 0.0
+              },
+              "start_after": {
+                "anyOf": [
+                  {
+                    "$ref": "#/definitions/ClassToken"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    ],
+    "definitions": {
+      "ClassId": {
+        "description": "A class ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+        "type": "string"
+      },
+      "ClassToken": {
+        "type": "object",
+        "required": [
+          "class_id",
+          "token_id"
+        ],
+        "properties": {
+          "class_id": {
+            "$ref": "#/definitions/ClassId"
+          },
+          "token_id": {
+            "$ref": "#/definitions/TokenId"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TokenId": {
+        "description": "A token ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+        "type": "string"
+      }
+    }
+  },
+  "migrate": null,
+  "sudo": null,
+  "responses": {
+    "class_id": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Nullable_ClassId",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ClassId"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "definitions": {
+        "ClassId": {
+          "description": "A class ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+          "type": "string"
+        }
+      }
+    },
+    "class_metadata": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Nullable_Class",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Class"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        },
+        "Class": {
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "data": {
+              "description": "Optional base64 encoded metadata about the class.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Binary"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "id": {
+              "description": "A unique (from the source chain's perspective) identifier for the class.",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/ClassId"
+                }
+              ]
+            },
+            "uri": {
+              "description": "Optional URI pointing to off-chain metadata about the class.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "ClassId": {
+          "description": "A class ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+          "type": "string"
+        }
+      }
+    },
+    "cw721_code_id": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "uint64",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "incoming_channels": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Array_of_Tuple_of_Tuple_of_ClassId_and_TokenId_and_String",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": [
+          {
+            "type": "array",
+            "items": [
+              {
+                "$ref": "#/definitions/ClassId"
+              },
+              {
+                "$ref": "#/definitions/TokenId"
+              }
+            ],
+            "maxItems": 2,
+            "minItems": 2
+          },
+          {
+            "type": "string"
+          }
+        ],
+        "maxItems": 2,
+        "minItems": 2
+      },
+      "definitions": {
+        "ClassId": {
+          "description": "A class ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+          "type": "string"
+        },
+        "TokenId": {
+          "description": "A token ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+          "type": "string"
+        }
+      }
+    },
+    "nft_contract": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Nullable_Addr",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Addr"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "definitions": {
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+          "type": "string"
+        }
+      }
+    },
+    "nft_contracts": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Array_of_Tuple_of_ClassId_and_Addr",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": [
+          {
+            "$ref": "#/definitions/ClassId"
+          },
+          {
+            "$ref": "#/definitions/Addr"
+          }
+        ],
+        "maxItems": 2,
+        "minItems": 2
+      },
+      "definitions": {
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+          "type": "string"
+        },
+        "ClassId": {
+          "description": "A class ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+          "type": "string"
+        }
+      }
+    },
+    "outgoing_channels": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Array_of_Tuple_of_Tuple_of_ClassId_and_TokenId_and_String",
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": [
+          {
+            "type": "array",
+            "items": [
+              {
+                "$ref": "#/definitions/ClassId"
+              },
+              {
+                "$ref": "#/definitions/TokenId"
+              }
+            ],
+            "maxItems": 2,
+            "minItems": 2
+          },
+          {
+            "type": "string"
+          }
+        ],
+        "maxItems": 2,
+        "minItems": 2
+      },
+      "definitions": {
+        "ClassId": {
+          "description": "A class ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+          "type": "string"
+        },
+        "TokenId": {
+          "description": "A token ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+          "type": "string"
+        }
+      }
+    },
+    "owner": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "OwnerOfResponse",
+      "type": "object",
+      "required": [
+        "approvals",
+        "owner"
+      ],
+      "properties": {
+        "approvals": {
+          "description": "If set this address is approved to transfer/send the token as well",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Approval"
+          }
+        },
+        "owner": {
+          "description": "Owner of the token",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Approval": {
+          "type": "object",
+          "required": [
+            "expires",
+            "spender"
+          ],
+          "properties": {
+            "expires": {
+              "description": "When the Approval expires (maybe Expiration::never)",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Expiration"
+                }
+              ]
+            },
+            "spender": {
+              "description": "Account that can transfer/send the token",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "Expiration": {
+          "description": "Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)",
+          "oneOf": [
+            {
+              "description": "AtHeight will expire when `env.block.height` >= height",
+              "type": "object",
+              "required": [
+                "at_height"
+              ],
+              "properties": {
+                "at_height": {
+                  "type": "integer",
+                  "format": "uint64",
+                  "minimum": 0.0
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "description": "AtTime will expire when `env.block.time` >= time",
+              "type": "object",
+              "required": [
+                "at_time"
+              ],
+              "properties": {
+                "at_time": {
+                  "$ref": "#/definitions/Timestamp"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "description": "Never will never expire. Used to express the empty variant",
+              "type": "object",
+              "required": [
+                "never"
+              ],
+              "properties": {
+                "never": {
+                  "type": "object",
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "Timestamp": {
+          "description": "A point in time in nanosecond precision.\n\nThis type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.\n\n## Examples\n\n``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);\n\nlet ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint64"
+            }
+          ]
+        },
+        "Uint64": {
+          "description": "A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u64` to get the value out:\n\n``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);\n\nlet b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "paused": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Boolean",
+      "type": "boolean"
+    },
+    "pauser": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Nullable_Addr",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Addr"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "definitions": {
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+          "type": "string"
+        }
+      }
+    },
+    "proxy": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Nullable_Addr",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Addr"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "definitions": {
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+          "type": "string"
+        }
+      }
+    },
+    "token_metadata": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Nullable_Token",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Token"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        },
+        "Token": {
+          "description": "A token according to the ICS-721 spec.",
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "data": {
+              "description": "Optional base64 encoded metadata about the token.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Binary"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "id": {
+              "description": "A unique identifier for the token.",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/TokenId"
+                }
+              ]
+            },
+            "uri": {
+              "description": "Optional URI pointing to off-chain metadata about the token.",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "TokenId": {
+          "description": "A token ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

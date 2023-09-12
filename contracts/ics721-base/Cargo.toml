@@ -1,0 +1,18 @@
+[package]
+name = "ics721-base"
+version = "0.0.1"
+authors = ["ekez <ekez@withoutdoing.com>"]
+edition = "2021"
+description = "an implementation of the ICS721 specification for transfering NFTs between blockchains"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+backtraces = ["cosmwasm-std/backtraces"]
+library = []
+
+[dependencies]
+cosmwasm-std = { workspace = true, features = ["ibc3"] }
+cw2 = { workspace = true }
+ics721 = { workspace = true }
