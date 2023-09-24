@@ -1,4 +1,4 @@
-# ICS721
+# CW-ICS721
 
 This is an implementation of the [ICS 721
 specification](https://github.com/cosmos/ibc/tree/master/spec/app/ics-721-nft-transfer)
