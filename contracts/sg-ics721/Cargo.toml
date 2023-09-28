@@ -1,6 +1,6 @@
 [package]
 name = "sg-ics721"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["mr-t <mr-t@arkprotocol.io>"]
 edition = "2021"
 description = "an implementation of the ICS721 specification for transfering NFTs between blockchains"

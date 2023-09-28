@@ -1,6 +1,6 @@
 [package]
 name = "cw-cii"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 authors = ["ekez <ekez@withoutdoing.com>"]
 

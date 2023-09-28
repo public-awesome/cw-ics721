@@ -222,7 +222,7 @@ dependencies = [
 
 [[package]]
 name = "cw-cii"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -286,7 +286,7 @@ dependencies = [
 
 [[package]]
 name = "cw-pause-once"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -492,7 +492,7 @@ dependencies = [
 
 [[package]]
 name = "cw721-tester"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -685,7 +685,7 @@ dependencies = [
 
 [[package]]
 name = "ics721"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "bech32",
@@ -712,7 +712,7 @@ dependencies = [
 
 [[package]]
 name = "ics721-base"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "cosmwasm-std",
  "cw2 1.1.0",
@@ -973,7 +973,7 @@ dependencies = [
 
 [[package]]
 name = "sg-ics721"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "bech32",

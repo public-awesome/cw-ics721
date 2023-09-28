@@ -1,6 +1,6 @@
 [package]
 name = "cw-pause-once"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 authors = ["ekez <ekez@withoutdoing.com>"]
 description = "a package to allow an address to pause a single time for a prespecified duration"
