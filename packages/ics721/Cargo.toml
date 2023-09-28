@@ -2,7 +2,7 @@
 name = "ics721"
 version = "0.1.0"
 edition = "2021"
-authors = ["ekez <ekez@withoutdoing.com>", "mr-t <mr-t@arkprotocol.io>", "Art3mix <art3mix.90@gmail.com>"]
+authors = ["ekez <ekez@withoutdoing.com>", "mr-t <mr-t@arkprotocol.io>", "Art3mix <art3mix.90@gmail.com>", "m@publicawesome.com", "s+git@publicawesome.com"]
 description = "an implementation of the ICS721 specification for transfering NFTs between blockchains"
 
 [dependencies]
