@@ -31,6 +31,17 @@ optimize-watch:
 unit-test:
   cargo test
 
+# Upload optimized WASM artifacts to chain
+upload:
+  #!/usr/bin/env sh
+  for d in ./artifacts/*.wasm; do
+    echo $d;
+    $CHAIND tx wasm store $d --from $TESTNET_KEY \
+      --gas-prices $GAS_PRICES --gas-adjustment 1.7 --gas auto --chain-id $CHAIN_ID \
+      --node $NODE -b block --yes -o json | jq '.logs' | grep -A 1 code_id
+    echo "-----------------";
+  done
+
 simulation-test: optimize
 	go test -v ./...
 
