@@ -1,13 +1,35 @@
+set dotenv-load
+
 platform := if arch() =~ "aarch64" {"linux/arm64"} else {"linux/amd64"}
-image := if arch() =~ "aarch64" {"cosmwasm/workspace-optimizer-arm64:0.12.12"} else {"cosmwasm/workspace-optimizer:0.12.12"}
+image := if arch() =~ "aarch64" {"cosmwasm/workspace-optimizer-arm64:0.14.0"} else {"cosmwasm/workspace-optimizer:0.14.0"}
+
+alias log := optimize-watch
+
+_default:
+  @just --list --unsorted
+
+install-tools:
+  @cargo install loc
+  @cargo install bat
+  @brew install jq
+  @npm install -g @cosmwasm/ts-codegen
+
+loc:
+  @loc --exclude /.*_test\.rs$
+
+# Generate optimized WASM artifacts
 optimize:
-    docker run --rm -v "$(pwd)":/code --platform {{platform}} \
-      --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
-      --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-      {{image}}
-      
+  #!/usr/bin/env sh
+  nohup docker run --rm -v "$(pwd)":/code --platform {{platform}} \
+    --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+    --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+    {{image}} > optimize.log &
+
+optimize-watch:
+  @tail -f optimize.log | bat --paging=never -l log
+
 unit-test:
-    cargo test
+  cargo test
 
 simulation-test: optimize
 	go test -v ./...
