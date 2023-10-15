@@ -2,14 +2,13 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     from_binary, to_binary, Binary, DepsMut, Empty, Env, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacket, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, Reply, Response, StdResult,
-    SubMsgResult, WasmMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, Never, Reply, Response,
+    StdResult, SubMsgResult, WasmMsg,
 };
 use cw_utils::parse_reply_instantiate_data;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    error::Never,
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error, validate_order_and_version},
     ibc_packet_receive::receive_ibc_packet,
     state::{

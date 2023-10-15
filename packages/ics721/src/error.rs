@@ -57,8 +57,3 @@ pub enum ContractError {
     #[error("tokenIds, tokenUris, and tokenData must have the same length")]
     TokenInfoLenMissmatch {},
 }
-
-/// Enum that can never be constructed. Used as an error type where we
-/// can not error.
-#[derive(Error, Debug)]
-pub enum Never {}
