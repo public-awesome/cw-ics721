@@ -13,7 +13,7 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-cosmwasm-std = { workspace = true, features = ["ibc3"] }
+cosmwasm-std = { workspace = true, features = ["ibc3", "cosmwasm_1_2"] }
 cosmwasm-schema = { workspace = true }
 cw2 = { workspace = true }
 ics721 = { workspace = true }
@@ -32,5 +32,4 @@ cw-storage-plus = { workspace = true }
 cw721 = { workspace = true}
 cw721-rate-limited-proxy = { workspace = true }
 cw721-base = { workspace = true}
-sg721-240  = { workspace = true}
-sg721-base-240  = { workspace = true, features = ["library"] }
+sha2 = { workspace = true }

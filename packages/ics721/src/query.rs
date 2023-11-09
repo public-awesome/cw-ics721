@@ -81,20 +81,17 @@ pub trait Ics721Query {
         let token_id = TokenId::new(token_id);
         let class_id = ClassId::new(class_id);
 
-        let Some(token_metadata) = TOKEN_METADATA.may_load(
-            deps.storage,
-            (class_id.clone(), token_id.clone()),
-        )? else {
-        // Token metadata is set unconditionaly on mint. If we have no
-        // metadata entry, we have no entry for this token at all.
-        return Ok(None)
+        let Some(token_metadata) =
+            TOKEN_METADATA.may_load(deps.storage, (class_id.clone(), token_id.clone()))?
+        else {
+            // Token metadata is set unconditionaly on mint. If we have no
+            // metadata entry, we have no entry for this token at all.
+            return Ok(None);
         };
-        let Some(token_contract) = CLASS_ID_TO_NFT_CONTRACT.may_load(
-        deps.storage,
-        class_id
-        )? else {
-        debug_assert!(false, "token_metadata != None => token_contract != None");
-        return Ok(None)
+        let Some(token_contract) = CLASS_ID_TO_NFT_CONTRACT.may_load(deps.storage, class_id)?
+        else {
+            debug_assert!(false, "token_metadata != None => token_contract != None");
+            return Ok(None);
         };
         let UniversalAllNftInfoResponse { info, .. } = deps.querier.query_wasm_smart(
             token_contract,

@@ -1,10 +1,12 @@
-use bech32::Variant;
+use anyhow::Result;
+use bech32::{decode, encode, FromBase32, ToBase32, Variant};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    from_binary,
+    from_binary, instantiate2_address,
     testing::{mock_env, MockApi},
-    to_binary, Addr, Api, Binary, Deps, DepsMut, Empty, Env, GovMsg, IbcTimeout, IbcTimeoutBlock,
-    MemoryStorage, MessageInfo, Reply, Response, StdResult, Storage, WasmMsg,
+    to_binary, to_json_binary, Addr, Api, Binary, CanonicalAddr, Deps, DepsMut, Empty, Env, GovMsg,
+    IbcTimeout, IbcTimeoutBlock, MemoryStorage, MessageInfo, RecoverPubkeyError, Reply, Response,
+    StdError, StdResult, Storage, VerificationError, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw721_base::msg::QueryMsg as Cw721QueryMsg;
@@ -14,7 +16,6 @@ use cw_multi_test::{
     Executor, FailingModule, IbcAcceptingModule, Router, StakeKeeper, WasmKeeper,
 };
 use cw_pause_once::PauseError;
-use cw_storage_plus::Item;
 use ics721::{
     execute::Ics721Execute,
     ibc::Ics721Ibc,
@@ -25,6 +26,7 @@ use ics721::{
 };
 use sg721::InstantiateMsg as Sg721InstantiateMsg;
 use sg721_base::msg::{CollectionInfoResponse, QueryMsg as Sg721QueryMsg};
+use sha2::{digest::Update, Digest, Sha256};
 
 use crate::{state::SgCollectionData, ContractError, SgIcs721Contract};
 
@@ -32,8 +34,9 @@ const ICS721_CREATOR: &str = "ics721-creator";
 const CONTRACT_NAME: &str = "crates.io:sg-ics721";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-const OWNER_SOURCE_CHAIN: &str = "juno1ke55z7catvdvnhvyyh0pkvs30t09me72vcxkh5";
+const OWNER_SOURCE_CHAIN: &str = "owner";
 const TARGET_HRP: &str = "stars";
+const SOURCE_HRP: &str = "juno";
 
 // copy of cosmwasm_std::ContractInfoResponse (marked as non-exhaustive)
 #[cw_serde]
@@ -91,16 +94,160 @@ fn no_init(
 ) {
 }
 
-#[derive(Debug)]
-struct Bech32AddressGenerator {
-    pub hrp: String,
+#[derive(Default)]
+pub struct MockAddressGenerator;
+
+impl AddressGenerator for MockAddressGenerator {
+    fn contract_address(
+        &self,
+        api: &dyn Api,
+        _storage: &mut dyn Storage,
+        code_id: u64,
+        instance_id: u64,
+    ) -> Result<Addr> {
+        let canonical_addr = Self::instantiate_address(code_id, instance_id);
+        Ok(Addr::unchecked(api.addr_humanize(&canonical_addr)?))
+    }
+
+    fn predictable_contract_address(
+        &self,
+        api: &dyn Api,
+        _storage: &mut dyn Storage,
+        _code_id: u64,
+        _instance_id: u64,
+        checksum: &[u8],
+        creator: &CanonicalAddr,
+        salt: &[u8],
+    ) -> Result<Addr> {
+        // string representation of the salt
+        let salt_to_string = std::str::from_utf8(salt)?;
+        // Remove the square brackets and split the string by commas
+        let parts: Vec<&str> = salt_to_string
+            .trim_matches(|c| c == '[' || c == ']')
+            .split(',')
+            .collect();
+        // Convert each part to a u8 and collect them into a Vec<u8>
+        let salt: Vec<u8> = parts
+            .iter()
+            .map(|part| part.trim().parse().unwrap())
+            .collect();
+        let canonical_addr = instantiate2_address(checksum, creator, &salt)?;
+        Ok(Addr::unchecked(api.addr_humanize(&canonical_addr)?))
+    }
 }
 
-const COUNT: Item<u8> = Item::new("count");
+impl MockAddressGenerator {
+    // non-predictable contract address generator, see `BuildContractAddressClassic`
+    // implementation in wasmd: https://github.com/CosmWasm/wasmd/blob/main/x/wasm/keeper/addresses.go#L35-L42
+    fn instantiate_address(code_id: u64, instance_id: u64) -> CanonicalAddr {
+        let mut key = Vec::<u8>::new();
+        key.extend_from_slice(b"wasm\0");
+        key.extend_from_slice(&code_id.to_be_bytes());
+        key.extend_from_slice(&instance_id.to_be_bytes());
+        let module = Sha256::digest("module".as_bytes());
+        let result = Sha256::new()
+            .chain(module)
+            .chain(key)
+            .finalize()
+            .to_vec()
+            .into();
+        return result;
+    }
+}
+pub struct MockApiBech32 {
+    prefix: &'static str,
+}
 
-impl Bech32AddressGenerator {
-    pub const fn new(hrp: String) -> Self {
-        Self { hrp }
+impl MockApiBech32 {
+    pub fn new(prefix: &'static str) -> Self {
+        Self { prefix }
+    }
+}
+
+impl Api for MockApiBech32 {
+    fn addr_validate(&self, input: &str) -> StdResult<Addr> {
+        let canonical = self.addr_canonicalize(input)?;
+        let normalized = self.addr_humanize(&canonical)?;
+        if input != normalized {
+            Err(StdError::generic_err(
+                "Invalid input: address not normalized",
+            ))
+        } else {
+            Ok(Addr::unchecked(input))
+        }
+    }
+
+    fn addr_canonicalize(&self, input: &str) -> StdResult<CanonicalAddr> {
+        if let Ok((prefix, decoded, Variant::Bech32)) = decode(input) {
+            if prefix == self.prefix {
+                if let Ok(bytes) = Vec::<u8>::from_base32(&decoded) {
+                    return Ok(bytes.into());
+                }
+            }
+        }
+        Err(StdError::generic_err(format!("Invalid input: {}", input)))
+    }
+
+    fn addr_humanize(&self, canonical: &CanonicalAddr) -> StdResult<Addr> {
+        if let Ok(encoded) = encode(
+            self.prefix,
+            canonical.as_slice().to_base32(),
+            Variant::Bech32,
+        ) {
+            Ok(Addr::unchecked(encoded))
+        } else {
+            Err(StdError::generic_err("Invalid canonical address"))
+        }
+    }
+
+    fn secp256k1_verify(
+        &self,
+        _message_hash: &[u8],
+        _signature: &[u8],
+        _public_key: &[u8],
+    ) -> Result<bool, VerificationError> {
+        unimplemented!()
+    }
+
+    fn secp256k1_recover_pubkey(
+        &self,
+        _message_hash: &[u8],
+        _signature: &[u8],
+        _recovery_param: u8,
+    ) -> Result<Vec<u8>, RecoverPubkeyError> {
+        unimplemented!()
+    }
+
+    fn ed25519_verify(
+        &self,
+        _message: &[u8],
+        _signature: &[u8],
+        _public_key: &[u8],
+    ) -> Result<bool, VerificationError> {
+        unimplemented!()
+    }
+
+    fn ed25519_batch_verify(
+        &self,
+        _messages: &[&[u8]],
+        _signatures: &[&[u8]],
+        _public_keys: &[&[u8]],
+    ) -> Result<bool, VerificationError> {
+        unimplemented!()
+    }
+
+    fn debug(&self, _message: &str) {
+        unimplemented!()
+    }
+}
+
+impl MockApiBech32 {
+    pub fn addr_make(&self, input: &str) -> Addr {
+        let digest = Sha256::digest(input).to_vec();
+        match encode(self.prefix, digest.to_base32(), Variant::Bech32) {
+            Ok(address) => Addr::unchecked(address),
+            Err(reason) => panic!("Generating address failed with reason: {reason}"),
+        }
     }
 }
 
@@ -109,24 +256,10 @@ pub struct CustomClassData {
     pub foo: Option<String>,
 }
 
-impl AddressGenerator for Bech32AddressGenerator {
-    fn next_address(&self, storage: &mut dyn Storage) -> Addr {
-        let count = match COUNT.may_load(storage) {
-            Ok(Some(count)) => count,
-            _ => 0,
-        };
-        let data = bech32::u5::try_from_u8(count).unwrap();
-        let encoded_addr = bech32::encode(self.hrp.as_str(), vec![data], Variant::Bech32).unwrap();
-        let addr = Addr::unchecked(encoded_addr);
-        COUNT.save(storage, &(count + 1)).unwrap();
-        addr
-    }
-}
-
 struct Test {
     app: App<
         BankKeeper,
-        MockApi,
+        MockApiBech32,
         MemoryStorage,
         FailingModule<Empty, Empty, Empty>,
         WasmKeeper<Empty, Empty>,
@@ -145,12 +278,11 @@ struct Test {
 impl Test {
     fn new(proxy: bool, pauser: Option<String>, cw721_code: Box<dyn Contract<Empty>>) -> Self {
         let mut app = AppBuilder::new()
-            .with_wasm::<FailingModule<Empty, Empty, Empty>, WasmKeeper<Empty, Empty>>(
-                WasmKeeper::new_with_custom_address_generator(Bech32AddressGenerator::new(
-                    TARGET_HRP.to_string(),
-                )),
+            .with_wasm::<WasmKeeper<Empty, Empty>>(
+                WasmKeeper::new().with_address_generator(MockAddressGenerator),
             )
-            .with_ibc(IbcAcceptingModule)
+            .with_ibc(IbcAcceptingModule::default())
+            .with_api(MockApiBech32::new(TARGET_HRP))
             .build(no_init);
         let cw721_id = app.store_code(cw721_code);
         let ics721_id = app.store_code(ics721_contract());
@@ -176,15 +308,19 @@ impl Test {
         let ics721 = app
             .instantiate_contract(
                 ics721_id,
-                Addr::unchecked(ICS721_CREATOR),
+                app.api().addr_make(ICS721_CREATOR),
                 &InstantiateMsg {
                     cw721_base_code_id: cw721_id,
                     proxy: proxy.clone(),
-                    pauser: pauser.clone(),
+                    pauser: pauser
+                        .clone()
+                        .and_then(|p| Some(app.api().addr_make(&p).to_string())),
                 },
                 &[],
                 "sg-ics721",
-                pauser.clone(),
+                pauser
+                    .clone()
+                    .and_then(|p| Some(app.api().addr_make(&p).to_string())),
             )
             .unwrap();
 
@@ -361,32 +497,6 @@ fn sg721_base_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
-fn sg721_v240_base_contract() -> Box<dyn Contract<Empty>> {
-    // sg721_base's execute and instantiate function deals Response<StargazeMsgWrapper>
-    // but App multi test deals Response<Empty>
-    // so we need to wrap sg721_base's execute and instantiate function
-    fn exececute_fn(
-        deps: DepsMut,
-        env: Env,
-        info: MessageInfo,
-        msg: sg721_240::ExecuteMsg<Option<Empty>, Empty>,
-    ) -> Result<Response, sg721_base_240::ContractError> {
-        sg721_base_240::entry::execute(deps, env, info, msg)
-            .and_then(|_| Ok::<Response, sg721_base_240::ContractError>(Response::default()))
-    }
-    fn instantiate_fn(
-        deps: DepsMut,
-        env: Env,
-        info: MessageInfo,
-        msg: sg721_240::InstantiateMsg,
-    ) -> Result<Response, sg721_base_240::ContractError> {
-        sg721_base_240::entry::instantiate(deps, env, info, msg)
-            .and_then(|_| Ok::<Response, sg721_base_240::ContractError>(Response::default()))
-    }
-    let contract = ContractWrapper::new(exececute_fn, instantiate_fn, sg721_base_240::entry::query);
-    Box::new(contract)
-}
-
 fn ics721_contract() -> Box<dyn Contract<Empty>> {
     // need to wrap method in function for testing
     fn ibc_reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
@@ -436,7 +546,7 @@ fn test_do_instantiate_and_mint_weird_data() {
             test.ics721.clone(),
             test.ics721.clone(),
             &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
-                receiver: "mr-t".to_string(),
+                receiver: test.app.api().addr_make("mr-t").to_string(),
                 create: VoucherCreation {
                     class: Class {
                         id: ClassId::new("bad kids"),
@@ -444,7 +554,9 @@ fn test_do_instantiate_and_mint_weird_data() {
                         data: Some(
                             // data comes from source chain, so it can't be SgCollectionData
                             to_binary(&CollectionData {
-                                owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                                owner: Some(
+                                    test.app.api().addr_make(OWNER_SOURCE_CHAIN).to_string(),
+                                ),
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
                                 symbol: "symbol".to_string(),
@@ -467,7 +579,7 @@ fn test_do_instantiate_and_mint_weird_data() {
 }
 
 #[test]
-fn test_do_instantiate_and_mint() {
+fn test_do_instantiate_and_mint_xxx() {
     // test case: instantiate cw721 with no ClassData
     {
         let mut test = Test::new(false, None, sg721_base_contract());
@@ -477,7 +589,7 @@ fn test_do_instantiate_and_mint() {
                 test.ics721.clone(),
                 test.ics721.clone(),
                 &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
-                    receiver: "mr-t".to_string(),
+                    receiver: test.app.api().addr_make("mr-t").to_string(),
                     create: VoucherCreation {
                         class: Class {
                             id: ClassId::new("bad kids"),
@@ -542,7 +654,7 @@ fn test_do_instantiate_and_mint() {
             collection_info,
             CollectionInfoResponse {
                 // creator of ics721 contract is also creator of collection, since no owner in ClassData provided
-                creator: ICS721_CREATOR.to_string(),
+                creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
                 description: "".to_string(),
                 image: "https://arkprotocol.io".to_string(),
                 external_link: None,
@@ -587,7 +699,7 @@ fn test_do_instantiate_and_mint() {
         // Check that we can transfer the NFT via the ICS721 interface.
         test.app
             .execute_contract(
-                Addr::unchecked("mr-t"),
+                test.app.api().addr_make("mr-t"),
                 nft.clone(),
                 &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
                     recipient: nft.to_string(),
@@ -636,7 +748,7 @@ fn test_do_instantiate_and_mint() {
                 test.ics721.clone(),
                 test.ics721.clone(),
                 &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
-                    receiver: "mr-t".to_string(),
+                    receiver: test.app.api().addr_make("mr-t").to_string(),
                     create: VoucherCreation {
                         class: Class {
                             id: ClassId::new("bad kids"),
@@ -645,7 +757,9 @@ fn test_do_instantiate_and_mint() {
                                 // data comes from source chain, so it can't be SgCollectionData
                                 to_binary(&CollectionData {
                                     // owner as defined by collection in source chain
-                                    owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                                    owner: Some(
+                                        test.app.api().addr_make(OWNER_SOURCE_CHAIN).to_string(),
+                                    ),
                                     contract_info: Default::default(),
                                     name: "name".to_string(),
                                     symbol: "symbol".to_string(),
@@ -708,7 +822,7 @@ fn test_do_instantiate_and_mint() {
             .query_wasm_smart(nft.clone(), &Sg721QueryMsg::CollectionInfo {})
             .unwrap();
         let (_source_hrp, source_data, source_variant) =
-            bech32::decode(OWNER_SOURCE_CHAIN).unwrap();
+            bech32::decode(test.app.api().addr_make(OWNER_SOURCE_CHAIN).as_str()).unwrap();
         let target_owner = bech32::encode(TARGET_HRP, source_data, source_variant).unwrap();
 
         assert_eq!(
@@ -760,7 +874,7 @@ fn test_do_instantiate_and_mint() {
         // Check that we can transfer the NFT via the ICS721 interface.
         test.app
             .execute_contract(
-                Addr::unchecked("mr-t"),
+                test.app.api().addr_make("mr-t"),
                 nft.clone(),
                 &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
                     recipient: nft.to_string(),
@@ -809,7 +923,7 @@ fn test_do_instantiate_and_mint() {
                 test.ics721.clone(),
                 test.ics721.clone(),
                 &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
-                    receiver: "mr-t".to_string(),
+                    receiver: test.app.api().addr_make("mr-t").to_string(),
                     create: VoucherCreation {
                         class: Class {
                             id: ClassId::new("bad kids"),
@@ -817,7 +931,9 @@ fn test_do_instantiate_and_mint() {
                             // CustomClassData with no owner info
                             data: Some(
                                 to_binary(&CustomClassData {
-                                    foo: Some(OWNER_SOURCE_CHAIN.to_string()),
+                                    foo: Some(
+                                        test.app.api().addr_make(OWNER_SOURCE_CHAIN).to_string(),
+                                    ),
                                 })
                                 .unwrap(),
                             ),
@@ -925,7 +1041,7 @@ fn test_do_instantiate_and_mint() {
         // Check that we can transfer the NFT via the ICS721 interface.
         test.app
             .execute_contract(
-                Addr::unchecked("mr-t"),
+                test.app.api().addr_make("mr-t"),
                 nft.clone(),
                 &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
                     recipient: nft.to_string(),
@@ -978,7 +1094,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
             test.ics721.clone(),
             test.ics721.clone(),
             &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
-                receiver: "mr-t".to_string(),
+                receiver: test.app.api().addr_make("mr-t").to_string(),
                 create: VoucherCreation {
                     class: Class {
                         id: ClassId::new("bad kids"),
@@ -987,7 +1103,9 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                             // data comes from source chain, so it can't be SgCollectionData
                             // owner as defined by collection in source chain
                             to_binary(&CollectionData {
-                                owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                                owner: Some(
+                                    test.app.api().addr_make(OWNER_SOURCE_CHAIN).to_string(),
+                                ),
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
                                 symbol: "symbol".to_string(),
@@ -1019,7 +1137,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
             test.ics721.clone(),
             test.ics721.clone(),
             &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
-                receiver: "mr-t".to_string(),
+                receiver: test.app.api().addr_make("mr-t").to_string(),
                 create: VoucherCreation {
                     class: Class {
                         id: ClassId::new("bad kids"),
@@ -1061,7 +1179,8 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         .wrap()
         .query_wasm_smart(nft.clone(), &Sg721QueryMsg::CollectionInfo {})
         .unwrap();
-    let (_source_hrp, source_data, source_variant) = bech32::decode(OWNER_SOURCE_CHAIN).unwrap();
+    let (_source_hrp, source_data, source_variant) =
+        bech32::decode(test.app.api().addr_make(OWNER_SOURCE_CHAIN).as_str()).unwrap();
     let target_owner = bech32::encode(TARGET_HRP, source_data, source_variant).unwrap();
 
     assert_eq!(
@@ -1102,17 +1221,19 @@ fn test_do_instantiate_and_mint_permissions() {
     let err: ContractError = test
         .app
         .execute_contract(
-            Addr::unchecked("notIcs721"),
+            test.app.api().addr_make("notIcs721"),
             test.ics721.clone(),
             &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
-                receiver: "mr-t".to_string(),
+                receiver: test.app.api().addr_make("mr-t").to_string(),
                 create: VoucherCreation {
                     class: Class {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
                         data: Some(
                             to_binary(&CollectionData {
-                                owner: Some(OWNER_SOURCE_CHAIN.to_string()),
+                                owner: Some(
+                                    test.app.api().addr_make(OWNER_SOURCE_CHAIN).to_string(),
+                                ),
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
                                 symbol: "symbol".to_string(),
@@ -1145,12 +1266,12 @@ fn test_no_proxy_unauthorized() {
     let err: ContractError = test
         .app
         .execute_contract(
-            Addr::unchecked("proxy"),
+            test.app.api().addr_make("proxy"),
             test.ics721,
             &ExecuteMsg::ReceiveProxyNft {
                 eyeball: "nft".to_string(),
                 msg: cw721::Cw721ReceiveMsg {
-                    sender: "mr-t".to_string(),
+                    sender: test.app.api().addr_make("mr-t").to_string(),
                     token_id: "1".to_string(),
                     msg: to_binary("").unwrap(),
                 },
@@ -1184,9 +1305,9 @@ fn test_proxy_authorized() {
             &sg721::InstantiateMsg {
                 name: "token".to_string(),
                 symbol: "nonfungible".to_string(),
-                minter: "mr-t".to_string(),
+                minter: test.app.api().addr_make("mr-t").to_string(),
                 collection_info: sg721::CollectionInfo {
-                    creator: mock_env().contract.address.to_string(),
+                    creator: test.app.api().addr_make("mr-t").to_string(),
                     description: "".to_string(),
                     image: "https://arkprotocol.io".to_string(),
                     external_link: None,
@@ -1202,7 +1323,7 @@ fn test_proxy_authorized() {
         .unwrap();
     test.app
         .execute_contract(
-            Addr::unchecked("mr-t"),
+            test.app.api().addr_make("mr-t"),
             cw721.clone(),
             &cw721_base::ExecuteMsg::<Empty, Empty>::Mint {
                 token_id: "1".to_string(),
@@ -1221,10 +1342,10 @@ fn test_proxy_authorized() {
             &ExecuteMsg::ReceiveProxyNft {
                 eyeball: cw721.into_string(),
                 msg: cw721::Cw721ReceiveMsg {
-                    sender: "mr-t".to_string(),
+                    sender: test.app.api().addr_make("mr-t").to_string(),
                     token_id: "1".to_string(),
                     msg: to_binary(&IbcOutgoingMsg {
-                        receiver: "mr-t".to_string(),
+                        receiver: test.app.api().addr_make("mr-t").to_string(),
                         channel_id: "channel-0".to_string(),
                         timeout: IbcTimeout::with_block(IbcTimeoutBlock {
                             revision: 0,
@@ -1257,74 +1378,7 @@ fn test_receive_nft() {
                     sender: test.minter.to_string(),
                     token_id: token_id.clone(),
                     msg: to_binary(&IbcOutgoingMsg {
-                        receiver: "mr-t".to_string(),
-                        channel_id: "channel-0".to_string(),
-                        timeout: IbcTimeout::with_block(IbcTimeoutBlock {
-                            revision: 0,
-                            height: 10,
-                        }),
-                        memo: None,
-                    })
-                    .unwrap(),
-                }),
-                &[],
-            )
-            .unwrap();
-        let event = res.events.into_iter().find(|e| e.ty == "wasm").unwrap();
-        let class_data_attribute = event
-            .attributes
-            .into_iter()
-            .find(|a| a.key == "class_data")
-            .unwrap();
-        let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_binary(
-            &to_binary(&ContractInfoResponse {
-                code_id: test.cw721_id,
-                creator: test.minter.to_string(),
-                admin: None,
-                pinned: false,
-                ibc_port: None,
-            })
-            .unwrap(),
-        )
-        .unwrap();
-        let expected_collection_data = to_binary(&SgCollectionData {
-            owner: Some(test.minter.to_string()),
-            contract_info: expected_contract_info,
-            name: "name".to_string(),
-            symbol: "symbol".to_string(),
-            num_tokens: 1,
-            collection_info: CollectionInfoResponse {
-                creator: test.ics721.to_string(),
-                description: "".to_string(),
-                image: "https://arkprotocol.io".to_string(),
-                external_link: None,
-                explicit_content: None,
-                start_trading_time: None,
-                royalty_info: None,
-            },
-        })
-        .unwrap();
-        assert_eq!(
-            class_data_attribute.value,
-            format!("{:?}", expected_collection_data)
-        );
-    }
-    // test case: receive nft from old/v240 sg721-base
-    {
-        let mut test = Test::new(false, None, sg721_v240_base_contract());
-        // mint and escrowed/owned by ics721
-        let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
-
-        let res = test
-            .app
-            .execute_contract(
-                test.cw721.clone(),
-                test.ics721.clone(),
-                &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
-                    sender: test.minter.to_string(),
-                    token_id: token_id.clone(),
-                    msg: to_binary(&IbcOutgoingMsg {
-                        receiver: "mr-t".to_string(),
+                        receiver: test.app.api().addr_make("mr-t").to_string(),
                         channel_id: "channel-0".to_string(),
                         timeout: IbcTimeout::with_block(IbcTimeoutBlock {
                             revision: 0,
@@ -1387,13 +1441,13 @@ fn test_no_receive_with_proxy() {
     let err: ContractError = test
         .app
         .execute_contract(
-            Addr::unchecked("cw721"),
+            test.app.api().addr_make("cw721"),
             test.ics721,
             &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
-                sender: "mr-t".to_string(),
+                sender: test.app.api().addr_make("mr-t").to_string(),
                 token_id: "1".to_string(),
                 msg: to_binary(&IbcOutgoingMsg {
-                    receiver: "mr-t".to_string(),
+                    receiver: test.app.api().addr_make("mr-t").to_string(),
                     channel_id: "channel-0".to_string(),
                     timeout: IbcTimeout::with_block(IbcTimeoutBlock {
                         revision: 0,
@@ -1420,26 +1474,26 @@ fn test_pause() {
     // Should start unpaused.
     let (paused, pauser) = test.query_pause_info();
     assert!(!paused);
-    assert_eq!(pauser, Some(Addr::unchecked("mr-t")));
+    assert_eq!(pauser, Some(test.app.api().addr_make("mr-t")));
 
     // Non-pauser may not pause.
-    let err = test.pause_ics721_should_fail("zeke");
+    let err = test.pause_ics721_should_fail(test.app.api().addr_make("zeke").as_str());
     assert_eq!(
         err,
         ContractError::Pause(PauseError::Unauthorized {
-            sender: Addr::unchecked("zeke")
+            sender: test.app.api().addr_make("zeke")
         })
     );
 
     // Pause the ICS721 contract.
-    test.pause_ics721("mr-t");
+    test.pause_ics721(test.app.api().addr_make("mr-t").as_str());
     // Pausing should remove the pauser.
     let (paused, pauser) = test.query_pause_info();
     assert!(paused);
     assert_eq!(pauser, None);
 
     // Pausing fails.
-    let err = test.pause_ics721_should_fail("mr-t");
+    let err = test.pause_ics721_should_fail(test.app.api().addr_make("mr-t").as_str());
     assert_eq!(err, ContractError::Pause(PauseError::Paused {}));
 
     // Even something like executing a callback on ourselves will be
@@ -1461,12 +1515,12 @@ fn test_pause() {
     let ics721_id = test.app.store_code(ics721_contract());
     test.app
         .execute(
-            Addr::unchecked("mr-t"),
+            test.app.api().addr_make("mr-t"),
             WasmMsg::Migrate {
                 contract_addr: test.ics721.to_string(),
                 new_code_id: ics721_id,
-                msg: to_binary(&MigrateMsg::WithUpdate {
-                    pauser: Some("zeke".to_string()),
+                msg: to_json_binary(&MigrateMsg::WithUpdate {
+                    pauser: Some(test.app.api().addr_make("zeke").to_string()),
                     proxy: None,
                     cw721_base_code_id: None,
                 })
@@ -1479,10 +1533,10 @@ fn test_pause() {
     // Setting new pauser should unpause.
     let (paused, pauser) = test.query_pause_info();
     assert!(!paused);
-    assert_eq!(pauser, Some(Addr::unchecked("zeke")));
+    assert_eq!(pauser, Some(test.app.api().addr_make("zeke")));
 
     // One more pause for posterity sake.
-    test.pause_ics721("zeke");
+    test.pause_ics721(test.app.api().addr_make("zeke").as_str());
     let (paused, pauser) = test.query_pause_info();
     assert!(paused);
     assert_eq!(pauser, None);
@@ -1494,7 +1548,7 @@ fn test_migration() {
     let mut test = Test::new(true, Some("mr-t".to_string()), sg721_base_contract());
     // assert instantiation worked
     let (_, pauser) = test.query_pause_info();
-    assert_eq!(pauser, Some(Addr::unchecked("mr-t")));
+    assert_eq!(pauser, Some(test.app.api().addr_make("mr-t")));
     let proxy = test.query_proxy();
     assert!(proxy.is_some());
     let cw721_code_id = test.query_cw721_id();
@@ -1503,7 +1557,7 @@ fn test_migration() {
     // migrate changes
     test.app
         .execute(
-            Addr::unchecked("mr-t"),
+            test.app.api().addr_make("mr-t"),
             WasmMsg::Migrate {
                 contract_addr: test.ics721.to_string(),
                 new_code_id: test.ics721_id,
@@ -1528,7 +1582,7 @@ fn test_migration() {
     // migrate without changing code id
     test.app
         .execute(
-            Addr::unchecked("mr-t"),
+            test.app.api().addr_make("mr-t"),
             WasmMsg::Migrate {
                 contract_addr: test.ics721.to_string(),
                 new_code_id: test.ics721_id,

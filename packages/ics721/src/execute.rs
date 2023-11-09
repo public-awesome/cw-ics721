@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcMsg, MessageInfo, Response,
-    StdResult, SubMsg, WasmMsg,
+    from_binary, instantiate2_address, to_binary, Addr, Binary, CodeInfoResponse, Deps, DepsMut,
+    Empty, Env, IbcMsg, MessageInfo, Response, StdError, StdResult, SubMsg, WasmMsg,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -258,8 +258,24 @@ where
         let instantiate = if CLASS_ID_TO_NFT_CONTRACT.has(deps.storage, class.id.clone()) {
             vec![]
         } else {
+            let class_id = ClassId::new(class.id.clone());
+            let salt = class_id.as_bytes();
+            // Get the canonical address of the contract creator
+            let canonical_creator = deps.api.addr_canonicalize(env.contract.address.as_str())?;
+            // get the checksum of the contract we're going to instantiate
+            let CodeInfoResponse { checksum, .. } = deps
+                .querier
+                .query_wasm_code_info(CW721_CODE_ID.load(deps.storage)?)?;
+            let canonical_cw721_addr = instantiate2_address(&checksum, &canonical_creator, salt)
+                .map_err(|_| StdError::generic_err("Could not calculate addr"))?;
+            let cw721_addr = deps.api.addr_humanize(&canonical_cw721_addr)?;
+
+            // Save classId <-> contract mappings.
+            CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class_id.clone(), &cw721_addr)?;
+            NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, cw721_addr.clone(), &class_id)?;
+
             let message = SubMsg::<T>::reply_on_success(
-                WasmMsg::Instantiate {
+                WasmMsg::Instantiate2 {
                     admin: None,
                     code_id: CW721_CODE_ID.load(deps.storage)?,
                     msg: self.init_msg(deps.as_ref(), &env, &class)?,
@@ -268,6 +284,7 @@ where
                     // can make this field too long which causes data
                     // errors in the SDK.
                     label: "ics-721 debt-voucher cw-721".to_string(),
+                    salt: to_binary(salt)?,
                 },
                 INSTANTIATE_CW721_REPLY_ID,
             );

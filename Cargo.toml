@@ -22,17 +22,16 @@ cw721-base = "0.18"
 cw721-base-016  = { version = "0.16.0", package = "cw721-base" }
 cw721-proxy-derive = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.7" }
 cw721-rate-limited-proxy = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.7" }
-cw-multi-test = "0.16"
+cw-multi-test = { version = "0.18", features = ["cosmwasm_1_2"] }
 cw-utils = "1.0"
+sha2 = "^0.10"
 serde = "1.0"
 thiserror = "1"
 # Stargaze libs
-sg-std = "3.0"
+sg-std = "^3.2"
 sg-multi-test = "^3.1"
 sg721 = "^3.1"
-sg721-240 = { version = "^2.4", package = "sg721" }
 sg721-base = "^3.1"
-sg721-base-240 = { version = "^2.4", package = "sg721-base" }
 # packages and contracts
 cw-cii = { path = "./packages/cw-cii" }
 cw-pause-once = { path = "./packages/cw-pause-once" }

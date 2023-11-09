@@ -29,3 +29,4 @@ cw-multi-test = { workspace = true }
 cw2 = { workspace = true }
 cw721-016 = { workspace = true }
 cw721-rate-limited-proxy = { workspace = true }
+sha2 = { workspace = true }

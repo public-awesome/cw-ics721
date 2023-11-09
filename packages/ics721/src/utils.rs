@@ -44,7 +44,7 @@ pub fn convert_owner_chain_address(env: &Env, source_owner: &str) -> StdResult<S
     // convert the source owner (e.g. `juno1XXX`) to target owner (e.g. `stars1XXX`)
     let (_source_hrp, source_data, source_variant) = bech32::decode(source_owner).unwrap();
     // detect target hrp (e.g. `stars`) using contract address
-    let (target_hrp, _targete_data, _target_variant) =
+    let (target_hrp, _target_data, _target_variant) =
         bech32::decode(env.contract.address.as_str()).unwrap();
     // convert source owner to target owner
     let target_owner = bech32::encode(target_hrp.as_str(), source_data, source_variant).unwrap();

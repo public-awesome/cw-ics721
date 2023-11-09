@@ -252,17 +252,8 @@ where
                 let res = parse_reply_instantiate_data(reply)?;
                 let cw721_addr = deps.api.addr_validate(&res.contract_address)?;
 
-                // We need to map this address back to a class
-                // ID. Fourtunately, we set the name of the new NFT
-                // contract to the class ID.
-                let cw721::ContractInfoResponse { name, .. } = deps
-                    .querier
-                    .query_wasm_smart(cw721_addr.clone(), &cw721::Cw721QueryMsg::ContractInfo {})?;
-                let class_id = ClassId::new(name);
-
-                // Save classId <-> contract mappings.
-                CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class_id.clone(), &cw721_addr)?;
-                NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, cw721_addr.clone(), &class_id)?;
+                // cw721 addr has already been stored, here just check whether it exists, otherwise a NotFound error is thrown
+                let class_id = NFT_CONTRACT_TO_CLASS_ID.load(deps.storage, cw721_addr.clone())?;
 
                 Ok(Response::default()
                     .add_attribute("method", "instantiate_cw721_reply")
