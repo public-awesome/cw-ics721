@@ -1,6 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    from_binary, to_binary, Binary, DepsMut, Empty, Env, IbcBasicResponse, IbcChannelCloseMsg,
+    from_json, to_json_binary, Binary, DepsMut, Empty, Env, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacket, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, Never, Reply, Response,
     StdResult, SubMsgResult, WasmMsg,
@@ -150,7 +150,7 @@ where
         if let Some(error) = try_get_ack_error(&ack.acknowledgement) {
             self.handle_packet_fail(deps, ack.original_packet, &error)
         } else {
-            let msg: NonFungibleTokenPacketData = from_binary(&ack.original_packet.data)?;
+            let msg: NonFungibleTokenPacketData = from_json(&ack.original_packet.data)?;
 
             let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, msg.class_id.clone())?;
             // Burn all of the tokens being transfered out that were
@@ -171,7 +171,7 @@ where
 
                         messages.push(WasmMsg::Execute {
                             contract_addr: nft_contract.to_string(),
-                            msg: to_binary(&cw721::Cw721ExecuteMsg::Burn {
+                            msg: to_json_binary(&cw721::Cw721ExecuteMsg::Burn {
                                 token_id: token.into(),
                             })?,
                             funds: vec![],
@@ -207,7 +207,7 @@ where
         packet: IbcPacket,
         error: &str,
     ) -> Result<IbcBasicResponse, ContractError> {
-        let message: NonFungibleTokenPacketData = from_binary(&packet.data)?;
+        let message: NonFungibleTokenPacketData = from_json(&packet.data)?;
         let nft_address = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, message.class_id.clone())?;
         let sender = deps.api.addr_validate(&message.sender)?;
 
@@ -220,7 +220,7 @@ where
                     .remove(deps.storage, (message.class_id.clone(), token_id.clone()));
                 Ok(WasmMsg::Execute {
                     contract_addr: nft_address.to_string(),
-                    msg: to_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                    msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
                         recipient: sender.to_string(),
                         token_id: token_id.into(),
                     })?,

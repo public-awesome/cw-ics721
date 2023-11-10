@@ -1,4 +1,4 @@
-use cosmwasm_std::{from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, StdResult};
+use cosmwasm_std::{from_json, to_json_binary, Addr, Binary, Deps, DepsMut, Env, StdResult};
 use ics721::{
     execute::Ics721Execute,
     state::CollectionData,
@@ -46,7 +46,7 @@ impl Ics721Execute for SgIcs721Contract {
             }
             Some(data) => {
                 // class data may be any custom type. Check whether it is `ics721::state::CollectionData` or not.
-                let class_data_result: StdResult<CollectionData> = from_binary(&data);
+                let class_data_result: StdResult<CollectionData> = from_json(data);
                 if class_data_result.is_err() {
                     // this happens only for unknown class data, like source chain uses nft-transfer module
                     env.contract.address.to_string()
@@ -60,7 +60,7 @@ impl Ics721Execute for SgIcs721Contract {
                 }
             }
         };
-        to_binary(&sg721::InstantiateMsg {
+        to_json_binary(&sg721::InstantiateMsg {
             // Name of the collection MUST be class_id as this is how
             // we create a map entry on reply.
             name: class.id.clone().into(),

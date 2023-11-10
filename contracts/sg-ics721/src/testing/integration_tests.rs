@@ -2,9 +2,9 @@ use anyhow::Result;
 use bech32::{decode, encode, FromBase32, ToBase32, Variant};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    from_binary, instantiate2_address,
+    from_json, instantiate2_address,
     testing::{mock_env, MockApi},
-    to_binary, to_json_binary, Addr, Api, Binary, CanonicalAddr, Deps, DepsMut, Empty, Env, GovMsg,
+    to_json_binary, Addr, Api, Binary, CanonicalAddr, Deps, DepsMut, Empty, Env, GovMsg,
     IbcTimeout, IbcTimeoutBlock, MemoryStorage, MessageInfo, RecoverPubkeyError, Reply, Response,
     StdError, StdResult, Storage, VerificationError, WasmMsg,
 };
@@ -293,7 +293,7 @@ impl Test {
                 let proxy_id = app.store_code(proxy_contract());
                 Some(ContractInstantiateInfo {
                     code_id: proxy_id,
-                    msg: to_binary(&rlp::msg::InstantiateMsg {
+                    msg: to_json_binary(&rlp::msg::InstantiateMsg {
                         rate_limit: rlp::Rate::PerBlock(10),
                         origin: None,
                     })
@@ -553,7 +553,7 @@ fn test_do_instantiate_and_mint_weird_data() {
                         uri: None,
                         data: Some(
                             // data comes from source chain, so it can't be SgCollectionData
-                            to_binary(&CollectionData {
+                            to_json_binary(&CollectionData {
                                 owner: Some(
                                     test.app.api().addr_make(OWNER_SOURCE_CHAIN).to_string(),
                                 ),
@@ -755,7 +755,7 @@ fn test_do_instantiate_and_mint_xxx() {
                             uri: Some("https://moonphase.is".to_string()),
                             data: Some(
                                 // data comes from source chain, so it can't be SgCollectionData
-                                to_binary(&CollectionData {
+                                to_json_binary(&CollectionData {
                                     // owner as defined by collection in source chain
                                     owner: Some(
                                         test.app.api().addr_make(OWNER_SOURCE_CHAIN).to_string(),
@@ -930,7 +930,7 @@ fn test_do_instantiate_and_mint_xxx() {
                             uri: Some("https://moonphase.is".to_string()),
                             // CustomClassData with no owner info
                             data: Some(
-                                to_binary(&CustomClassData {
+                                to_json_binary(&CustomClassData {
                                     foo: Some(
                                         test.app.api().addr_make(OWNER_SOURCE_CHAIN).to_string(),
                                     ),
@@ -1102,7 +1102,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                         data: Some(
                             // data comes from source chain, so it can't be SgCollectionData
                             // owner as defined by collection in source chain
-                            to_binary(&CollectionData {
+                            to_json_binary(&CollectionData {
                                 owner: Some(
                                     test.app.api().addr_make(OWNER_SOURCE_CHAIN).to_string(),
                                 ),
@@ -1230,7 +1230,7 @@ fn test_do_instantiate_and_mint_permissions() {
                         id: ClassId::new("bad kids"),
                         uri: Some("https://moonphase.is".to_string()),
                         data: Some(
-                            to_binary(&CollectionData {
+                            to_json_binary(&CollectionData {
                                 owner: Some(
                                     test.app.api().addr_make(OWNER_SOURCE_CHAIN).to_string(),
                                 ),
@@ -1273,7 +1273,7 @@ fn test_no_proxy_unauthorized() {
                 msg: cw721::Cw721ReceiveMsg {
                     sender: test.app.api().addr_make("mr-t").to_string(),
                     token_id: "1".to_string(),
-                    msg: to_binary("").unwrap(),
+                    msg: to_json_binary("").unwrap(),
                 },
             },
             &[],
@@ -1344,7 +1344,7 @@ fn test_proxy_authorized() {
                 msg: cw721::Cw721ReceiveMsg {
                     sender: test.app.api().addr_make("mr-t").to_string(),
                     token_id: "1".to_string(),
-                    msg: to_binary(&IbcOutgoingMsg {
+                    msg: to_json_binary(&IbcOutgoingMsg {
                         receiver: test.app.api().addr_make("mr-t").to_string(),
                         channel_id: "channel-0".to_string(),
                         timeout: IbcTimeout::with_block(IbcTimeoutBlock {
@@ -1377,7 +1377,7 @@ fn test_receive_nft() {
                 &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
                     sender: test.minter.to_string(),
                     token_id: token_id.clone(),
-                    msg: to_binary(&IbcOutgoingMsg {
+                    msg: to_json_binary(&IbcOutgoingMsg {
                         receiver: test.app.api().addr_make("mr-t").to_string(),
                         channel_id: "channel-0".to_string(),
                         timeout: IbcTimeout::with_block(IbcTimeoutBlock {
@@ -1397,8 +1397,8 @@ fn test_receive_nft() {
             .into_iter()
             .find(|a| a.key == "class_data")
             .unwrap();
-        let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_binary(
-            &to_binary(&ContractInfoResponse {
+        let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_json(
+            &to_json_binary(&ContractInfoResponse {
                 code_id: test.cw721_id,
                 creator: test.minter.to_string(),
                 admin: None,
@@ -1408,7 +1408,7 @@ fn test_receive_nft() {
             .unwrap(),
         )
         .unwrap();
-        let expected_collection_data = to_binary(&SgCollectionData {
+        let expected_collection_data = to_json_binary(&SgCollectionData {
             owner: Some(test.minter.to_string()),
             contract_info: expected_contract_info,
             name: "name".to_string(),
@@ -1446,7 +1446,7 @@ fn test_no_receive_with_proxy() {
             &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
                 sender: test.app.api().addr_make("mr-t").to_string(),
                 token_id: "1".to_string(),
-                msg: to_binary(&IbcOutgoingMsg {
+                msg: to_json_binary(&IbcOutgoingMsg {
                     receiver: test.app.api().addr_make("mr-t").to_string(),
                     channel_id: "channel-0".to_string(),
                     timeout: IbcTimeout::with_block(IbcTimeoutBlock {
@@ -1561,7 +1561,7 @@ fn test_migration() {
             WasmMsg::Migrate {
                 contract_addr: test.ics721.to_string(),
                 new_code_id: test.ics721_id,
-                msg: to_binary(&MigrateMsg::WithUpdate {
+                msg: to_json_binary(&MigrateMsg::WithUpdate {
                     pauser: None,
                     proxy: None,
                     cw721_base_code_id: Some(12345678),
@@ -1586,7 +1586,7 @@ fn test_migration() {
             WasmMsg::Migrate {
                 contract_addr: test.ics721.to_string(),
                 new_code_id: test.ics721_id,
-                msg: to_binary(&MigrateMsg::WithUpdate {
+                msg: to_json_binary(&MigrateMsg::WithUpdate {
                     pauser: None,
                     proxy: None,
                     cw721_base_code_id: None,

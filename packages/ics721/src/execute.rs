@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use cosmwasm_std::{
-    from_binary, instantiate2_address, to_binary, Addr, Binary, CodeInfoResponse, Deps, DepsMut,
+    from_json, instantiate2_address, to_json_binary, Addr, Binary, CodeInfoResponse, Deps, DepsMut,
     Empty, Env, IbcMsg, MessageInfo, Response, StdError, StdResult, SubMsg, WasmMsg,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -122,7 +122,7 @@ where
         msg: Binary,
     ) -> Result<Response<T>, ContractError> {
         let sender = deps.api.addr_validate(&sender)?;
-        let msg: IbcOutgoingMsg = from_binary(&msg)?;
+        let msg: IbcOutgoingMsg = from_json(msg)?;
 
         let class = match NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, info.sender.clone())? {
             Some(class_id) => CLASS_ID_TO_CLASS.load(deps.storage, class_id)?,
@@ -130,7 +130,7 @@ where
             // that has never been sent out of this contract.
             None => {
                 let class_data = self.get_class_data(&deps, &info.sender)?;
-                let data = class_data.as_ref().map(to_binary).transpose()?;
+                let data = class_data.as_ref().map(to_json_binary).transpose()?;
                 let class = Class {
                     id: ClassId::new(info.sender.to_string()),
                     // There is no collection-level uri nor data in the
@@ -181,7 +181,7 @@ where
         };
         let ibc_message = IbcMsg::SendPacket {
             channel_id: msg.channel_id.clone(),
-            data: to_binary(&ibc_message)?,
+            data: to_json_binary(&ibc_message)?,
             timeout: msg.timeout,
         };
 
@@ -284,7 +284,7 @@ where
                     // can make this field too long which causes data
                     // errors in the SDK.
                     label: "ics-721 debt-voucher cw-721".to_string(),
-                    salt: to_binary(salt)?,
+                    salt: to_json_binary(salt)?,
                 },
                 INSTANTIATE_CW721_REPLY_ID,
             );
@@ -300,7 +300,7 @@ where
 
         let mint = WasmMsg::Execute {
             contract_addr: env.contract.address.into_string(),
-            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::Mint {
+            msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::Mint {
                 class_id: class.id,
                 receiver,
                 tokens,
@@ -316,7 +316,7 @@ where
 
     /// Default implementation using `cw721_base::msg::InstantiateMsg`
     fn init_msg(&self, _deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
-        to_binary(&cw721_base::msg::InstantiateMsg {
+        to_json_binary(&cw721_base::msg::InstantiateMsg {
             // Name of the collection MUST be class_id as this is how
             // we create a map entry on reply.
             name: class.id.clone().into(),
@@ -344,7 +344,7 @@ where
                     .map(|token_id| {
                         Ok(WasmMsg::Execute {
                             contract_addr: nft_contract.to_string(),
-                            msg: to_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                            msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
                                 recipient: receiver.to_string(),
                                 token_id: token_id.into(),
                             })?,
@@ -382,7 +382,7 @@ where
                 };
                 Ok(WasmMsg::Execute {
                     contract_addr: cw721_addr.to_string(),
-                    msg: to_binary(&msg)?,
+                    msg: to_json_binary(&msg)?,
                     funds: vec![],
                 })
             })

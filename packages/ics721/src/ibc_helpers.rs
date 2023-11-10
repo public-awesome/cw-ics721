@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    from_binary, to_binary, Binary, IbcAcknowledgement, IbcChannel, IbcEndpoint, IbcOrder,
+    from_json, to_json_binary, Binary, IbcAcknowledgement, IbcChannel, IbcEndpoint, IbcOrder,
 };
 use serde::{Deserialize, Serialize};
 
@@ -44,12 +44,12 @@ pub enum Ics721Ack {
 
 pub fn ack_success() -> Binary {
     let res = Ics721Ack::Result(b"1".into());
-    to_binary(&res).unwrap()
+    to_json_binary(&res).unwrap()
 }
 
 pub fn ack_fail(err: String) -> Binary {
     let res = Ics721Ack::Error(err);
-    to_binary(&res).unwrap()
+    to_json_binary(&res).unwrap()
 }
 
 /// Tries to get the error from an ACK. If an error exists, returns
@@ -76,7 +76,7 @@ pub fn ack_fail(err: String) -> Binary {
 pub fn try_get_ack_error(ack: &IbcAcknowledgement) -> Option<String> {
     let ack: Ics721Ack =
 	// What we can not parse is an ACK fail.
-        from_binary(&ack.data).unwrap_or_else(|_| Ics721Ack::Error(ack.data.to_base64()));
+        from_json(&ack.data).unwrap_or_else(|_| Ics721Ack::Error(ack.data.to_base64()));
     match ack {
         Ics721Ack::Error(e) => Some(e),
         _ => None,

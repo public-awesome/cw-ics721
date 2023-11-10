@@ -2,10 +2,9 @@ use anyhow::Result;
 use bech32::{decode, encode, FromBase32, ToBase32, Variant};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    from_binary, from_json, instantiate2_address, to_binary, to_json_binary, Addr, Api, Binary,
-    CanonicalAddr, Deps, DepsMut, Empty, Env, GovMsg, IbcTimeout, IbcTimeoutBlock, MemoryStorage,
-    MessageInfo, RecoverPubkeyError, Reply, Response, StdError, StdResult, Storage,
-    VerificationError, WasmMsg,
+    from_json, instantiate2_address, to_json_binary, Addr, Api, Binary, CanonicalAddr, Deps,
+    DepsMut, Empty, Env, GovMsg, IbcTimeout, IbcTimeoutBlock, MemoryStorage, MessageInfo,
+    RecoverPubkeyError, Reply, Response, StdError, StdResult, Storage, VerificationError, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw721_base::msg::{InstantiateMsg as Cw721InstantiateMsg, QueryMsg as Cw721QueryMsg};

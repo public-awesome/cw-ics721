@@ -1,4 +1,4 @@
-use cosmwasm_std::{to_binary, Addr, Binary, Deps, Env, Order, StdResult};
+use cosmwasm_std::{to_json_binary, Addr, Binary, Deps, Env, Order, StdResult};
 use cw_storage_plus::Map;
 
 use crate::{
@@ -15,34 +15,34 @@ pub trait Ics721Query {
     fn query(&self, deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         match msg {
             QueryMsg::ClassId { contract } => {
-                to_binary(&self.query_class_id_for_nft_contract(deps, contract)?)
+                to_json_binary(&self.query_class_id_for_nft_contract(deps, contract)?)
             }
             QueryMsg::NftContract { class_id } => {
-                to_binary(&self.query_nft_contract_for_class_id(deps, class_id)?)
+                to_json_binary(&self.query_nft_contract_for_class_id(deps, class_id)?)
             }
             QueryMsg::ClassMetadata { class_id } => {
-                to_binary(&self.query_class_metadata(deps, class_id)?)
+                to_json_binary(&self.query_class_metadata(deps, class_id)?)
             }
             QueryMsg::TokenMetadata { class_id, token_id } => {
-                to_binary(&self.query_token_metadata(deps, class_id, token_id)?)
+                to_json_binary(&self.query_token_metadata(deps, class_id, token_id)?)
             }
             QueryMsg::Owner { class_id, token_id } => {
-                to_binary(&self.query_owner(deps, class_id, token_id)?)
+                to_json_binary(&self.query_owner(deps, class_id, token_id)?)
             }
-            QueryMsg::Pauser {} => to_binary(&PO.query_pauser(deps.storage)?),
-            QueryMsg::Paused {} => to_binary(&PO.query_paused(deps.storage)?),
-            QueryMsg::Proxy {} => to_binary(&PROXY.load(deps.storage)?),
-            QueryMsg::Cw721CodeId {} => to_binary(&self.query_cw721_code_id(deps)?),
+            QueryMsg::Pauser {} => to_json_binary(&PO.query_pauser(deps.storage)?),
+            QueryMsg::Paused {} => to_json_binary(&PO.query_paused(deps.storage)?),
+            QueryMsg::Proxy {} => to_json_binary(&PROXY.load(deps.storage)?),
+            QueryMsg::Cw721CodeId {} => to_json_binary(&self.query_cw721_code_id(deps)?),
             QueryMsg::NftContracts { start_after, limit } => {
-                to_binary(&self.query_nft_contracts(deps, start_after, limit)?)
+                to_json_binary(&self.query_nft_contracts(deps, start_after, limit)?)
             }
-            QueryMsg::OutgoingChannels { start_after, limit } => to_binary(&query_channels(
+            QueryMsg::OutgoingChannels { start_after, limit } => to_json_binary(&query_channels(
                 deps,
                 &OUTGOING_CLASS_TOKEN_TO_CHANNEL,
                 start_after,
                 limit,
             )?),
-            QueryMsg::IncomingChannels { start_after, limit } => to_binary(&query_channels(
+            QueryMsg::IncomingChannels { start_after, limit } => to_json_binary(&query_channels(
                 deps,
                 &INCOMING_CLASS_TOKEN_TO_CHANNEL,
                 start_after,

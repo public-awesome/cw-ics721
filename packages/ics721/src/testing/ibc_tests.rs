@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     attr,
     testing::{mock_dependencies, mock_env, mock_info},
-    to_binary, to_vec, Addr, Attribute, Binary, DepsMut, Empty, Env, IbcAcknowledgement,
+    to_json_binary, to_vec, Addr, Attribute, Binary, DepsMut, Empty, Env, IbcAcknowledgement,
     IbcChannel, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder, IbcPacket,
     IbcPacketReceiveMsg, IbcTimeout, Order, Reply, Response, StdResult, SubMsgResponse,
     SubMsgResult, Timestamp,
@@ -426,7 +426,7 @@ fn test_ibc_channel_connect_invalid_version_counterparty() {
 
 #[test]
 fn test_ibc_packet_receive() {
-    let data = to_binary(&NonFungibleTokenPacketData {
+    let data = to_json_binary(&NonFungibleTokenPacketData {
         class_id: ClassId::new("id"),
         class_uri: None,
         class_data: None,
@@ -477,7 +477,7 @@ fn test_ibc_packet_receive_invalid_packet_data() {
     // the actual message used here is unimportant. this just
     // constructs a valud JSON blob that is not a valid ICS-721
     // packet.
-    let data = to_binary(&QueryMsg::ClassMetadata {
+    let data = to_json_binary(&QueryMsg::ClassMetadata {
         class_id: "foobar".to_string(),
     })
     .unwrap();
@@ -500,7 +500,7 @@ fn test_ibc_packet_receive_invalid_packet_data() {
 
 #[test]
 fn test_ibc_packet_receive_emits_memo() {
-    let data = to_binary(&NonFungibleTokenPacketData {
+    let data = to_json_binary(&NonFungibleTokenPacketData {
         class_id: ClassId::new("id"),
         class_uri: None,
         class_data: None,
@@ -545,7 +545,7 @@ fn test_ibc_packet_receive_missmatched_lengths() {
     );
 
     let packet = IbcPacketReceiveMsg::new(
-        mock_packet(to_binary(&data).unwrap()),
+        mock_packet(to_json_binary(&data).unwrap()),
         Addr::unchecked(RELAYER_ADDR),
     );
 
@@ -561,8 +561,8 @@ fn test_ibc_packet_receive_missmatched_lengths() {
 
     // More token data are provided than tokens.
     let token_data = Some(vec![
-        to_binary("some_data_1").unwrap(),
-        to_binary("some_data_2").unwrap(),
+        to_json_binary("some_data_1").unwrap(),
+        to_json_binary("some_data_2").unwrap(),
     ]);
     let data = build_ics_packet(
         "bad kids",
@@ -577,7 +577,7 @@ fn test_ibc_packet_receive_missmatched_lengths() {
     );
 
     let packet = IbcPacketReceiveMsg::new(
-        mock_packet(to_binary(&data).unwrap()),
+        mock_packet(to_json_binary(&data).unwrap()),
         Addr::unchecked(RELAYER_ADDR),
     );
 
@@ -594,13 +594,13 @@ fn test_ibc_packet_receive_missmatched_lengths() {
 
 #[test]
 fn test_packet_json() {
-    let class_data = to_binary("some_class_data").unwrap(); // InNvbWVfY2xhc3NfZGF0YSI=
+    let class_data = to_json_binary("some_class_data").unwrap(); // InNvbWVfY2xhc3NfZGF0YSI=
     let token_data = vec![
         // ["InNvbWVfdG9rZW5fZGF0YV8xIg==","InNvbWVfdG9rZW5fZGF0YV8yIg==","
         // InNvbWVfdG9rZW5fZGF0YV8zIg=="]
-        to_binary("some_token_data_1").unwrap(),
-        to_binary("some_token_data_2").unwrap(),
-        to_binary("some_token_data_3").unwrap(),
+        to_json_binary("some_token_data_1").unwrap(),
+        to_json_binary("some_token_data_2").unwrap(),
+        to_json_binary("some_token_data_3").unwrap(),
     ];
     let packet = build_ics_packet(
         "stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n",
@@ -629,7 +629,7 @@ fn test_packet_json() {
 fn test_no_receive_when_paused() {
     // Valid JSON, invalid ICS-721 packet. Tests that we check for
     // pause status before attempting validation.
-    let data = to_binary(&QueryMsg::ClassMetadata {
+    let data = to_json_binary(&QueryMsg::ClassMetadata {
         class_id: "foobar".to_string(),
     })
     .unwrap();
