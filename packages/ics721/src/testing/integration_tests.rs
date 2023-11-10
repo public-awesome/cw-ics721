@@ -32,8 +32,9 @@ const ICS721_CREATOR: &str = "ics721-creator";
 const CONTRACT_NAME: &str = "crates.io:ics721-base";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-const OWNER_SOURCE_CHAIN: &str = "juno1ke55z7catvdvnhvyyh0pkvs30t09me72vcxkh5";
+const OWNER_SOURCE_CHAIN: &str = "collection-owner";
 const SOURCE_HRP: &str = "juno";
+const NFT_OWNER: &str = "nft-owner";
 
 // copy of cosmwasm_std::ContractInfoResponse (marked as non-exhaustive)
 #[cw_serde]
@@ -566,7 +567,7 @@ fn test_do_instantiate_and_mint() {
                     receiver: test.app.api().addr_make("ekez").to_string(),
                     create: VoucherCreation {
                         class: Class {
-                            id: ClassId::new("bad kids"),
+                            id: ClassId::new("some/class/id"),
                             uri: Some("https://moonphase.is".to_string()),
                             data: None, // no class data
                         },
@@ -578,7 +579,7 @@ fn test_do_instantiate_and_mint() {
                             },
                             Token {
                                 id: TokenId::new("2"),
-                                uri: Some("https://moonphase.is/image.svg".to_string()),
+                                uri: Some("https://foo.bar".to_string()),
                                 data: None,
                             },
                         ],
@@ -590,30 +591,33 @@ fn test_do_instantiate_and_mint() {
         // Check entry added in CLASS_ID_TO_NFT_CONTRACT
         let nft_contracts = test.query_nft_contracts();
         assert_eq!(nft_contracts.len(), 1);
-        assert_eq!(nft_contracts[0].0, "bad kids");
+        assert_eq!(nft_contracts[0].0, "some/class/id");
         // Get the address of the instantiated NFT.
-        let nft: Addr = test
+        let nft_contract: Addr = test
             .app
             .wrap()
             .query_wasm_smart(
                 test.ics721.clone(),
                 &QueryMsg::NftContract {
-                    class_id: "bad kids".to_string(),
+                    class_id: "some/class/id".to_string(),
                 },
             )
             .unwrap();
 
-        // check contract info is properly set
+        // check name and symbol contains class id for instantiated nft contract
         let contract_info: cw721::ContractInfoResponse = test
             .app
             .wrap()
-            .query_wasm_smart(nft.clone(), &Cw721QueryMsg::<Empty>::ContractInfo {})
+            .query_wasm_smart(
+                nft_contract.clone(),
+                &Cw721QueryMsg::<Empty>::ContractInfo {},
+            )
             .unwrap();
         assert_eq!(
             contract_info,
             cw721::ContractInfoResponse {
-                name: "bad kids".to_string(),
-                symbol: "bad kids".to_string()
+                name: "some/class/id".to_string(),   // name is set to class_id
+                symbol: "some/class/id".to_string()  // symbol is set to class_id
             }
         );
 
@@ -622,13 +626,12 @@ fn test_do_instantiate_and_mint() {
             .app
             .wrap()
             .query_wasm_smart(
-                nft.clone(),
+                nft_contract.clone(),
                 &cw721::Cw721QueryMsg::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
             .unwrap();
-
         assert_eq!(
             token_info.token_uri,
             Some("https://moonphase.is/image.svg".to_string())
@@ -637,25 +640,21 @@ fn test_do_instantiate_and_mint() {
             .app
             .wrap()
             .query_wasm_smart(
-                nft.clone(),
+                nft_contract.clone(),
                 &cw721::Cw721QueryMsg::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
             .unwrap();
-
-        assert_eq!(
-            token_info.token_uri,
-            Some("https://moonphase.is/image.svg".to_string())
-        );
+        assert_eq!(token_info.token_uri, Some("https://foo.bar".to_string()));
 
         // Check that we can transfer the NFT via the ICS721 interface.
         test.app
             .execute_contract(
                 test.app.api().addr_make("ekez"),
-                nft.clone(),
+                nft_contract.clone(),
                 &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
-                    recipient: nft.to_string(),
+                    recipient: nft_contract.to_string(),
                     token_id: "1".to_string(),
                 },
                 &[],
@@ -669,12 +668,11 @@ fn test_do_instantiate_and_mint() {
                 test.ics721,
                 &QueryMsg::Owner {
                     token_id: "1".to_string(),
-                    class_id: "bad kids".to_string(),
+                    class_id: "some/class/id".to_string(),
                 },
             )
             .unwrap();
-
-        assert_eq!(owner.owner, nft.to_string());
+        assert_eq!(owner.owner, nft_contract.to_string());
 
         // Check that this state matches the state of the underlying
         // cw721.
@@ -682,7 +680,7 @@ fn test_do_instantiate_and_mint() {
             .app
             .wrap()
             .query_wasm_smart(
-                nft,
+                nft_contract,
                 &cw721::Cw721QueryMsg::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,
@@ -692,7 +690,7 @@ fn test_do_instantiate_and_mint() {
 
         assert_eq!(base_owner, owner);
     }
-    // test case: instantiate cw721 with ClassData containing owner
+    // test case: instantiate cw721 with ClassData containing owner, name, symbol
     {
         let mut test = Test::new(false, None, cw721_base_contract());
         test.app
@@ -700,10 +698,10 @@ fn test_do_instantiate_and_mint() {
                 test.ics721.clone(),
                 test.ics721.clone(),
                 &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
-                    receiver: test.app.api().addr_make("ekez").to_string(),
+                    receiver: test.app.api().addr_make(NFT_OWNER).to_string(),
                     create: VoucherCreation {
                         class: Class {
-                            id: ClassId::new("bad kids"),
+                            id: ClassId::new("some/class/id"),
                             uri: Some("https://moonphase.is".to_string()),
                             data: Some(
                                 to_json_binary(&CollectionData {
@@ -711,8 +709,8 @@ fn test_do_instantiate_and_mint() {
                                         test.app.api().addr_make(OWNER_SOURCE_CHAIN).to_string(),
                                     ),
                                     contract_info: Default::default(),
-                                    name: "name".to_string(),
-                                    symbol: "symbol".to_string(),
+                                    name: "ark".to_string(),
+                                    symbol: "protocol".to_string(),
                                     num_tokens: 1,
                                 })
                                 .unwrap(),
@@ -726,7 +724,7 @@ fn test_do_instantiate_and_mint() {
                             },
                             Token {
                                 id: TokenId::new("2"),
-                                uri: Some("https://moonphase.is/image.svg".to_string()),
+                                uri: Some("https://foo.bar".to_string()),
                                 data: None,
                             },
                         ],
@@ -738,30 +736,33 @@ fn test_do_instantiate_and_mint() {
         // Check entry added in CLASS_ID_TO_NFT_CONTRACT
         let nft_contracts = test.query_nft_contracts();
         assert_eq!(nft_contracts.len(), 1);
-        assert_eq!(nft_contracts[0].0, "bad kids");
+        assert_eq!(nft_contracts[0].0, "some/class/id");
         // Get the address of the instantiated NFT.
-        let nft: Addr = test
+        let nft_contract: Addr = test
             .app
             .wrap()
             .query_wasm_smart(
                 test.ics721.clone(),
                 &QueryMsg::NftContract {
-                    class_id: "bad kids".to_string(),
+                    class_id: "some/class/id".to_string(),
                 },
             )
             .unwrap();
 
-        // check contract info is properly set
+        // check name and symbol is using class data for instantiated nft contract
         let contract_info: cw721::ContractInfoResponse = test
             .app
             .wrap()
-            .query_wasm_smart(nft.clone(), &Cw721QueryMsg::<Empty>::ContractInfo {})
+            .query_wasm_smart(
+                nft_contract.clone(),
+                &Cw721QueryMsg::<Empty>::ContractInfo {},
+            )
             .unwrap();
         assert_eq!(
             contract_info,
             cw721::ContractInfoResponse {
-                name: "bad kids".to_string(),
-                symbol: "bad kids".to_string()
+                name: "ark".to_string(),
+                symbol: "protocol".to_string()
             }
         );
 
@@ -770,13 +771,12 @@ fn test_do_instantiate_and_mint() {
             .app
             .wrap()
             .query_wasm_smart(
-                nft.clone(),
+                nft_contract.clone(),
                 &cw721::Cw721QueryMsg::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
             .unwrap();
-
         assert_eq!(
             token_info.token_uri,
             Some("https://moonphase.is/image.svg".to_string())
@@ -785,31 +785,28 @@ fn test_do_instantiate_and_mint() {
             .app
             .wrap()
             .query_wasm_smart(
-                nft.clone(),
+                nft_contract.clone(),
                 &cw721::Cw721QueryMsg::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
             .unwrap();
-
-        assert_eq!(
-            token_info.token_uri,
-            Some("https://moonphase.is/image.svg".to_string())
-        );
+        assert_eq!(token_info.token_uri, Some("https://foo.bar".to_string()));
 
         // Check that we can transfer the NFT via the ICS721 interface.
         test.app
             .execute_contract(
-                test.app.api().addr_make("ekez"),
-                nft.clone(),
+                test.app.api().addr_make(NFT_OWNER),
+                nft_contract.clone(), // new recipient
                 &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
-                    recipient: nft.to_string(),
+                    recipient: nft_contract.to_string(),
                     token_id: "1".to_string(),
                 },
                 &[],
             )
             .unwrap();
 
+        // check nft contract owns it
         let owner: cw721::OwnerOfResponse = test
             .app
             .wrap()
@@ -817,12 +814,11 @@ fn test_do_instantiate_and_mint() {
                 test.ics721,
                 &QueryMsg::Owner {
                     token_id: "1".to_string(),
-                    class_id: "bad kids".to_string(),
+                    class_id: "some/class/id".to_string(),
                 },
             )
             .unwrap();
-
-        assert_eq!(owner.owner, nft.to_string());
+        assert_eq!(owner.owner, nft_contract.to_string());
 
         // Check that this state matches the state of the underlying
         // cw721.
@@ -830,7 +826,7 @@ fn test_do_instantiate_and_mint() {
             .app
             .wrap()
             .query_wasm_smart(
-                nft,
+                nft_contract,
                 &cw721::Cw721QueryMsg::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,
@@ -840,7 +836,7 @@ fn test_do_instantiate_and_mint() {
 
         assert_eq!(base_owner, owner);
     }
-    // test case: instantiate cw721 with different CustomClassData with no owner info
+    // test case: instantiate cw721 with CustomClassData with no owner info
     {
         let mut test = Test::new(false, None, cw721_base_contract());
         test.app
@@ -848,10 +844,10 @@ fn test_do_instantiate_and_mint() {
                 test.ics721.clone(),
                 test.ics721.clone(),
                 &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
-                    receiver: test.app.api().addr_make("ekez").to_string(),
+                    receiver: test.app.api().addr_make(NFT_OWNER).to_string(),
                     create: VoucherCreation {
                         class: Class {
-                            id: ClassId::new("bad kids"),
+                            id: ClassId::new("some/class/id"),
                             uri: Some("https://moonphase.is".to_string()),
                             data: Some(
                                 to_json_binary(&CustomClassData {
@@ -870,7 +866,7 @@ fn test_do_instantiate_and_mint() {
                             },
                             Token {
                                 id: TokenId::new("2"),
-                                uri: Some("https://moonphase.is/image.svg".to_string()),
+                                uri: Some("https://foo.bar".to_string()),
                                 data: None,
                             },
                         ],
@@ -882,30 +878,33 @@ fn test_do_instantiate_and_mint() {
         // Check entry added in CLASS_ID_TO_NFT_CONTRACT
         let nft_contracts = test.query_nft_contracts();
         assert_eq!(nft_contracts.len(), 1);
-        assert_eq!(nft_contracts[0].0, "bad kids");
+        assert_eq!(nft_contracts[0].0, "some/class/id");
         // Get the address of the instantiated NFT.
-        let nft: Addr = test
+        let nft_contract: Addr = test
             .app
             .wrap()
             .query_wasm_smart(
                 test.ics721.clone(),
                 &QueryMsg::NftContract {
-                    class_id: "bad kids".to_string(),
+                    class_id: "some/class/id".to_string(),
                 },
             )
             .unwrap();
 
-        // check contract info is properly set
+        // check name and symbol contains class id for instantiated nft contract
         let contract_info: cw721::ContractInfoResponse = test
             .app
             .wrap()
-            .query_wasm_smart(nft.clone(), &Cw721QueryMsg::<Empty>::ContractInfo {})
+            .query_wasm_smart(
+                nft_contract.clone(),
+                &Cw721QueryMsg::<Empty>::ContractInfo {},
+            )
             .unwrap();
         assert_eq!(
             contract_info,
             cw721::ContractInfoResponse {
-                name: "bad kids".to_string(),
-                symbol: "bad kids".to_string()
+                name: "some/class/id".to_string(),
+                symbol: "some/class/id".to_string()
             }
         );
 
@@ -914,13 +913,12 @@ fn test_do_instantiate_and_mint() {
             .app
             .wrap()
             .query_wasm_smart(
-                nft.clone(),
+                nft_contract.clone(),
                 &cw721::Cw721QueryMsg::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
             .unwrap();
-
         assert_eq!(
             token_info.token_uri,
             Some("https://moonphase.is/image.svg".to_string())
@@ -929,31 +927,28 @@ fn test_do_instantiate_and_mint() {
             .app
             .wrap()
             .query_wasm_smart(
-                nft.clone(),
+                nft_contract.clone(),
                 &cw721::Cw721QueryMsg::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
             .unwrap();
-
-        assert_eq!(
-            token_info.token_uri,
-            Some("https://moonphase.is/image.svg".to_string())
-        );
+        assert_eq!(token_info.token_uri, Some("https://foo.bar".to_string()));
 
         // Check that we can transfer the NFT via the ICS721 interface.
         test.app
             .execute_contract(
-                test.app.api().addr_make("ekez"),
-                nft.clone(),
+                test.app.api().addr_make(NFT_OWNER),
+                nft_contract.clone(),
                 &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
-                    recipient: nft.to_string(),
+                    recipient: nft_contract.to_string(), // new owner
                     token_id: "1".to_string(),
                 },
                 &[],
             )
             .unwrap();
 
+        // check nft contract owns it
         let owner: cw721::OwnerOfResponse = test
             .app
             .wrap()
@@ -961,12 +956,12 @@ fn test_do_instantiate_and_mint() {
                 test.ics721,
                 &QueryMsg::Owner {
                     token_id: "1".to_string(),
-                    class_id: "bad kids".to_string(),
+                    class_id: "some/class/id".to_string(),
                 },
             )
             .unwrap();
 
-        assert_eq!(owner.owner, nft.to_string());
+        assert_eq!(owner.owner, nft_contract.to_string());
 
         // Check that this state matches the state of the underlying
         // cw721.
@@ -974,7 +969,7 @@ fn test_do_instantiate_and_mint() {
             .app
             .wrap()
             .query_wasm_smart(
-                nft,
+                nft_contract,
                 &cw721::Cw721QueryMsg::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,

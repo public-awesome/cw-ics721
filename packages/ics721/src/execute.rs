@@ -10,8 +10,9 @@ use crate::{
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg},
     state::{
-        UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
-        NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY, TOKEN_METADATA,
+        CollectionData, UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
+        CW721_CODE_ID, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY,
+        TOKEN_METADATA,
     },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
     ContractError,
@@ -150,6 +151,7 @@ where
             }
         };
 
+        // make sure NFT is escrowed by ics721
         let UniversalAllNftInfoResponse { access, info } = deps.querier.query_wasm_smart(
             info.sender,
             &cw721::Cw721QueryMsg::AllNftInfo {
@@ -157,7 +159,6 @@ where
                 include_expired: None,
             },
         )?;
-        // make sure NFT is escrowed by ics721
         if access.owner != env.contract.address {
             return Err(ContractError::Unauthorized {});
         }
@@ -316,13 +317,22 @@ where
 
     /// Default implementation using `cw721_base::msg::InstantiateMsg`
     fn init_msg(&self, _deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
-        to_json_binary(&cw721_base::msg::InstantiateMsg {
-            // Name of the collection MUST be class_id as this is how
-            // we create a map entry on reply.
+        // use by default ClassId, in case there's no class data with name and symbol
+        let mut instantiate_msg = cw721_base::msg::InstantiateMsg {
             name: class.id.clone().into(),
             symbol: class.id.clone().into(),
             minter: env.contract.address.to_string(),
-        })
+        };
+        if let Some(binary) = class.data.clone() {
+            // unwrapped to collection data and in case of success, set name and symbol
+            let class_data_result: StdResult<CollectionData> = from_json(binary);
+            if class_data_result.is_ok() {
+                let class_data = class_data_result?;
+                instantiate_msg.symbol = class_data.symbol;
+                instantiate_msg.name = class_data.name;
+            }
+        }
+        to_json_binary(&instantiate_msg)
     }
 
     /// Performs a recemption of debt vouchers returning the corresponding
