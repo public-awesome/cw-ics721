@@ -7,7 +7,7 @@ description = "an implementation of the ICS721 specification for transfering NFT
 
 [dependencies]
 bech32 = { workspace = true }
-cosmwasm-std = { workspace = true, features = ["ibc3"] }
+cosmwasm-std = { workspace = true, features = ["cosmwasm_1_2"] }
 cosmwasm-schema = { workspace = true }
 cw-ownable      = { workspace = true }
 cw-storage-plus = { workspace = true }

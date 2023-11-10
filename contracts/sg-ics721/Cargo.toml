@@ -13,7 +13,7 @@ backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
-cosmwasm-std = { workspace = true, features = ["ibc3", "cosmwasm_1_2"] }
+cosmwasm-std = { workspace = true, features = ["ibc3"] }
 cosmwasm-schema = { workspace = true }
 cw2 = { workspace = true }
 ics721 = { workspace = true }
