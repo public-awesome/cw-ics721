@@ -323,8 +323,9 @@ where
             symbol: class.id.clone().into(),
             minter: env.contract.address.to_string(),
         };
+
+        // unwrapped to collection data and in case of success, set name and symbol
         if let Some(binary) = class.data.clone() {
-            // unwrapped to collection data and in case of success, set name and symbol
             let class_data_result: StdResult<CollectionData> = from_json(binary);
             if class_data_result.is_ok() {
                 let class_data = class_data_result?;
@@ -332,6 +333,7 @@ where
                 instantiate_msg.name = class_data.name;
             }
         }
+
         to_json_binary(&instantiate_msg)
     }
 
