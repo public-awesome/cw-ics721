@@ -69,7 +69,7 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
         cosmwasm_std::WasmQuery::Smart {
             contract_addr: _,
             msg,
-        } => match from_binary::<cw721_base::msg::QueryMsg<Empty>>(&msg).unwrap() {
+        } => match from_binary::<cw721_base::msg::QueryMsg<Empty>>(msg).unwrap() {
             QueryMsg::Ownership {} => QuerierResult::Ok(ContractResult::Ok(
                 to_binary(&Ownership::<Addr> {
                     owner: Some(Addr::unchecked(OWNER)),
@@ -122,7 +122,7 @@ fn mock_querier_v016(query: &WasmQuery) -> QuerierResult {
         cosmwasm_std::WasmQuery::Smart {
             contract_addr: _,
             msg,
-        } => match from_binary::<cw721_base::msg::QueryMsg<Empty>>(&msg).unwrap() {
+        } => match from_binary::<cw721_base::msg::QueryMsg<Empty>>(msg).unwrap() {
             // unwrap using latest (not old) cw721-base, since it is backwards compatible
             cw721_base::msg::QueryMsg::Minter {} => QuerierResult::Ok(ContractResult::Ok(
                 to_binary(

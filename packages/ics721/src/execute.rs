@@ -194,7 +194,7 @@ where
         // so only can output binary here
         let class_data_string = class
             .data
-            .map_or("none".to_string(), |data| format!("{:?}", data));
+            .map_or("none".to_string(), |data| format!("{data:?}"));
 
         Ok(Response::default()
             .add_attribute("method", "execute_receive_nft")

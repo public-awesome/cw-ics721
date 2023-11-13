@@ -76,20 +76,17 @@ fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, Contrac
     SgIcs721Contract::default().migrate(deps, env, msg)
 }
 
-fn no_init(
-    _router: &mut Router<
-        BankKeeper,
-        FailingModule<Empty, Empty, Empty>,
-        WasmKeeper<Empty, Empty>,
-        StakeKeeper,
-        DistributionKeeper,
-        IbcAcceptingModule,
-        FailingModule<GovMsg, Empty, Empty>,
-    >,
-    _api: &dyn Api,
-    _storage: &mut dyn Storage,
-) {
-}
+type AppRouter = Router<
+    BankKeeper,
+    FailingModule<Empty, Empty, Empty>,
+    WasmKeeper<Empty, Empty>,
+    StakeKeeper,
+    DistributionKeeper,
+    IbcAcceptingModule,
+    FailingModule<GovMsg, Empty, Empty>,
+>;
+
+fn no_init(_router: &mut AppRouter, _api: &dyn Api, _storage: &mut dyn Storage) {}
 
 #[derive(Debug)]
 struct Bech32AddressGenerator {
@@ -123,17 +120,19 @@ impl AddressGenerator for Bech32AddressGenerator {
     }
 }
 
+type TestApp = App<
+    BankKeeper,
+    MockApi,
+    MemoryStorage,
+    FailingModule<Empty, Empty, Empty>,
+    WasmKeeper<Empty, Empty>,
+    StakeKeeper,
+    DistributionKeeper,
+    IbcAcceptingModule,
+>;
+
 struct Test {
-    app: App<
-        BankKeeper,
-        MockApi,
-        MemoryStorage,
-        FailingModule<Empty, Empty, Empty>,
-        WasmKeeper<Empty, Empty>,
-        StakeKeeper,
-        DistributionKeeper,
-        IbcAcceptingModule,
-    >,
+    app: TestApp,
     minter: Addr,
     cw721_id: u64,
     cw721: Addr,
@@ -179,12 +178,12 @@ impl Test {
                 Addr::unchecked(ICS721_CREATOR),
                 &InstantiateMsg {
                     cw721_base_code_id: cw721_id,
-                    proxy: proxy.clone(),
+                    proxy,
                     pauser: pauser.clone(),
                 },
                 &[],
                 "sg-ics721",
-                pauser.clone(),
+                pauser,
             )
             .unwrap();
 
@@ -345,8 +344,7 @@ fn sg721_base_contract() -> Box<dyn Contract<Empty>> {
         info: MessageInfo,
         msg: sg721::ExecuteMsg<Option<Empty>, Empty>,
     ) -> Result<Response, sg721_base::ContractError> {
-        sg721_base::entry::execute(deps, env, info, msg)
-            .and_then(|_| Ok::<Response, sg721_base::ContractError>(Response::default()))
+        sg721_base::entry::execute(deps, env, info, msg).map(|_| Response::default())
     }
     fn instantiate_fn(
         deps: DepsMut,
@@ -354,8 +352,7 @@ fn sg721_base_contract() -> Box<dyn Contract<Empty>> {
         info: MessageInfo,
         msg: sg721::InstantiateMsg,
     ) -> Result<Response, sg721_base::ContractError> {
-        sg721_base::entry::instantiate(deps, env, info, msg)
-            .and_then(|_| Ok::<Response, sg721_base::ContractError>(Response::default()))
+        sg721_base::entry::instantiate(deps, env, info, msg).map(|_| Response::default())
     }
     let contract = ContractWrapper::new(exececute_fn, instantiate_fn, sg721_base::entry::query);
     Box::new(contract)
@@ -371,8 +368,7 @@ fn sg721_v240_base_contract() -> Box<dyn Contract<Empty>> {
         info: MessageInfo,
         msg: sg721_240::ExecuteMsg<Option<Empty>, Empty>,
     ) -> Result<Response, sg721_base_240::ContractError> {
-        sg721_base_240::entry::execute(deps, env, info, msg)
-            .and_then(|_| Ok::<Response, sg721_base_240::ContractError>(Response::default()))
+        sg721_base_240::entry::execute(deps, env, info, msg).map(|_| Response::default())
     }
     fn instantiate_fn(
         deps: DepsMut,
@@ -380,8 +376,7 @@ fn sg721_v240_base_contract() -> Box<dyn Contract<Empty>> {
         info: MessageInfo,
         msg: sg721_240::InstantiateMsg,
     ) -> Result<Response, sg721_base_240::ContractError> {
-        sg721_base_240::entry::instantiate(deps, env, info, msg)
-            .and_then(|_| Ok::<Response, sg721_base_240::ContractError>(Response::default()))
+        sg721_base_240::entry::instantiate(deps, env, info, msg).map(|_| Response::default())
     }
     let contract = ContractWrapper::new(exececute_fn, instantiate_fn, sg721_base_240::entry::query);
     Box::new(contract)
@@ -392,7 +387,7 @@ fn ics721_contract() -> Box<dyn Contract<Empty>> {
     fn ibc_reply(deps: DepsMut, env: Env, reply: Reply) -> Result<Response, ContractError> {
         SgIcs721Contract::default()
             .reply(deps, env, reply)
-            .and_then(|_| Ok(Response::default()))
+            .map(|_| Response::default())
     }
 
     let contract = ContractWrapper::new(execute, instantiate, query)
@@ -1255,7 +1250,7 @@ fn test_receive_nft() {
                 test.ics721.clone(),
                 &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
                     sender: test.minter.to_string(),
-                    token_id: token_id.clone(),
+                    token_id,
                     msg: to_binary(&IbcOutgoingMsg {
                         receiver: "mr-t".to_string(),
                         channel_id: "channel-0".to_string(),
@@ -1306,7 +1301,7 @@ fn test_receive_nft() {
         .unwrap();
         assert_eq!(
             class_data_attribute.value,
-            format!("{:?}", expected_collection_data)
+            format!("{expected_collection_data:?}")
         );
     }
     // test case: receive nft from old/v240 sg721-base
@@ -1322,7 +1317,7 @@ fn test_receive_nft() {
                 test.ics721.clone(),
                 &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
                     sender: test.minter.to_string(),
-                    token_id: token_id.clone(),
+                    token_id,
                     msg: to_binary(&IbcOutgoingMsg {
                         receiver: "mr-t".to_string(),
                         channel_id: "channel-0".to_string(),
@@ -1373,7 +1368,7 @@ fn test_receive_nft() {
         .unwrap();
         assert_eq!(
             class_data_attribute.value,
-            format!("{:?}", expected_collection_data)
+            format!("{expected_collection_data:?}")
         );
     }
 }

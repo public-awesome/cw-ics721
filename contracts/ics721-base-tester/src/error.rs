@@ -17,4 +17,10 @@ pub enum ContractError {
 
     #[error("{what}")]
     Debug { what: String },
+
+    #[error("Just some random error")]
+    RandomError,
+
+    #[error("Invalid callback")]
+    InvalidCallback,
 }

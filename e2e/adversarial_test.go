@@ -90,6 +90,7 @@ func (suite *AdversarialTestSuite) SetupTest() {
 
 	instantiateBridgeTester := InstantiateBridgeTester{
 		"success",
+		suite.bridgeC.String(),
 	}
 	instantiateBridgeTesterRaw, err := json.Marshal(instantiateBridgeTester)
 	require.NoError(suite.T(), err)
@@ -133,7 +134,7 @@ func (suite *AdversarialTestSuite) SetupTest() {
 func (suite *AdversarialTestSuite) TestUnexpectedClose() {
 	// Make a pending IBC message across the AC path, but do not
 	// relay it.
-	msg := getCw721SendIbcAwayMessage(suite.pathAC, suite.coordinator, suite.tokenIdA, suite.bridgeA, suite.chainC.SenderAccount.GetAddress(), suite.coordinator.CurrentTime.Add(time.Second*4).UnixNano())
+	msg := getCw721SendIbcAwayMessage(suite.pathAC, suite.coordinator, suite.tokenIdA, suite.bridgeA, suite.chainC.SenderAccount.GetAddress(), suite.coordinator.CurrentTime.Add(time.Second*4).UnixNano(), "")
 	_, err := suite.chainA.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   suite.chainA.SenderAccount.GetAddress().String(),
 		Contract: suite.cw721A.String(),
@@ -156,7 +157,7 @@ func (suite *AdversarialTestSuite) TestUnexpectedClose() {
 	suite.coordinator.TimeoutPendingPackets(suite.pathAC)
 	suite.pathAC.EndpointA.ChanCloseConfirm()
 
-	owner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String())
+	owner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "bad kid 1")
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), owner)
 
 	require.Equal(suite.T(), channeltypes.CLOSED, suite.pathAC.Invert().EndpointA.GetChannel().State)
@@ -170,7 +171,7 @@ func (suite *AdversarialTestSuite) TestUnexpectedClose() {
 	newAcc := CreateAndFundAccount(suite.T(), suite.chainA, 10)
 	mintNFT(suite.T(), suite.chainA, suite.cw721A.String(), "bad kid 2", newAcc.Address)
 
-	msg = getCw721SendIbcAwayMessage(suite.pathAC, suite.coordinator, "bad kid 2", suite.bridgeA, suite.chainC.SenderAccount.GetAddress(), suite.coordinator.CurrentTime.Add(time.Second*4).UnixNano())
+	msg = getCw721SendIbcAwayMessage(suite.pathAC, suite.coordinator, "bad kid 2", suite.bridgeA, suite.chainC.SenderAccount.GetAddress(), suite.coordinator.CurrentTime.Add(time.Second*4).UnixNano(), "")
 	_, err = SendMsgsFromAccount(suite.T(), suite.chainA, newAcc, &wasmtypes.MsgExecuteContract{
 		Sender:   newAcc.Address.String(),
 		Contract: suite.cw721A.String(),
@@ -194,13 +195,13 @@ func (suite *AdversarialTestSuite) TestUnexpectedClose() {
 // metadata when a new packet comes in with conflicting information.
 func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
 	// Send a NFT to chain B from A.
-	ics721Nft(suite.T(), suite.chainA, suite.pathAB, suite.coordinator, suite.cw721A.String(), suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress())
+	ics721Nft(suite.T(), suite.chainA, suite.pathAB, suite.coordinator, suite.cw721A.String(), "bad kid 1", suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress(), "")
 
 	chainBClassId := fmt.Sprintf("%s/%s/%s", suite.pathAB.EndpointB.ChannelConfig.PortID, suite.pathAB.EndpointB.ChannelID, suite.cw721A.String())
 
 	// Check that the NFT has been received on chain B.
 	chainBCw721 := queryGetNftForClass(suite.T(), suite.chainB, suite.bridgeB.String(), chainBClassId)
-	chainBOwner := queryGetOwnerOf(suite.T(), suite.chainB, chainBCw721)
+	chainBOwner := queryGetOwnerOf(suite.T(), suite.chainB, chainBCw721, "bad kid 1")
 	require.Equal(suite.T(), suite.chainB.SenderAccount.GetAddress().String(), chainBOwner)
 
 	// From chain C send a message using the chain B class ID to
@@ -216,13 +217,13 @@ func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
 	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
 
 	// NFT should still be owned by the ICS721 contract on chain A.
-	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String())
+	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "bad kid 1")
 	require.Equal(suite.T(), suite.bridgeA.String(), chainAOwner)
 
 	// A new NFT should have been minted on chain A.
 	chainAClassId := fmt.Sprintf("%s/%s/%s", suite.pathAC.EndpointA.ChannelConfig.PortID, suite.pathAC.EndpointA.ChannelID, chainBClassId)
 	chainACw721 := queryGetNftForClass(suite.T(), suite.chainA, suite.bridgeA.String(), chainAClassId)
-	chainAOwner = queryGetOwnerOf(suite.T(), suite.chainA, chainACw721)
+	chainAOwner = queryGetOwnerOf(suite.T(), suite.chainA, chainACw721, "bad kid 1")
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
 
 	// Metadata should be set.
@@ -240,7 +241,7 @@ func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
 
 	// The newly minted NFT should be returnable to the source
 	// chain and cause a burn when returned.
-	ics721Nft(suite.T(), suite.chainA, suite.pathAC, suite.coordinator, chainACw721, suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainC.SenderAccount.GetAddress())
+	ics721Nft(suite.T(), suite.chainA, suite.pathAC, suite.coordinator, chainACw721, "bad kid 1", suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainC.SenderAccount.GetAddress(), "")
 
 	err = suite.chainA.SmartQuery(chainACw721, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: suite.tokenIdA}}, &OwnerOfResponse{})
 	require.ErrorContains(suite.T(), err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>> not found")
@@ -287,12 +288,12 @@ func (suite *AdversarialTestSuite) TestEmptyClassId() {
 	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
 		Contract: suite.bridgeC.String(),
-		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s"],"tokenUris":["https://metadata-url.com/my-metadata1"],"sender":"%s","receiver":"%s"} }}`,
-		suite.pathAC.Invert().EndpointA.ChannelID,
-		suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(),
-		suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(),
-		suite.chainA.SenderAccount.GetAddress().String())),
-		Funds:    []sdk.Coin{},
+		Msg: []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s"],"tokenUris":["https://metadata-url.com/my-metadata1"],"sender":"%s","receiver":"%s"} }}`,
+			suite.pathAC.Invert().EndpointA.ChannelID,
+			suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(),
+			suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(),
+			suite.chainA.SenderAccount.GetAddress().String())),
+		Funds: []sdk.Coin{},
 	})
 	require.NoError(suite.T(), err)
 	suite.coordinator.UpdateTime()
@@ -397,9 +398,11 @@ func (suite *AdversarialTestSuite) TestMetadataForwarding() {
 		suite.pathAB,
 		suite.coordinator,
 		chainAAddress,
+		"bad kid 1",
 		suite.bridgeA,
 		suite.chainA.SenderAccount.GetAddress(),
 		suite.chainB.SenderAccount.GetAddress(),
+		"",
 	)
 
 	// Check that class metadata has been forwarded.
@@ -452,9 +455,11 @@ func (suite *AdversarialTestSuite) TestMetadataForwarding() {
 		suite.pathAB.Invert(),
 		suite.coordinator,
 		chainBAddress,
+		"bad kid 1",
 		suite.bridgeB,
 		suite.chainB.SenderAccount.GetAddress(),
 		suite.chainA.SenderAccount.GetAddress(),
+		"",
 	)
 	suite.coordinator.UpdateTime()
 
@@ -635,7 +640,7 @@ func (suite *AdversarialTestSuite) TestSendReplayAttack() {
 	// Make sure the receiver is the owner of the token.
 	chainAClassId := fmt.Sprintf("%s/%s/%s", suite.pathAC.EndpointA.ChannelConfig.PortID, suite.pathAC.EndpointA.ChannelID, "classID")
 	chainACw721 := queryGetNftForClass(suite.T(), suite.chainA, suite.bridgeA.String(), chainAClassId)
-	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, chainACw721)
+	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, chainACw721, "bad kid 1")
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
 }
 
@@ -670,7 +675,7 @@ func (suite *AdversarialTestSuite) TestDoubleSendInSingleMessage() {
 
 func (suite *AdversarialTestSuite) TestReceiveMultipleNtsDifferentActions() {
 	// Send a NFT from chain A to the evil chain.
-	ics721Nft(suite.T(), suite.chainA, suite.pathAC, suite.coordinator, suite.cw721A.String(), suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress())
+	ics721Nft(suite.T(), suite.chainA, suite.pathAC, suite.coordinator, suite.cw721A.String(), "bad kid 1", suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress(), "")
 
 	pathCA := suite.pathAC.Invert()
 	chainCClassId := fmt.Sprintf("%s/%s/%s", pathCA.EndpointA.ChannelConfig.PortID, pathCA.EndpointA.ChannelID, suite.cw721A)
@@ -708,11 +713,11 @@ func (suite *AdversarialTestSuite) TestReceiveMultipleNtsDifferentActions() {
 	// > that one I will create a new collection (so that it
 	// > follows my chain's social norms) and give a token for
 	// > that collection for the receiver.
-	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String())
+	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "bad kid 1")
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
 
 	chainAClassId := fmt.Sprintf("%s/%s/%s/%s/%s", suite.pathAC.EndpointA.ChannelConfig.PortID, suite.pathAC.EndpointA.ChannelID, pathCA.EndpointA.ChannelConfig.PortID, pathCA.EndpointA.ChannelID, suite.cw721A)
 	chainANft := queryGetNftForClass(suite.T(), suite.chainA, suite.bridgeA.String(), chainAClassId)
-	chainAOwner = queryGetOwnerOf(suite.T(), suite.chainA, chainANft)
+	chainAOwner = queryGetOwnerOf(suite.T(), suite.chainA, chainANft, "bad kid 1")
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
 }

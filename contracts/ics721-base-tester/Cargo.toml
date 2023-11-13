@@ -20,3 +20,4 @@ cw-storage-plus = { workspace = true }
 cw2 = { workspace = true }
 ics721 = { workspace = true }
 thiserror = { workspace = true }
+cw721 = { workspace = true }

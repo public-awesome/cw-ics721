@@ -75,20 +75,17 @@ fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, Contrac
     Ics721Contract::default().migrate(deps, env, msg)
 }
 
-fn no_init(
-    _router: &mut Router<
-        BankKeeper,
-        FailingModule<Empty, Empty, Empty>,
-        WasmKeeper<Empty, Empty>,
-        StakeKeeper,
-        DistributionKeeper,
-        IbcAcceptingModule,
-        FailingModule<GovMsg, Empty, Empty>,
-    >,
-    _api: &dyn Api,
-    _storage: &mut dyn Storage,
-) {
-}
+type AppRouter = Router<
+    BankKeeper,
+    FailingModule<Empty, Empty, Empty>,
+    WasmKeeper<Empty, Empty>,
+    StakeKeeper,
+    DistributionKeeper,
+    IbcAcceptingModule,
+    FailingModule<GovMsg, Empty, Empty>,
+>;
+
+fn no_init(_router: &mut AppRouter, _api: &dyn Api, _storage: &mut dyn Storage) {}
 
 #[derive(Debug)]
 struct Bech32AddressGenerator {
@@ -122,17 +119,19 @@ impl AddressGenerator for Bech32AddressGenerator {
     }
 }
 
+type TestApp = App<
+    BankKeeper,
+    MockApi,
+    MemoryStorage,
+    FailingModule<Empty, Empty, Empty>,
+    WasmKeeper<Empty, Empty>,
+    StakeKeeper,
+    DistributionKeeper,
+    IbcAcceptingModule,
+>;
+
 struct Test {
-    app: App<
-        BankKeeper,
-        MockApi,
-        MemoryStorage,
-        FailingModule<Empty, Empty, Empty>,
-        WasmKeeper<Empty, Empty>,
-        StakeKeeper,
-        DistributionKeeper,
-        IbcAcceptingModule,
-    >,
+    app: TestApp,
     minter: Addr,
     cw721_id: u64,
     cw721: Addr,
@@ -178,12 +177,12 @@ impl Test {
                 Addr::unchecked(ICS721_CREATOR),
                 &InstantiateMsg {
                     cw721_base_code_id: cw721_id,
-                    proxy: proxy.clone(),
+                    proxy,
                     pauser: pauser.clone(),
                 },
                 &[],
                 "ics721-base",
-                pauser.clone(),
+                pauser,
             )
             .unwrap();
 
@@ -1100,7 +1099,7 @@ fn test_receive_nft() {
                 test.ics721,
                 &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
                     sender: test.minter.to_string(),
-                    token_id: token_id.clone(),
+                    token_id,
                     msg: to_binary(&IbcOutgoingMsg {
                         receiver: "mr-t".to_string(),
                         channel_id: "channel-0".to_string(),
@@ -1142,7 +1141,7 @@ fn test_receive_nft() {
         .unwrap();
         assert_eq!(
             class_data_attribute.value,
-            format!("{:?}", expected_collection_data)
+            format!("{expected_collection_data:?}")
         );
     }
     // test case: receive nft from old/v016 cw721-base
@@ -1158,7 +1157,7 @@ fn test_receive_nft() {
                 test.ics721,
                 &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
                     sender: test.minter.to_string(),
-                    token_id: token_id.clone(),
+                    token_id,
                     msg: to_binary(&IbcOutgoingMsg {
                         receiver: "mr-t".to_string(),
                         channel_id: "channel-0".to_string(),
@@ -1200,7 +1199,7 @@ fn test_receive_nft() {
         .unwrap();
         assert_eq!(
             class_data_attribute.value,
-            format!("{:?}", expected_collection_data)
+            format!("{expected_collection_data:?}")
         );
     }
 }

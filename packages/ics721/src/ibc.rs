@@ -10,6 +10,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     error::Never,
+    helpers::ack_callback_msg,
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error, validate_order_and_version},
     ibc_packet_receive::receive_ibc_packet,
     state::{
@@ -17,6 +18,7 @@ use crate::{
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, PROXY, TOKEN_METADATA,
     },
     token_types::{ClassId, TokenId},
+    types::Ics721Status,
     ContractError,
 };
 
@@ -28,6 +30,8 @@ pub(crate) const INSTANTIATE_PROXY_REPLY_ID: u64 = 1;
 /// response depending on if the submessage execution succeded or
 /// failed.
 pub(crate) const ACK_AND_DO_NOTHING: u64 = 2;
+/// Reply on callback
+pub(crate) const ACK_CALLBACK_REPLY_ID: u64 = 3;
 /// The IBC version this contract expects to communicate with.
 pub const IBC_VERSION: &str = "ics721-1";
 
@@ -182,8 +186,15 @@ where
                 },
             )?;
 
+            let callback = match ack_callback_msg(deps.as_ref(), Ics721Status::Success, msg.clone())
+            {
+                Some(msg) => vec![msg],
+                None => vec![],
+            };
+
             Ok(IbcBasicResponse::new()
                 .add_messages(burn_notices)
+                .add_submessages(callback)
                 .add_attribute("method", "acknowledge")
                 .add_attribute("sender", msg.sender)
                 .add_attribute("receiver", msg.receiver)
@@ -230,8 +241,15 @@ where
             })
             .collect::<StdResult<Vec<_>>>()?;
 
+        let callback = match ack_callback_msg(deps.as_ref(), Ics721Status::Failed, message.clone())
+        {
+            Some(msg) => vec![msg],
+            None => vec![],
+        };
+
         Ok(IbcBasicResponse::new()
             .add_messages(messages)
+            .add_submessages(callback)
             .add_attribute("method", "handle_packet_fail")
             .add_attribute("token_ids", format!("{:?}", message.token_ids))
             .add_attribute("class_id", message.class_id)
@@ -292,6 +310,7 @@ where
                     SubMsgResult::Err(err) => Ok(Response::new().set_data(ack_fail(err))),
                 }
             }
+            ACK_CALLBACK_REPLY_ID => Ok(Response::new()),
             _ => Err(ContractError::UnrecognisedReplyId {}),
         }
     }

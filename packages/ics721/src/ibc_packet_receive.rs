@@ -5,6 +5,7 @@ use cosmwasm_std::{
 use zip_optional::Zippable;
 
 use crate::{
+    helpers::receive_callback_msg,
     ibc::{NonFungibleTokenPacketData, ACK_AND_DO_NOTHING},
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg},
@@ -51,9 +52,14 @@ pub(crate) fn receive_ibc_packet(
     let data: NonFungibleTokenPacketData = from_binary(&packet.data)?;
     data.validate()?;
 
-    let local_class_id = try_pop_source_prefix(&packet.src, &data.class_id);
+    // To use in callbacks at the bottom
+    let cloned_data = data.clone();
+
+    let maybe_local_class_id = try_pop_source_prefix(&packet.src, &data.class_id);
     let receiver = deps.api.addr_validate(&data.receiver)?;
     let token_count = data.token_ids.len();
+
+    let mut local_class_id = ClassId::new("");
 
     let submessage = data
         .token_ids
@@ -63,8 +69,8 @@ pub(crate) fn receive_ibc_packet(
         .try_fold(
             Vec::<Action>::with_capacity(token_count),
             |mut messages, ((token_id, token_uri), token_data)| -> StdResult<_> {
-                if let Some(local_class_id) = local_class_id {
-                    let local_class_id = ClassId::new(local_class_id);
+                if let Some(temp_local_class_id) = maybe_local_class_id {
+                    local_class_id = ClassId::new(temp_local_class_id);
                     let key = (local_class_id.clone(), token_id.clone());
                     let outgoing_channel =
                         OUTGOING_CLASS_TOKEN_TO_CHANNEL.may_load(deps.storage, key.clone())?;
@@ -78,7 +84,7 @@ pub(crate) fn receive_ibc_packet(
                         OUTGOING_CLASS_TOKEN_TO_CHANNEL.remove(deps.storage, key);
                         messages.push(Action::Redemption {
                             token_id,
-                            class_id: local_class_id,
+                            class_id: local_class_id.clone(),
                         });
                         return Ok(messages);
                     }
@@ -86,14 +92,14 @@ pub(crate) fn receive_ibc_packet(
                 // It's not something we've sent out before => make a
                 // new NFT.
                 let local_prefix = get_endpoint_prefix(&packet.dest);
-                let local_class_id = ClassId::new(format!("{}{}", local_prefix, data.class_id));
+                local_class_id = ClassId::new(format!("{}{}", local_prefix, data.class_id));
                 INCOMING_CLASS_TOKEN_TO_CHANNEL.save(
                     deps.storage,
                     (local_class_id.clone(), token_id.clone()),
                     &packet.dest.channel_id,
                 )?;
                 messages.push(Action::Creation {
-                    class_id: local_class_id,
+                    class_id: local_class_id.clone(),
                     token: Token {
                         id: token_id,
                         uri: token_uri,
@@ -116,8 +122,14 @@ pub(crate) fn receive_ibc_packet(
         IbcReceiveResponse::default()
     };
 
+    let callback = match receive_callback_msg(deps.as_ref(), cloned_data, local_class_id) {
+        Some(msg) => vec![msg],
+        None => vec![],
+    };
+
     Ok(response
         .add_submessage(submessage)
+        .add_messages(callback)
         .add_attribute("method", "receive_ibc_packet")
         .add_attribute("class_id", data.class_id)
         .add_attribute("local_channel", packet.dest.channel_id)

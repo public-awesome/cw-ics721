@@ -1,6 +1,8 @@
 package e2e_test
 
 import (
+	"encoding/hex"
+	"fmt"
 	"testing"
 
 	wasmibctesting "github.com/CosmWasm/wasmd/x/wasm/ibctesting"
@@ -12,6 +14,16 @@ import (
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	"github.com/stretchr/testify/require"
 )
+
+func parseOptional(memo string) string {
+	r := ""
+	if memo != "" {
+		r = fmt.Sprintf("\"%s\"", memo)
+	} else {
+		r = "null"
+	}
+	return r
+}
 
 // Creates and funds a new account for CHAIN. ACCOUNT_NUMBER is the
 // number of accounts that have been previously created on CHAIN.
@@ -70,4 +82,13 @@ func SendMsgsFromAccount(t *testing.T, chain *wasmibctesting.TestChain, account 
 	chain.CaptureIBCEvents(r)
 
 	return r, nil
+}
+
+func AccAddressFromHex(address string) (addr sdk.AccAddress, err error) {
+	bz, err := addressBytesFromHexString(address)
+	return sdk.AccAddress(bz), err
+}
+
+func addressBytesFromHexString(address string) ([]byte, error) {
+	return hex.DecodeString(address)
 }
