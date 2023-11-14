@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use cosmwasm_std::{
     from_json, instantiate2_address, to_json_binary, Addr, Binary, CodeInfoResponse, Deps, DepsMut,
-    Empty, Env, IbcMsg, MessageInfo, Response, StdError, StdResult, SubMsg, WasmMsg,
+    Empty, Env, IbcMsg, MessageInfo, Response, StdResult, SubMsg, WasmMsg,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};

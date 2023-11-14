@@ -35,6 +35,8 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 // owner, aka "minter"
 const COLLECTION_OWNER_TARGET_CHAIN: &str = "collection-minter-target-chain";
 const COLLECTION_OWNER_SOURCE_CHAIN: &str = "collection-minter-source-chain";
+const COLLECTION_CONTRACT_SOURCE_CHAIN: &str = "collection-contract-source-chain";
+const CHANNEL_TARGET_CHAIN: &str = "channel-1";
 const BECH32_PREFIX_HRP: &str = "stars";
 const NFT_OWNER_TARGET_CHAIN: &str = "nft-owner-target-chain";
 const ICS721_ADMIN_AND_PAUSER: &str = "ics721-pauser";
@@ -535,6 +537,12 @@ fn test_instantiate() {
 #[test]
 fn test_do_instantiate_and_mint_weird_data() {
     let mut test = Test::new(false, None, sg721_base_contract());
+    let collection_contract_source_chain =
+        ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
+    let class_id = format!(
+        "wasm.{}/{}/{}",
+        test.ics721, CHANNEL_TARGET_CHAIN, collection_contract_source_chain
+    );
     test.app
         .execute_contract(
             test.ics721.clone(),
@@ -543,7 +551,7 @@ fn test_do_instantiate_and_mint_weird_data() {
                 receiver: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
                 create: VoucherCreation {
                     class: Class {
-                        id: ClassId::new("some/class/id"),
+                        id: ClassId::new(class_id),
                         uri: None,
                         data: Some(
                             // data comes from source chain, so it can't be SgCollectionData
@@ -581,6 +589,12 @@ fn test_do_instantiate_and_mint() {
     // test case: instantiate cw721 with no ClassData (without owner, name, and symbol)
     {
         let mut test = Test::new(false, None, sg721_base_contract());
+        let collection_contract_source_chain =
+            ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
+        let class_id = format!(
+            "wasm.{}/{}/{}",
+            test.ics721, CHANNEL_TARGET_CHAIN, collection_contract_source_chain
+        );
         test.app
             .execute_contract(
                 test.ics721.clone(),
@@ -589,7 +603,7 @@ fn test_do_instantiate_and_mint() {
                     receiver: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
                     create: VoucherCreation {
                         class: Class {
-                            id: ClassId::new("some/class/id"),
+                            id: ClassId::new(class_id.clone()),
                             uri: Some("https://moonphase.is".to_string()),
                             data: None, // no class data
                         },
@@ -613,7 +627,7 @@ fn test_do_instantiate_and_mint() {
         // Check entry added in CLASS_ID_TO_NFT_CONTRACT
         let nft_contracts = test.query_nft_contracts();
         assert_eq!(nft_contracts.len(), 1);
-        assert_eq!(nft_contracts[0].0, "some/class/id");
+        assert_eq!(nft_contracts[0].0, class_id.to_string());
         // Get the address of the instantiated NFT.
         let nft_contract: Addr = test
             .app
@@ -621,7 +635,7 @@ fn test_do_instantiate_and_mint() {
             .query_wasm_smart(
                 test.ics721.clone(),
                 &QueryMsg::NftContract {
-                    class_id: "some/class/id".to_string(),
+                    class_id: class_id.to_string(),
                 },
             )
             .unwrap();
@@ -638,8 +652,8 @@ fn test_do_instantiate_and_mint() {
         assert_eq!(
             contract_info,
             cw721::ContractInfoResponse {
-                name: "some/class/id".to_string(),   // name is set to class_id
-                symbol: "some/class/id".to_string()  // symbol is set to class_id
+                name: class_id.to_string(),   // name is set to class_id
+                symbol: class_id.to_string()  // symbol is set to class_id
             }
         );
 
@@ -712,7 +726,7 @@ fn test_do_instantiate_and_mint() {
                 test.ics721,
                 &QueryMsg::Owner {
                     token_id: "1".to_string(),
-                    class_id: "some/class/id".to_string(),
+                    class_id: class_id.to_string(),
                 },
             )
             .unwrap();
@@ -735,6 +749,12 @@ fn test_do_instantiate_and_mint() {
     // test case: instantiate cw721 with ClassData containing owner, name, and symbol
     {
         let mut test = Test::new(false, None, sg721_base_contract());
+        let collection_contract_source_chain =
+            ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
+        let class_id = format!(
+            "wasm.{}/{}/{}",
+            test.ics721, CHANNEL_TARGET_CHAIN, collection_contract_source_chain
+        );
         test.app
             .execute_contract(
                 test.ics721.clone(),
@@ -743,7 +763,7 @@ fn test_do_instantiate_and_mint() {
                     receiver: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
                     create: VoucherCreation {
                         class: Class {
-                            id: ClassId::new("some/class/id"),
+                            id: ClassId::new(class_id.clone()),
                             uri: Some("https://moonphase.is".to_string()),
                             data: Some(
                                 // data comes from source chain, so it can't be SgCollectionData
@@ -783,7 +803,7 @@ fn test_do_instantiate_and_mint() {
         // Check entry added in CLASS_ID_TO_NFT_CONTRACT
         let nft_contracts = test.query_nft_contracts();
         assert_eq!(nft_contracts.len(), 1);
-        assert_eq!(nft_contracts[0].0, "some/class/id");
+        assert_eq!(nft_contracts[0].0, class_id.to_string());
         // Get the address of the instantiated NFT.
         let nft_contract: Addr = test
             .app
@@ -791,7 +811,7 @@ fn test_do_instantiate_and_mint() {
             .query_wasm_smart(
                 test.ics721.clone(),
                 &QueryMsg::NftContract {
-                    class_id: "some/class/id".to_string(),
+                    class_id: class_id.to_string(),
                 },
             )
             .unwrap();
@@ -890,7 +910,7 @@ fn test_do_instantiate_and_mint() {
                 test.ics721,
                 &QueryMsg::Owner {
                     token_id: "1".to_string(),
-                    class_id: "some/class/id".to_string(),
+                    class_id: class_id.to_string(),
                 },
             )
             .unwrap();
@@ -913,6 +933,12 @@ fn test_do_instantiate_and_mint() {
     // test case: instantiate cw721 with CustomClassData (without owner, name, and symbol)
     {
         let mut test = Test::new(false, None, sg721_base_contract());
+        let collection_contract_source_chain =
+            ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
+        let class_id = format!(
+            "wasm.{}/{}/{}",
+            test.ics721, CHANNEL_TARGET_CHAIN, collection_contract_source_chain
+        );
         test.app
             .execute_contract(
                 test.ics721.clone(),
@@ -921,7 +947,7 @@ fn test_do_instantiate_and_mint() {
                     receiver: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
                     create: VoucherCreation {
                         class: Class {
-                            id: ClassId::new("some/class/id"),
+                            id: ClassId::new(class_id.clone()),
                             uri: Some("https://moonphase.is".to_string()),
                             data: Some(
                                 // CustomClassData doesn't apply to CollectionData type and won't be considered
@@ -958,7 +984,7 @@ fn test_do_instantiate_and_mint() {
         // Check entry added in CLASS_ID_TO_NFT_CONTRACT
         let nft_contracts = test.query_nft_contracts();
         assert_eq!(nft_contracts.len(), 1);
-        assert_eq!(nft_contracts[0].0, "some/class/id");
+        assert_eq!(nft_contracts[0].0, class_id.to_string());
         // Get the address of the instantiated NFT.
         let nft_contract: Addr = test
             .app
@@ -966,7 +992,7 @@ fn test_do_instantiate_and_mint() {
             .query_wasm_smart(
                 test.ics721.clone(),
                 &QueryMsg::NftContract {
-                    class_id: "some/class/id".to_string(),
+                    class_id: class_id.to_string(),
                 },
             )
             .unwrap();
@@ -983,8 +1009,8 @@ fn test_do_instantiate_and_mint() {
         assert_eq!(
             contract_info,
             cw721::ContractInfoResponse {
-                name: "some/class/id".to_string(),
-                symbol: "some/class/id".to_string()
+                name: class_id.to_string(),
+                symbol: class_id.to_string()
             }
         );
 
@@ -1057,7 +1083,7 @@ fn test_do_instantiate_and_mint() {
                 test.ics721,
                 &QueryMsg::Owner {
                     token_id: "1".to_string(),
-                    class_id: "some/class/id".to_string(),
+                    class_id: class_id.to_string(),
                 },
             )
             .unwrap();
@@ -1083,6 +1109,12 @@ fn test_do_instantiate_and_mint() {
 #[test]
 fn test_do_instantiate_and_mint_no_instantiate() {
     let mut test = Test::new(false, None, sg721_base_contract());
+    let collection_contract_source_chain =
+        ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
+    let class_id = format!(
+        "wasm.{}/{}/{}",
+        test.ics721, CHANNEL_TARGET_CHAIN, collection_contract_source_chain
+    );
     // Check calling CreateVouchers twice with same class id
     // on 2nd call it will not instantiate a new contract,
     // instead it will just mint the token on existing contract
@@ -1094,7 +1126,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                 receiver: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
                 create: VoucherCreation {
                     class: Class {
-                        id: ClassId::new("some/class/id"),
+                        id: ClassId::new(class_id.clone()),
                         uri: Some("https://moonphase.is".to_string()),
                         data: Some(
                             // data comes from source chain, so it can't be SgCollectionData
@@ -1129,7 +1161,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
     // Check entry added in CLASS_ID_TO_NFT_CONTRACT
     let class_id_to_nft_contract = test.query_nft_contracts();
     assert_eq!(class_id_to_nft_contract.len(), 1);
-    assert_eq!(class_id_to_nft_contract[0].0, "some/class/id");
+    assert_eq!(class_id_to_nft_contract[0].0, class_id.to_string());
 
     // 2nd call will only do a mint as the contract for the class ID has
     // already been instantiated.
@@ -1141,7 +1173,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                 receiver: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
                 create: VoucherCreation {
                     class: Class {
-                        id: ClassId::new("some/class/id"),
+                        id: ClassId::new(class_id.clone()),
                         uri: Some("https://moonphase.is".to_string()),
                         // unlike above in 1st transfer, here on 2nd transfer no classdata is provided!
                         // this won't affect collection since it's already instantiated
@@ -1169,7 +1201,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         .query_wasm_smart(
             test.ics721,
             &QueryMsg::NftContract {
-                class_id: "some/class/id".to_string(),
+                class_id: class_id.to_string(),
             },
         )
         .unwrap();
@@ -1221,6 +1253,12 @@ fn test_do_instantiate_and_mint_no_instantiate() {
 #[test]
 fn test_do_instantiate_and_mint_permissions() {
     let mut test = Test::new(false, None, sg721_base_contract());
+    let collection_contract_source_chain =
+        ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
+    let class_id = format!(
+        "wasm.{}/{}/{}",
+        test.ics721, CHANNEL_TARGET_CHAIN, collection_contract_source_chain
+    );
     // Method is only callable by the contract itself.
     let err: ContractError = test
         .app
@@ -1231,7 +1269,7 @@ fn test_do_instantiate_and_mint_permissions() {
                 receiver: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
                 create: VoucherCreation {
                     class: Class {
-                        id: ClassId::new("some/class/id"),
+                        id: ClassId::new(class_id),
                         uri: Some("https://moonphase.is".to_string()),
                         data: Some(
                             to_json_binary(&CollectionData {
