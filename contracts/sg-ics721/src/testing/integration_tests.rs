@@ -120,19 +120,7 @@ impl AddressGenerator for MockAddressGenerator {
         creator: &CanonicalAddr,
         salt: &[u8],
     ) -> Result<Addr> {
-        // string representation of the salt
-        let salt_to_string = std::str::from_utf8(salt)?;
-        // Remove the square brackets and split the string by commas
-        let parts: Vec<&str> = salt_to_string
-            .trim_matches(|c| c == '[' || c == ']')
-            .split(',')
-            .collect();
-        // Convert each part to a u8 and collect them into a Vec<u8>
-        let salt: Vec<u8> = parts
-            .iter()
-            .map(|part| part.trim().parse().unwrap())
-            .collect();
-        let canonical_addr = instantiate2_address(checksum, creator, &salt)?;
+        let canonical_addr = instantiate2_address(checksum, creator, salt)?;
         Ok(Addr::unchecked(api.addr_humanize(&canonical_addr)?))
     }
 }

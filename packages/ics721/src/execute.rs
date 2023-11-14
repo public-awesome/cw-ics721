@@ -285,7 +285,7 @@ where
                     // can make this field too long which causes data
                     // errors in the SDK.
                     label: "ics-721 debt-voucher cw-721".to_string(),
-                    salt: to_json_binary(salt)?,
+                    salt: salt.into(),
                 },
                 INSTANTIATE_CW721_REPLY_ID,
             );
