@@ -203,8 +203,8 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	err = suite.chainB.SmartQuery(chainBCw721, contractInfoQuery, &contractInfo)
 	require.NoError(suite.T(), err)
 	require.Equal(suite.T(), ContractInfoResponse{
-		Name:   chainBClassID,
-		Symbol: chainBClassID,
+		Name:   "bad/kids",
+		Symbol: "bad/kids",
 	}, contractInfo)
 
 	// Send the NFT back!
