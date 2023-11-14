@@ -5,6 +5,7 @@ use cosmwasm_std::{
     Empty, Env, IbcMsg, MessageInfo, Response, StdError, StdResult, SubMsg, WasmMsg,
 };
 use serde::{de::DeserializeOwned, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::{
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
@@ -260,15 +261,19 @@ where
             vec![]
         } else {
             let class_id = ClassId::new(class.id.clone());
-            let salt = class_id.as_bytes();
+            // for creating a predictable nft contract using, using instantiate2, we need: checksum, creator, and salt:
+            // - using class id as salt for instantiating nft contract guarantees a) predictable address and b) uniqueness
+            // for this salt must be of length 32 bytes, so we use sha256 to hash class id
+            let mut hasher = Sha256::new();
+            hasher.update(class_id.as_bytes());
+            let salt = hasher.finalize().to_vec();
             // Get the canonical address of the contract creator
             let canonical_creator = deps.api.addr_canonicalize(env.contract.address.as_str())?;
             // get the checksum of the contract we're going to instantiate
             let CodeInfoResponse { checksum, .. } = deps
                 .querier
                 .query_wasm_code_info(CW721_CODE_ID.load(deps.storage)?)?;
-            let canonical_cw721_addr = instantiate2_address(&checksum, &canonical_creator, salt)
-                .map_err(|_| StdError::generic_err("Could not calculate addr"))?;
+            let canonical_cw721_addr = instantiate2_address(&checksum, &canonical_creator, &salt)?;
             let cw721_addr = deps.api.addr_humanize(&canonical_cw721_addr)?;
 
             // Save classId <-> contract mappings.
