@@ -41,8 +41,8 @@ impl Ics721Execute for SgIcs721Contract {
             .querier
             .query_wasm_contract_info(env.contract.address.to_string())?;
         let mut instantiate_msg = sg721::InstantiateMsg {
-            // Name of the collection MUST be class_id as this is how
-            // we create a map entry on reply.
+            // source chain may not send optional collection data
+            // if not, by default class id is used for name and symbol
             name: class.id.clone().into(),
             symbol: class.id.clone().into(),
             minter: env.contract.address.to_string(),

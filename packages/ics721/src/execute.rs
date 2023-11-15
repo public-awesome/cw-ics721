@@ -164,6 +164,9 @@ where
             return Err(ContractError::Unauthorized {});
         }
 
+        // cw721 doesn't support on-chain metadata yet
+        // here NFT is transferred to another chain, NFT itself may have been transferred to his chain before
+        // in this case ICS721 may have metadata stored
         let token_metadata = TOKEN_METADATA
             .may_load(deps.storage, (class.id.clone(), token_id.clone()))?
             .flatten();
@@ -385,10 +388,10 @@ where
         let mint = tokens
             .into_iter()
             .map(|Token { id, uri, data }| {
-                // We save token metadata here as, ideally, once cw721
-                // supports on-chain metadata, this is where we will set
-                // that value on the debt-voucher token. Note that this is
-                // set for every token, regardless of if data is None.
+                // Source chain may have provided token metadata, so we save token metadata here
+                // Note, once cw721 doesn't support on-chain metadata yet - but this is where we will set
+                // that value on the debt-voucher token once it is supported.
+                // Also note that this is set for every token, regardless of if data is None.
                 TOKEN_METADATA.save(deps.storage, (class_id.clone(), id.clone()), &data)?;
 
                 let msg = cw721_base::msg::ExecuteMsg::<Empty, Empty>::Mint {
