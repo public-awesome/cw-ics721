@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{to_binary, Addr, Binary, StdResult, WasmMsg};
+use cosmwasm_std::{to_json_binary, Addr, Binary, StdResult, WasmMsg};
 use cw_storage_plus::{Bound, Bounder, Key, KeyDeserialize, Prefixer, PrimaryKey};
 
 use crate::msg::{CallbackMsg, ExecuteMsg};
@@ -97,7 +97,7 @@ impl VoucherRedemption {
     pub(crate) fn into_wasm_msg(self, contract: Addr, receiver: String) -> StdResult<WasmMsg> {
         Ok(WasmMsg::Execute {
             contract_addr: contract.into_string(),
-            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::RedeemVouchers {
+            msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::RedeemVouchers {
                 receiver,
                 redeem: self,
             }))?,
@@ -119,7 +119,7 @@ impl VoucherCreation {
     pub(crate) fn into_wasm_msg(self, contract: Addr, receiver: String) -> StdResult<WasmMsg> {
         Ok(WasmMsg::Execute {
             contract_addr: contract.into_string(),
-            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
+            msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
                 receiver,
                 create: self,
             }))?,

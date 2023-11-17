@@ -1,15 +1,14 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    from_binary, to_binary, Binary, DepsMut, Empty, Env, IbcBasicResponse, IbcChannelCloseMsg,
+    from_json, to_json_binary, Binary, DepsMut, Empty, Env, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacket, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, Reply, Response, StdResult,
-    SubMsgResult, WasmMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, Never, Reply, Response,
+    StdResult, SubMsgResult, WasmMsg,
 };
 use cw_utils::parse_reply_instantiate_data;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
-    error::Never,
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error, validate_order_and_version},
     ibc_packet_receive::receive_ibc_packet,
     state::{
@@ -151,7 +150,7 @@ where
         if let Some(error) = try_get_ack_error(&ack.acknowledgement) {
             self.handle_packet_fail(deps, ack.original_packet, &error)
         } else {
-            let msg: NonFungibleTokenPacketData = from_binary(&ack.original_packet.data)?;
+            let msg: NonFungibleTokenPacketData = from_json(&ack.original_packet.data)?;
 
             let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, msg.class_id.clone())?;
             // Burn all of the tokens being transfered out that were
@@ -172,7 +171,7 @@ where
 
                         messages.push(WasmMsg::Execute {
                             contract_addr: nft_contract.to_string(),
-                            msg: to_binary(&cw721::Cw721ExecuteMsg::Burn {
+                            msg: to_json_binary(&cw721::Cw721ExecuteMsg::Burn {
                                 token_id: token.into(),
                             })?,
                             funds: vec![],
@@ -208,7 +207,7 @@ where
         packet: IbcPacket,
         error: &str,
     ) -> Result<IbcBasicResponse, ContractError> {
-        let message: NonFungibleTokenPacketData = from_binary(&packet.data)?;
+        let message: NonFungibleTokenPacketData = from_json(&packet.data)?;
         let nft_address = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, message.class_id.clone())?;
         let sender = deps.api.addr_validate(&message.sender)?;
 
@@ -221,7 +220,7 @@ where
                     .remove(deps.storage, (message.class_id.clone(), token_id.clone()));
                 Ok(WasmMsg::Execute {
                     contract_addr: nft_address.to_string(),
-                    msg: to_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                    msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
                         recipient: sender.to_string(),
                         token_id: token_id.into(),
                     })?,
@@ -253,17 +252,8 @@ where
                 let res = parse_reply_instantiate_data(reply)?;
                 let cw721_addr = deps.api.addr_validate(&res.contract_address)?;
 
-                // We need to map this address back to a class
-                // ID. Fourtunately, we set the name of the new NFT
-                // contract to the class ID.
-                let cw721::ContractInfoResponse { name, .. } = deps
-                    .querier
-                    .query_wasm_smart(cw721_addr.clone(), &cw721::Cw721QueryMsg::ContractInfo {})?;
-                let class_id = ClassId::new(name);
-
-                // Save classId <-> contract mappings.
-                CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class_id.clone(), &cw721_addr)?;
-                NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, cw721_addr.clone(), &class_id)?;
+                // cw721 addr has already been stored, here just check whether it exists, otherwise a NotFound error is thrown
+                let class_id = NFT_CONTRACT_TO_CLASS_ID.load(deps.storage, cw721_addr.clone())?;
 
                 Ok(Response::default()
                     .add_attribute("method", "instantiate_cw721_reply")

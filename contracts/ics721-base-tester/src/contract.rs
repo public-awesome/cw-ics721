@@ -1,7 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response, StdResult,
+    to_json_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response,
+    StdResult,
 };
 use cw2::set_contract_version;
 use ics721::ibc::NonFungibleTokenPacketData;
@@ -54,7 +55,7 @@ fn execute_send_packet(
         .add_attribute("method", "send_packet")
         .add_message(IbcMsg::SendPacket {
             channel_id,
-            data: to_binary(&data)?,
+            data: to_json_binary(&data)?,
             timeout,
         }))
 }
@@ -71,7 +72,7 @@ fn execute_set_ack_mode(deps: DepsMut, ack_mode: AckMode) -> Result<Response, Co
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::AckMode {} => to_binary(&ACK_MODE.load(deps.storage)?),
-        QueryMsg::LastAck {} => to_binary(&LAST_ACK.load(deps.storage)?),
+        QueryMsg::AckMode {} => to_json_binary(&ACK_MODE.load(deps.storage)?),
+        QueryMsg::LastAck {} => to_json_binary(&LAST_ACK.load(deps.storage)?),
     }
 }

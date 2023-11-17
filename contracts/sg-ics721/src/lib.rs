@@ -8,11 +8,11 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     Binary, Deps, DepsMut, Env, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Reply, Response, StdResult,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, Reply, Response, StdResult,
 };
 use cw2::set_contract_version;
 use ics721::{
-    error::{ContractError, Never},
+    error::ContractError,
     execute::Ics721Execute,
     ibc::Ics721Ibc,
     msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},

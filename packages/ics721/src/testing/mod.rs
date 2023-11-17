@@ -1,3 +1,3 @@
 mod contract;
 mod ibc_tests;
-mod integration_tests;
+pub mod integration_tests;

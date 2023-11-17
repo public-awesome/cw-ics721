@@ -1,10 +1,10 @@
 use cosmwasm_std::{
     attr,
-    testing::{mock_dependencies, mock_env, mock_info, MockQuerier},
-    to_binary, to_vec, Addr, Attribute, Binary, ContractResult, DepsMut, Empty, Env,
-    IbcAcknowledgement, IbcChannel, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder,
-    IbcPacket, IbcPacketReceiveMsg, IbcTimeout, Order, QuerierResult, Reply, Response, StdResult,
-    SubMsgResponse, SubMsgResult, Timestamp, WasmQuery,
+    testing::{mock_dependencies, mock_env, mock_info},
+    to_json_binary, to_json_vec, Addr, Attribute, Binary, DepsMut, Empty, Env, IbcAcknowledgement,
+    IbcChannel, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder, IbcPacket,
+    IbcPacketReceiveMsg, IbcTimeout, Order, Reply, Response, StdResult, SubMsgResponse,
+    SubMsgResult, Timestamp,
 };
 
 use crate::{
@@ -16,10 +16,7 @@ use crate::{
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{InstantiateMsg, QueryMsg},
     query::Ics721Query,
-    state::{
-        CollectionData, CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL,
-        NFT_CONTRACT_TO_CLASS_ID, PO,
-    },
+    state::{CollectionData, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, PO},
     token_types::{ClassId, TokenId},
     utils::get_collection_data,
     ContractError,
@@ -139,34 +136,13 @@ fn build_ics_packet(
 
 #[test]
 fn test_reply_cw721() {
-    let mut querier = MockQuerier::default();
-    querier.update_wasm(|query| -> QuerierResult {
-        match query {
-            WasmQuery::Smart {
-                contract_addr: _,
-                msg: _,
-            } => QuerierResult::Ok(ContractResult::Ok(
-                to_binary(&cw721::ContractInfoResponse {
-                    name: "wasm.address1/channel-10/address2".to_string(),
-                    symbol: "wasm.address1/channel-10/address2".to_string(),
-                })
-                .unwrap(),
-            )),
-            WasmQuery::Raw { .. } => QuerierResult::Ok(ContractResult::Ok(Binary::default())),
-            WasmQuery::ContractInfo { .. } => {
-                QuerierResult::Ok(ContractResult::Ok(Binary::default()))
-            }
-            _ => QuerierResult::Ok(ContractResult::Ok(Binary::default())),
-        }
-    });
     let mut deps = mock_dependencies();
-    deps.querier = querier;
 
     // This is a pre encoded message with the contract address
     // cosmos2contract
     // TODO: Can we form this via a function instead of hardcoding
     //       So we can have different contract addresses
-    let reply_resp = "Cg9jb3Ntb3MyY29udHJhY3QSAA==";
+    let reply_resp = "Cg9jb3Ntb3MyY29udHJhY3QSAA=="; // cosmos2contract
     let rep = Reply {
         id: INSTANTIATE_CW721_REPLY_ID,
         result: SubMsgResult::Ok(SubMsgResponse {
@@ -174,6 +150,13 @@ fn test_reply_cw721() {
             data: Some(Binary::from_base64(reply_resp).unwrap()),
         }),
     };
+
+    // save the class_id and cw721_addr, since reply assumes it has been stored before
+    let cw721_addr = Addr::unchecked("cosmos2contract");
+    let class_id = ClassId::new("wasm.address1/channel-10/address2");
+    NFT_CONTRACT_TO_CLASS_ID
+        .save(deps.as_mut().storage, cw721_addr.clone(), &class_id)
+        .unwrap();
 
     let res = Ics721Contract::default()
         .reply(deps.as_mut(), mock_env(), rep)
@@ -187,16 +170,6 @@ fn test_reply_cw721() {
             attr("cw721_addr", "cosmos2contract")
         ]
     );
-
-    let class_id = NFT_CONTRACT_TO_CLASS_ID
-        .load(deps.as_ref().storage, Addr::unchecked("cosmos2contract"))
-        .unwrap();
-    let nft = CLASS_ID_TO_NFT_CONTRACT
-        .load(deps.as_ref().storage, class_id.clone())
-        .unwrap();
-
-    assert_eq!(nft, Addr::unchecked("cosmos2contract"));
-    assert_eq!(class_id.to_string(), "wasm.address1/channel-10/address2");
 }
 
 #[test]
@@ -453,7 +426,7 @@ fn test_ibc_channel_connect_invalid_version_counterparty() {
 
 #[test]
 fn test_ibc_packet_receive() {
-    let data = to_binary(&NonFungibleTokenPacketData {
+    let data = to_json_binary(&NonFungibleTokenPacketData {
         class_id: ClassId::new("id"),
         class_uri: None,
         class_data: None,
@@ -504,7 +477,7 @@ fn test_ibc_packet_receive_invalid_packet_data() {
     // the actual message used here is unimportant. this just
     // constructs a valud JSON blob that is not a valid ICS-721
     // packet.
-    let data = to_binary(&QueryMsg::ClassMetadata {
+    let data = to_json_binary(&QueryMsg::ClassMetadata {
         class_id: "foobar".to_string(),
     })
     .unwrap();
@@ -527,7 +500,7 @@ fn test_ibc_packet_receive_invalid_packet_data() {
 
 #[test]
 fn test_ibc_packet_receive_emits_memo() {
-    let data = to_binary(&NonFungibleTokenPacketData {
+    let data = to_json_binary(&NonFungibleTokenPacketData {
         class_id: ClassId::new("id"),
         class_uri: None,
         class_data: None,
@@ -572,7 +545,7 @@ fn test_ibc_packet_receive_missmatched_lengths() {
     );
 
     let packet = IbcPacketReceiveMsg::new(
-        mock_packet(to_binary(&data).unwrap()),
+        mock_packet(to_json_binary(&data).unwrap()),
         Addr::unchecked(RELAYER_ADDR),
     );
 
@@ -588,8 +561,8 @@ fn test_ibc_packet_receive_missmatched_lengths() {
 
     // More token data are provided than tokens.
     let token_data = Some(vec![
-        to_binary("some_data_1").unwrap(),
-        to_binary("some_data_2").unwrap(),
+        to_json_binary("some_data_1").unwrap(),
+        to_json_binary("some_data_2").unwrap(),
     ]);
     let data = build_ics_packet(
         "bad kids",
@@ -604,7 +577,7 @@ fn test_ibc_packet_receive_missmatched_lengths() {
     );
 
     let packet = IbcPacketReceiveMsg::new(
-        mock_packet(to_binary(&data).unwrap()),
+        mock_packet(to_json_binary(&data).unwrap()),
         Addr::unchecked(RELAYER_ADDR),
     );
 
@@ -621,13 +594,13 @@ fn test_ibc_packet_receive_missmatched_lengths() {
 
 #[test]
 fn test_packet_json() {
-    let class_data = to_binary("some_class_data").unwrap(); // InNvbWVfY2xhc3NfZGF0YSI=
+    let class_data = to_json_binary("some_class_data").unwrap(); // InNvbWVfY2xhc3NfZGF0YSI=
     let token_data = vec![
         // ["InNvbWVfdG9rZW5fZGF0YV8xIg==","InNvbWVfdG9rZW5fZGF0YV8yIg==","
         // InNvbWVfdG9rZW5fZGF0YV8zIg=="]
-        to_binary("some_token_data_1").unwrap(),
-        to_binary("some_token_data_2").unwrap(),
-        to_binary("some_token_data_3").unwrap(),
+        to_json_binary("some_token_data_1").unwrap(),
+        to_json_binary("some_token_data_2").unwrap(),
+        to_json_binary("some_token_data_3").unwrap(),
     ];
     let packet = build_ics_packet(
         "stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n",
@@ -648,7 +621,7 @@ fn test_packet_json() {
     // TODO: test with non-null tokenData and classData.
     let expected = r#"{"classId":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","classUri":"https://metadata-url.com/my-metadata","classData":"InNvbWVfY2xhc3NfZGF0YSI=","tokenIds":["1","2","3"],"tokenUris":["https://metadata-url.com/my-metadata1","https://metadata-url.com/my-metadata2","https://metadata-url.com/my-metadata3"],"tokenData":["InNvbWVfdG9rZW5fZGF0YV8xIg==","InNvbWVfdG9rZW5fZGF0YV8yIg==","InNvbWVfdG9rZW5fZGF0YV8zIg=="],"sender":"stars1zedxv25ah8fksmg2lzrndrpkvsjqgk4zt5ff7n","receiver":"wasm1fucynrfkrt684pm8jrt8la5h2csvs5cnldcgqc","memo":"some_memo"}"#;
 
-    let encdoded = String::from_utf8(to_vec(&packet).unwrap()).unwrap();
+    let encdoded = String::from_utf8(to_json_vec(&packet).unwrap()).unwrap();
     assert_eq!(expected, encdoded.as_str());
 }
 
@@ -656,7 +629,7 @@ fn test_packet_json() {
 fn test_no_receive_when_paused() {
     // Valid JSON, invalid ICS-721 packet. Tests that we check for
     // pause status before attempting validation.
-    let data = to_binary(&QueryMsg::ClassMetadata {
+    let data = to_json_binary(&QueryMsg::ClassMetadata {
         class_id: "foobar".to_string(),
     })
     .unwrap();

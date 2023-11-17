@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Binary, DepsMut, Empty, Env, IbcPacket, IbcReceiveResponse,
+    from_json, to_json_binary, Addr, Binary, DepsMut, Empty, Env, IbcPacket, IbcReceiveResponse,
     StdResult, SubMsg, WasmMsg,
 };
 use zip_optional::Zippable;
@@ -48,7 +48,7 @@ pub(crate) fn receive_ibc_packet(
 ) -> Result<IbcReceiveResponse, ContractError> {
     PO.error_if_paused(deps.storage)?;
 
-    let data: NonFungibleTokenPacketData = from_binary(&packet.data)?;
+    let data: NonFungibleTokenPacketData = from_json(&packet.data)?;
     data.validate()?;
 
     let local_class_id = try_pop_source_prefix(&packet.src, &data.class_id);
@@ -236,7 +236,7 @@ impl ActionAggregator {
         } else {
             WasmMsg::Execute {
                 contract_addr: contract.into_string(),
-                msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::Conjunction {
+                msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::Conjunction {
                     operands: m,
                 }))?,
                 funds: vec![],

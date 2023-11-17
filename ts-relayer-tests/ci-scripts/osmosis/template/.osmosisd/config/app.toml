@@ -10,6 +10,10 @@
 # specified in this config (e.g. 0.25token1;0.0001token2).
 minimum-gas-prices = "0uosmo"
 
+# The maximum gas a query coming over rest/grpc may consume.
+# If this is set to zero, the query can consume an unbounded amount of gas.
+query-gas-limit = "0"
+
 # default: only the last 100,000 states(approximately 1 week worth of state) are kept; pruning at 100 block intervals
 # nothing: all historic states will be saved, nothing will be deleted (i.e. archiving node)
 # everything: 10 latest states will be kept; pruning at 10 block intervals.
@@ -166,12 +170,17 @@ enable = true
 address = "0.0.0.0:9090"
 
 # MaxRecvMsgSize defines the max message size in bytes the server can receive.
-# The default value is 4MB.
+# The default value is 10MB.
 max-recv-msg-size = "10485760"
 
 # MaxSendMsgSize defines the max message size in bytes the server can send.
 # The default value is math.MaxInt32.
 max-send-msg-size = "2147483647"
+
+# Concurrency defines if node queries should be done in parallel.
+# This is experimental and has led to node failures, so enable with caution.
+# The default value is false.
+concurrency = false
 
 ###############################################################################
 ###                        gRPC Web Configuration                           ###
@@ -209,7 +218,7 @@ snapshot-keep-recent = 2
 ###############################################################################
 
 [osmosis-mempool]
-# This is the max allowed gas any tx. 
+# This is the max allowed gas any tx.
 # This is only for local mempool purposes, and thus	is only ran on check tx.
 max-gas-wanted-per-tx = "25000000"
 
