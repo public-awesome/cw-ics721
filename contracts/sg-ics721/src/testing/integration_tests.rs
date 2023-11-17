@@ -41,6 +41,27 @@ const BECH32_PREFIX_HRP: &str = "stars";
 const NFT_OWNER_TARGET_CHAIN: &str = "nft-owner-target-chain";
 const ICS721_ADMIN_AND_PAUSER: &str = "ics721-pauser";
 
+type MockRouter = Router<
+    BankKeeper,
+    FailingModule<Empty, Empty, Empty>,
+    WasmKeeper<Empty, Empty>,
+    StakeKeeper,
+    DistributionKeeper,
+    IbcAcceptingModule,
+    FailingModule<GovMsg, Empty, Empty>,
+>;
+
+type MockApp = App<
+    BankKeeper,
+    MockApiBech32,
+    MemoryStorage,
+    FailingModule<Empty, Empty, Empty>,
+    WasmKeeper<Empty, Empty>,
+    StakeKeeper,
+    DistributionKeeper,
+    IbcAcceptingModule,
+>;
+
 // copy of cosmwasm_std::ContractInfoResponse (marked as non-exhaustive)
 #[cw_serde]
 pub struct ContractInfoResponse {
@@ -82,20 +103,7 @@ fn migrate(deps: DepsMut, env: Env, msg: MigrateMsg) -> Result<Response, Contrac
     SgIcs721Contract::default().migrate(deps, env, msg)
 }
 
-fn no_init(
-    _router: &mut Router<
-        BankKeeper,
-        FailingModule<Empty, Empty, Empty>,
-        WasmKeeper<Empty, Empty>,
-        StakeKeeper,
-        DistributionKeeper,
-        IbcAcceptingModule,
-        FailingModule<GovMsg, Empty, Empty>,
-    >,
-    _api: &dyn Api,
-    _storage: &mut dyn Storage,
-) {
-}
+fn no_init(_router: &mut MockRouter, _api: &dyn Api, _storage: &mut dyn Storage) {}
 
 #[derive(Default)]
 pub struct MockAddressGenerator;
@@ -136,13 +144,12 @@ impl MockAddressGenerator {
         key.extend_from_slice(&code_id.to_be_bytes());
         key.extend_from_slice(&instance_id.to_be_bytes());
         let module = Sha256::digest("module".as_bytes());
-        let result = Sha256::new()
+        Sha256::new()
             .chain(module)
             .chain(key)
             .finalize()
             .to_vec()
-            .into();
-        return result;
+            .into()
     }
 }
 pub struct MockApiBech32 {
@@ -250,16 +257,7 @@ pub struct CustomClassData {
 }
 
 struct Test {
-    app: App<
-        BankKeeper,
-        MockApiBech32,
-        MemoryStorage,
-        FailingModule<Empty, Empty, Empty>,
-        WasmKeeper<Empty, Empty>,
-        StakeKeeper,
-        DistributionKeeper,
-        IbcAcceptingModule,
-    >,
+    app: MockApp,
     // origin cw721 contract on source chain for interchain transfers to other target chains
     source_cw721_owner: Addr,
     source_cw721_id: u64,
@@ -313,13 +311,13 @@ impl Test {
                     proxy: proxy.clone(),
                     pauser: admin_and_pauser
                         .clone()
-                        .and_then(|p| Some(app.api().addr_make(&p).to_string())),
+                        .map(|p| app.api().addr_make(&p).to_string()),
                 },
                 &[],
                 "sg-ics721",
                 admin_and_pauser
                     .clone()
-                    .and_then(|p| Some(app.api().addr_make(&p).to_string())),
+                    .map(|p| app.api().addr_make(&p).to_string()),
             )
             .unwrap();
 
@@ -480,8 +478,7 @@ fn sg721_base_contract() -> Box<dyn Contract<Empty>> {
         info: MessageInfo,
         msg: sg721::ExecuteMsg<Option<Empty>, Empty>,
     ) -> Result<Response, sg721_base::ContractError> {
-        sg721_base::entry::execute(deps, env, info, msg)
-            .and_then(|_| Ok::<Response, sg721_base::ContractError>(Response::default()))
+        sg721_base::entry::execute(deps, env, info, msg).map(|_| Response::default())
     }
     fn instantiate_fn(
         deps: DepsMut,
@@ -489,8 +486,7 @@ fn sg721_base_contract() -> Box<dyn Contract<Empty>> {
         info: MessageInfo,
         msg: sg721::InstantiateMsg,
     ) -> Result<Response, sg721_base::ContractError> {
-        sg721_base::entry::instantiate(deps, env, info, msg)
-            .and_then(|_| Ok::<Response, sg721_base::ContractError>(Response::default()))
+        sg721_base::entry::instantiate(deps, env, info, msg).map(|_| Response::default())
     }
     let contract = ContractWrapper::new(exececute_fn, instantiate_fn, sg721_base::entry::query);
     Box::new(contract)
@@ -1773,7 +1769,7 @@ fn test_receive_nft() {
         let expected_contract_info: cosmwasm_std::ContractInfoResponse =
         // workaround using from_json/to_json_binary since ContractInfoResponse is non-exhaustive, can't be created directly
         from_json(
-            &to_json_binary(&ContractInfoResponse {
+            to_json_binary(&ContractInfoResponse {
                 code_id: test.source_cw721_id,
                 creator: test.source_cw721_owner.to_string(),
                 admin: None,

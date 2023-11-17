@@ -89,7 +89,7 @@ mod tests {
             },
         };
         let start = to_json_binary(&start).unwrap();
-        let end: UniversalAllNftInfoResponse = from_json(&start).unwrap();
+        let end: UniversalAllNftInfoResponse = from_json(start).unwrap();
         assert_eq!(end.access.owner, "foo".to_string());
         assert_eq!(end.access.approvals, vec![]);
         assert_eq!(end.info.token_uri, None);
