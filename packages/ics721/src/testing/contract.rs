@@ -179,7 +179,7 @@ fn mock_querier_v016(query: &WasmQuery) -> QuerierResult {
 fn test_receive_nft() {
     // test case: receive nft from cw721-base
     let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_json(
-        &to_json_binary(&ContractInfoResponse {
+        to_json_binary(&ContractInfoResponse {
             code_id: 0,
             creator: "creator".to_string(),
             admin: None,
@@ -253,7 +253,6 @@ fn test_receive_nft() {
         // check outgoing classID and tokenID
         let keys = OUTGOING_CLASS_TOKEN_TO_CHANNEL
             .keys(deps.as_mut().storage, None, None, Order::Ascending)
-            .into_iter()
             .collect::<StdResult<Vec<(String, String)>>>()
             .unwrap();
         assert_eq!(keys, [(NFT_ADDR.to_string(), token_id.to_string())]);
@@ -335,7 +334,6 @@ fn test_receive_nft() {
         // check outgoing classID and tokenID
         let keys = OUTGOING_CLASS_TOKEN_TO_CHANNEL
             .keys(deps.as_mut().storage, None, None, Order::Ascending)
-            .into_iter()
             .collect::<StdResult<Vec<(String, String)>>>()
             .unwrap();
         assert_eq!(keys, [(NFT_ADDR.to_string(), token_id.to_string())]);
@@ -408,7 +406,6 @@ fn test_receive_nft() {
         // check outgoing classID and tokenID
         let keys = OUTGOING_CLASS_TOKEN_TO_CHANNEL
             .keys(deps.as_mut().storage, None, None, Order::Ascending)
-            .into_iter()
             .collect::<StdResult<Vec<(String, String)>>>()
             .unwrap();
         assert_eq!(keys, [(NFT_ADDR.to_string(), token_id.to_string())]);
@@ -456,7 +453,7 @@ fn test_receive_sets_uri() {
         .unwrap();
     assert_eq!(class.uri, None);
     let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_json(
-        &to_json_binary(&ContractInfoResponse {
+        to_json_binary(&ContractInfoResponse {
             code_id: 0,
             creator: "creator".to_string(),
             admin: None,
