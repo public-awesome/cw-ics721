@@ -16,7 +16,7 @@ This implementation
    rate limiting of outgoing NFTs;
 4. is well tested.
 
-To enable ICS721 contracts to function correctly, the app chain needs to have at least `wasmd v0.31.0` installed, with the `cosmwasm_1_2` feature enabled. This requirement arises from the fact that the ICS721 contract uses `instantiate2` for creating predicted cw721 addresses. For more detailed information, please refer to the [CHANGELOG.md](https://github.com/CosmWasm/wasmd/blob/main/CHANGELOG.md#v0310-2023-03-13) `wasmd` repository.
+To enable ICS721 contracts to function correctly, the app chain needs to have at least `wasmd v0.31.0` installed, with the `cosmwasm_1_2` feature enabled. This requirement arises from the fact that the ICS721 contract uses `instantiate2` for creating predicted cw721 addresses. For more detailed information, please refer to the [CHANGELOG.md](https://github.com/CosmWasm/wasmd/blob/main/CHANGELOG.md#v0310-2023-03-13) in the `wasmd` repository.
 
 ## Getting Started
 
