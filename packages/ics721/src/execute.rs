@@ -1,17 +1,19 @@
 use std::fmt::Debug;
 
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcMsg, MessageInfo, Response,
-    StdResult, SubMsg, WasmMsg,
+    from_json, instantiate2_address, to_json_binary, Addr, Binary, CodeInfoResponse, Deps, DepsMut,
+    Empty, Env, IbcMsg, MessageInfo, Response, StdResult, SubMsg, WasmMsg,
 };
 use serde::{de::DeserializeOwned, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::{
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg},
     state::{
-        UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
-        NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY, TOKEN_METADATA,
+        CollectionData, UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
+        CW721_CODE_ID, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY,
+        TOKEN_METADATA,
     },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
     ContractError,
@@ -122,7 +124,7 @@ where
         msg: Binary,
     ) -> Result<Response<T>, ContractError> {
         let sender = deps.api.addr_validate(&sender)?;
-        let msg: IbcOutgoingMsg = from_binary(&msg)?;
+        let msg: IbcOutgoingMsg = from_json(msg)?;
 
         let class = match NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, info.sender.clone())? {
             Some(class_id) => CLASS_ID_TO_CLASS.load(deps.storage, class_id)?,
@@ -130,7 +132,7 @@ where
             // that has never been sent out of this contract.
             None => {
                 let class_data = self.get_class_data(&deps, &info.sender)?;
-                let data = class_data.as_ref().map(to_binary).transpose()?;
+                let data = class_data.as_ref().map(to_json_binary).transpose()?;
                 let class = Class {
                     id: ClassId::new(info.sender.to_string()),
                     // There is no collection-level uri nor data in the
@@ -150,6 +152,7 @@ where
             }
         };
 
+        // make sure NFT is escrowed by ics721
         let UniversalAllNftInfoResponse { access, info } = deps.querier.query_wasm_smart(
             info.sender,
             &cw721::Cw721QueryMsg::AllNftInfo {
@@ -157,11 +160,13 @@ where
                 include_expired: None,
             },
         )?;
-        // make sure NFT is escrowed by ics721
         if access.owner != env.contract.address {
             return Err(ContractError::Unauthorized {});
         }
 
+        // cw721 doesn't support on-chain metadata yet
+        // here NFT is transferred to another chain, NFT itself may have been transferred to his chain before
+        // in this case ICS721 may have metadata stored
         let token_metadata = TOKEN_METADATA
             .may_load(deps.storage, (class.id.clone(), token_id.clone()))?
             .flatten();
@@ -181,7 +186,7 @@ where
         };
         let ibc_message = IbcMsg::SendPacket {
             channel_id: msg.channel_id.clone(),
-            data: to_binary(&ibc_message)?,
+            data: to_json_binary(&ibc_message)?,
             timeout: msg.timeout,
         };
 
@@ -258,8 +263,28 @@ where
         let instantiate = if CLASS_ID_TO_NFT_CONTRACT.has(deps.storage, class.id.clone()) {
             vec![]
         } else {
+            let class_id = ClassId::new(class.id.clone());
+            // for creating a predictable nft contract using, using instantiate2, we need: checksum, creator, and salt:
+            // - using class id as salt for instantiating nft contract guarantees a) predictable address and b) uniqueness
+            // for this salt must be of length 32 bytes, so we use sha256 to hash class id
+            let mut hasher = Sha256::new();
+            hasher.update(class_id.as_bytes());
+            let salt = hasher.finalize().to_vec();
+            // Get the canonical address of the contract creator
+            let canonical_creator = deps.api.addr_canonicalize(env.contract.address.as_str())?;
+            // get the checksum of the contract we're going to instantiate
+            let CodeInfoResponse { checksum, .. } = deps
+                .querier
+                .query_wasm_code_info(CW721_CODE_ID.load(deps.storage)?)?;
+            let canonical_cw721_addr = instantiate2_address(&checksum, &canonical_creator, &salt)?;
+            let cw721_addr = deps.api.addr_humanize(&canonical_cw721_addr)?;
+
+            // Save classId <-> contract mappings.
+            CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class_id.clone(), &cw721_addr)?;
+            NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, cw721_addr, &class_id)?;
+
             let message = SubMsg::<T>::reply_on_success(
-                WasmMsg::Instantiate {
+                WasmMsg::Instantiate2 {
                     admin: None,
                     code_id: CW721_CODE_ID.load(deps.storage)?,
                     msg: self.init_msg(deps.as_ref(), &env, &class)?,
@@ -268,6 +293,7 @@ where
                     // can make this field too long which causes data
                     // errors in the SDK.
                     label: "ics-721 debt-voucher cw-721".to_string(),
+                    salt: salt.into(),
                 },
                 INSTANTIATE_CW721_REPLY_ID,
             );
@@ -283,7 +309,7 @@ where
 
         let mint = WasmMsg::Execute {
             contract_addr: env.contract.address.into_string(),
-            msg: to_binary(&ExecuteMsg::Callback(CallbackMsg::Mint {
+            msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::Mint {
                 class_id: class.id,
                 receiver,
                 tokens,
@@ -299,13 +325,24 @@ where
 
     /// Default implementation using `cw721_base::msg::InstantiateMsg`
     fn init_msg(&self, _deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
-        to_binary(&cw721_base::msg::InstantiateMsg {
-            // Name of the collection MUST be class_id as this is how
-            // we create a map entry on reply.
+        // use by default ClassId, in case there's no class data with name and symbol
+        let mut instantiate_msg = cw721_base::msg::InstantiateMsg {
             name: class.id.clone().into(),
             symbol: class.id.clone().into(),
             minter: env.contract.address.to_string(),
-        })
+        };
+
+        // unwrapped to collection data and in case of success, set name and symbol
+        if let Some(binary) = class.data.clone() {
+            let class_data_result: StdResult<CollectionData> = from_json(binary);
+            if class_data_result.is_ok() {
+                let class_data = class_data_result?;
+                instantiate_msg.symbol = class_data.symbol;
+                instantiate_msg.name = class_data.name;
+            }
+        }
+
+        to_json_binary(&instantiate_msg)
     }
 
     /// Performs a recemption of debt vouchers returning the corresponding
@@ -327,7 +364,7 @@ where
                     .map(|token_id| {
                         Ok(WasmMsg::Execute {
                             contract_addr: nft_contract.to_string(),
-                            msg: to_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                            msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
                                 recipient: receiver.to_string(),
                                 token_id: token_id.into(),
                             })?,
@@ -351,10 +388,10 @@ where
         let mint = tokens
             .into_iter()
             .map(|Token { id, uri, data }| {
-                // We save token metadata here as, ideally, once cw721
-                // supports on-chain metadata, this is where we will set
-                // that value on the debt-voucher token. Note that this is
-                // set for every token, regardless of if data is None.
+                // Source chain may have provided token metadata, so we save token metadata here
+                // Note, once cw721 doesn't support on-chain metadata yet - but this is where we will set
+                // that value on the debt-voucher token once it is supported.
+                // Also note that this is set for every token, regardless of if data is None.
                 TOKEN_METADATA.save(deps.storage, (class_id.clone(), id.clone()), &data)?;
 
                 let msg = cw721_base::msg::ExecuteMsg::<Empty, Empty>::Mint {
@@ -365,7 +402,7 @@ where
                 };
                 Ok(WasmMsg::Execute {
                     contract_addr: cw721_addr.to_string(),
-                    msg: to_binary(&msg)?,
+                    msg: to_json_binary(&msg)?,
                     funds: vec![],
                 })
             })

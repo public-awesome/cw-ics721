@@ -1,4 +1,4 @@
-use cosmwasm_std::{from_binary, to_binary, Binary, CosmosMsg, Deps, SubMsg, WasmMsg};
+use cosmwasm_std::{from_json, to_json_binary, Binary, CosmosMsg, Deps, SubMsg, WasmMsg};
 use serde::Deserialize;
 
 use crate::{
@@ -14,7 +14,7 @@ use crate::{
 /// Ideally it would be `Ics721Memo` type or any type that extends it
 fn parse_memo<T: for<'de> Deserialize<'de>>(memo: Option<String>) -> Option<T> {
     let binary = Binary::from_base64(memo?.as_str()).ok()?;
-    from_binary::<T>(&binary).ok()
+    from_json::<T>(&binary).ok()
 }
 
 /// Parse callback from the memo field
@@ -43,7 +43,7 @@ pub(crate) fn ack_callback_msg(
     // Create the message we send to the contract
     // The status is the status we want to send back to the contract
     // The msg is the msg we forward from the sender
-    let msg = to_binary(&ReceiverExecuteMsg::Ics721Callback(Ics721CallbackMsg {
+    let msg = to_json_binary(&ReceiverExecuteMsg::Ics721Callback(Ics721CallbackMsg {
         status,
         msg: callbacks.src_callback_msg?,
         original_packet: packet,
@@ -77,7 +77,7 @@ pub(crate) fn receive_callback_msg(
     // Create the message we send to the contract
     // The status is the status we want to send back to the contract
     // The msg is the msg we forward from the sender
-    let msg = to_binary(&ReceiverExecuteMsg::ReceiveNftIcs721(Ics721ReceiveMsg {
+    let msg = to_json_binary(&ReceiverExecuteMsg::ReceiveNftIcs721(Ics721ReceiveMsg {
         msg: callbacks.dest_callback_msg?,
         local_class_id,
         original_packet: packet,

@@ -14,4 +14,4 @@ pub mod utils;
 pub use crate::error::ContractError;
 
 #[cfg(test)]
-mod testing;
+pub mod testing;

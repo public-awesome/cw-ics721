@@ -16,6 +16,26 @@ This implementation
    rate limiting of outgoing NFTs;
 4. is well tested.
 
+To enable ICS721 contracts to function correctly, the app chain needs to have at least `wasmd v0.31.0` installed, with the `cosmwasm_1_2` feature enabled. This requirement arises from the fact that the ICS721 contract uses `instantiate2` for creating predicted cw721 addresses. For more detailed information, please refer to the [CHANGELOG.md](https://github.com/CosmWasm/wasmd/blob/main/CHANGELOG.md#v0310-2023-03-13) in the `wasmd` repository.
+
+## Getting Started
+
+Follow these steps to set up contracts and channels:
+
+1. Clone the [`cw-ics721`](https://github.com/public-awesome/cw-ics721) repository.
+2. Build the contracts using the [`ts-relayer-tests/build.sh`](https://github.com/public-awesome/cw-ics721/blob/main/ts-relayer-tests/build.sh) script.
+3. Upload and instantiate the `ics721-base` contract (refer to the [CosmWasm book](https://book.cosmwasm.com/) for details) on at least 2 CosmWasm-based app chains.
+4. Set up relayers, such as [Cosmos/IBC Go](https://github.com/cosmos/relayer/) or [Hermes](https://hermes.informal.systems/).
+
+To gain a better understanding of how ICS721 (interchain) workflows function, consider running the integration tests. You can find more information in the [ts-relayer-tests/README.md](./ts-relayer-tests/README.md) file. The integration tests perform the following actions:
+
+- Set up 2 local chains.
+- Upload interchain contracts.
+- Create an IBC channel between both contracts.
+- Create a collection contract (cw721).
+- Mint an NFT.
+- Transfer the NFT from one chain to another.
+
 ## From a thousand feet up
 
 This contract deals in debt-vouchers.

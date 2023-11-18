@@ -1,8 +1,8 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    from_binary,
+    from_json,
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier, MOCK_CONTRACT_ADDR},
-    to_binary, Addr, ContractResult, CosmosMsg, DepsMut, Empty, IbcMsg, IbcTimeout, Order,
+    to_json_binary, Addr, ContractResult, CosmosMsg, DepsMut, Empty, IbcMsg, IbcTimeout, Order,
     QuerierResult, StdResult, SubMsg, Timestamp, WasmQuery,
 };
 use cw721::{AllNftInfoResponse, NftInfoResponse, NumTokensResponse};
@@ -69,9 +69,9 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
         cosmwasm_std::WasmQuery::Smart {
             contract_addr: _,
             msg,
-        } => match from_binary::<cw721_base::msg::QueryMsg<Empty>>(msg).unwrap() {
+        } => match from_json::<cw721_base::msg::QueryMsg<Empty>>(&msg).unwrap() {
             QueryMsg::Ownership {} => QuerierResult::Ok(ContractResult::Ok(
-                to_binary(&Ownership::<Addr> {
+                to_json_binary(&Ownership::<Addr> {
                     owner: Some(Addr::unchecked(OWNER)),
                     pending_owner: None,
                     pending_expiry: None,
@@ -79,7 +79,7 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
                 .unwrap(),
             )),
             QueryMsg::AllNftInfo { .. } => QuerierResult::Ok(ContractResult::Ok(
-                to_binary(&AllNftInfoResponse::<Option<Empty>> {
+                to_json_binary(&AllNftInfoResponse::<Option<Empty>> {
                     access: cw721::OwnerOfResponse {
                         owner: MOCK_CONTRACT_ADDR.to_string(),
                         approvals: vec![],
@@ -92,19 +92,19 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
                 .unwrap(),
             )),
             QueryMsg::ContractInfo {} => QuerierResult::Ok(ContractResult::Ok(
-                to_binary(&cw721::ContractInfoResponse {
+                to_json_binary(&cw721::ContractInfoResponse {
                     name: "name".to_string(),
                     symbol: "symbol".to_string(),
                 })
                 .unwrap(),
             )),
             QueryMsg::NumTokens {} => QuerierResult::Ok(ContractResult::Ok(
-                to_binary(&NumTokensResponse { count: 1 }).unwrap(),
+                to_json_binary(&NumTokensResponse { count: 1 }).unwrap(),
             )),
             _ => unimplemented!(),
         },
         cosmwasm_std::WasmQuery::ContractInfo { .. } => QuerierResult::Ok(ContractResult::Ok(
-            to_binary(&ContractInfoResponse {
+            to_json_binary(&ContractInfoResponse {
                 code_id: 0,
                 creator: "creator".to_string(),
                 admin: None,
@@ -122,10 +122,10 @@ fn mock_querier_v016(query: &WasmQuery) -> QuerierResult {
         cosmwasm_std::WasmQuery::Smart {
             contract_addr: _,
             msg,
-        } => match from_binary::<cw721_base::msg::QueryMsg<Empty>>(msg).unwrap() {
+        } => match from_json::<cw721_base::msg::QueryMsg<Empty>>(&msg).unwrap() {
             // unwrap using latest (not old) cw721-base, since it is backwards compatible
             cw721_base::msg::QueryMsg::Minter {} => QuerierResult::Ok(ContractResult::Ok(
-                to_binary(
+                to_json_binary(
                     // return v016 response
                     &cw721_base_016::msg::MinterResponse {
                         minter: OWNER.to_string(),
@@ -134,7 +134,7 @@ fn mock_querier_v016(query: &WasmQuery) -> QuerierResult {
                 .unwrap(),
             )),
             cw721_base::msg::QueryMsg::AllNftInfo { .. } => QuerierResult::Ok(ContractResult::Ok(
-                to_binary(
+                to_json_binary(
                     // return v016 response
                     &cw721_016::AllNftInfoResponse::<Option<Empty>> {
                         access: cw721_016::OwnerOfResponse {
@@ -150,19 +150,19 @@ fn mock_querier_v016(query: &WasmQuery) -> QuerierResult {
                 .unwrap(),
             )),
             QueryMsg::ContractInfo {} => QuerierResult::Ok(ContractResult::Ok(
-                to_binary(&cw721_016::ContractInfoResponse {
+                to_json_binary(&cw721_016::ContractInfoResponse {
                     name: "name".to_string(),
                     symbol: "symbol".to_string(),
                 })
                 .unwrap(),
             )),
             QueryMsg::NumTokens {} => QuerierResult::Ok(ContractResult::Ok(
-                to_binary(&cw721_016::NumTokensResponse { count: 1 }).unwrap(),
+                to_json_binary(&cw721_016::NumTokensResponse { count: 1 }).unwrap(),
             )),
             _ => QuerierResult::Err(cosmwasm_std::SystemError::Unknown {}), // throws error for Ownership query
         },
         cosmwasm_std::WasmQuery::ContractInfo { .. } => QuerierResult::Ok(ContractResult::Ok(
-            to_binary(&ContractInfoResponse {
+            to_json_binary(&ContractInfoResponse {
                 code_id: 0,
                 creator: "creator".to_string(),
                 admin: None,
@@ -178,8 +178,8 @@ fn mock_querier_v016(query: &WasmQuery) -> QuerierResult {
 #[test]
 fn test_receive_nft() {
     // test case: receive nft from cw721-base
-    let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_binary(
-        &to_binary(&ContractInfoResponse {
+    let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_json(
+        to_json_binary(&ContractInfoResponse {
             code_id: 0,
             creator: "creator".to_string(),
             admin: None,
@@ -200,7 +200,7 @@ fn test_receive_nft() {
         let info = mock_info(NFT_ADDR, &[]);
         let token_id = "1";
         let sender = "ekez".to_string();
-        let msg = to_binary(&IbcOutgoingMsg {
+        let msg = to_json_binary(&IbcOutgoingMsg {
             receiver: "callum".to_string(),
             channel_id: "channel-1".to_string(),
             timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
@@ -226,11 +226,11 @@ fn test_receive_nft() {
             SubMsg::new(CosmosMsg::<Empty>::Ibc(IbcMsg::SendPacket {
                 channel_id: channel_id.clone(),
                 timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
-                data: to_binary(&NonFungibleTokenPacketData {
+                data: to_json_binary(&NonFungibleTokenPacketData {
                     class_id: ClassId::new(NFT_ADDR),
                     class_uri: None,
                     class_data: Some(
-                        to_binary(&CollectionData {
+                        to_json_binary(&CollectionData {
                             owner: Some(OWNER.to_string()),
                             contract_info: expected_contract_info.clone(),
                             name: "name".to_string(),
@@ -253,7 +253,6 @@ fn test_receive_nft() {
         // check outgoing classID and tokenID
         let keys = OUTGOING_CLASS_TOKEN_TO_CHANNEL
             .keys(deps.as_mut().storage, None, None, Order::Ascending)
-            .into_iter()
             .collect::<StdResult<Vec<(String, String)>>>()
             .unwrap();
         assert_eq!(keys, [(NFT_ADDR.to_string(), token_id.to_string())]);
@@ -282,7 +281,7 @@ fn test_receive_nft() {
         let info = mock_info(NFT_ADDR, &[]);
         let token_id = "1";
         let sender = "ekez".to_string();
-        let msg = to_binary(&IbcOutgoingMsg {
+        let msg = to_json_binary(&IbcOutgoingMsg {
             receiver: "callum".to_string(),
             channel_id: "channel-1".to_string(),
             timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
@@ -308,11 +307,11 @@ fn test_receive_nft() {
             SubMsg::new(CosmosMsg::<Empty>::Ibc(IbcMsg::SendPacket {
                 channel_id: channel_id.clone(),
                 timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
-                data: to_binary(&NonFungibleTokenPacketData {
+                data: to_json_binary(&NonFungibleTokenPacketData {
                     class_id: ClassId::new(NFT_ADDR),
                     class_uri: None,
                     class_data: Some(
-                        to_binary(&CollectionData {
+                        to_json_binary(&CollectionData {
                             owner: Some(OWNER.to_string()),
                             contract_info: expected_contract_info,
                             name: "name".to_string(),
@@ -335,7 +334,6 @@ fn test_receive_nft() {
         // check outgoing classID and tokenID
         let keys = OUTGOING_CLASS_TOKEN_TO_CHANNEL
             .keys(deps.as_mut().storage, None, None, Order::Ascending)
-            .into_iter()
             .collect::<StdResult<Vec<(String, String)>>>()
             .unwrap();
         assert_eq!(keys, [(NFT_ADDR.to_string(), token_id.to_string())]);
@@ -364,7 +362,7 @@ fn test_receive_nft() {
         let info = mock_info(NFT_ADDR, &[]);
         let token_id = "1";
         let sender = "ekez".to_string();
-        let msg = to_binary(&IbcOutgoingMsg {
+        let msg = to_json_binary(&IbcOutgoingMsg {
             receiver: "callum".to_string(),
             channel_id: "channel-1".to_string(),
             timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
@@ -390,7 +388,7 @@ fn test_receive_nft() {
             SubMsg::new(CosmosMsg::<Empty>::Ibc(IbcMsg::SendPacket {
                 channel_id: channel_id.clone(),
                 timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
-                data: to_binary(&NonFungibleTokenPacketData {
+                data: to_json_binary(&NonFungibleTokenPacketData {
                     class_id: ClassId::new(NFT_ADDR),
                     class_uri: None,
                     class_data: None,
@@ -408,7 +406,6 @@ fn test_receive_nft() {
         // check outgoing classID and tokenID
         let keys = OUTGOING_CLASS_TOKEN_TO_CHANNEL
             .keys(deps.as_mut().storage, None, None, Order::Ascending)
-            .into_iter()
             .collect::<StdResult<Vec<(String, String)>>>()
             .unwrap();
         assert_eq!(keys, [(NFT_ADDR.to_string(), token_id.to_string())]);
@@ -439,7 +436,7 @@ fn test_receive_sets_uri() {
     let info = mock_info(NFT_ADDR, &[]);
     let token_id = TokenId::new("1");
     let sender = "ekez".to_string();
-    let msg = to_binary(&IbcOutgoingMsg {
+    let msg = to_json_binary(&IbcOutgoingMsg {
         receiver: "ekez".to_string(),
         channel_id: "channel-1".to_string(),
         timeout: IbcTimeout::with_timestamp(Timestamp::from_nanos(42)),
@@ -455,8 +452,8 @@ fn test_receive_sets_uri() {
         .load(deps.as_ref().storage, ClassId::new(NFT_ADDR))
         .unwrap();
     assert_eq!(class.uri, None);
-    let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_binary(
-        &to_binary(&ContractInfoResponse {
+    let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_json(
+        to_json_binary(&ContractInfoResponse {
             code_id: 0,
             creator: "creator".to_string(),
             admin: None,
@@ -469,7 +466,7 @@ fn test_receive_sets_uri() {
     assert_eq!(
         class.data,
         Some(
-            to_binary(&CollectionData {
+            to_json_binary(&CollectionData {
                 owner: Some(OWNER.to_string()),
                 contract_info: expected_contract_info,
                 name: "name".to_string(),

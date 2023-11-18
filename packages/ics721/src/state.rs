@@ -72,7 +72,7 @@ pub struct UniversalOwnerOfResponse {
 
 #[cfg(test)]
 mod tests {
-    use cosmwasm_std::{from_binary, to_binary, Coin, Empty};
+    use cosmwasm_std::{from_json, to_json_binary, Coin, Empty};
 
     use super::UniversalAllNftInfoResponse;
 
@@ -88,8 +88,8 @@ mod tests {
                 extension: Coin::new(100, "ujuno"),
             },
         };
-        let start = to_binary(&start).unwrap();
-        let end: UniversalAllNftInfoResponse = from_binary(&start).unwrap();
+        let start = to_json_binary(&start).unwrap();
+        let end: UniversalAllNftInfoResponse = from_json(start).unwrap();
         assert_eq!(end.access.owner, "foo".to_string());
         assert_eq!(end.access.approvals, vec![]);
         assert_eq!(end.info.token_uri, None);

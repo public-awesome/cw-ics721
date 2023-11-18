@@ -32,5 +32,4 @@ cw-storage-plus = { workspace = true }
 cw721 = { workspace = true}
 cw721-rate-limited-proxy = { workspace = true }
 cw721-base = { workspace = true}
-sg721-240  = { workspace = true}
-sg721-base-240  = { workspace = true, features = ["library"] }
+sha2 = { workspace = true }

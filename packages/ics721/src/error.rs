@@ -1,4 +1,4 @@
-use cosmwasm_std::StdError;
+use cosmwasm_std::{Instantiate2AddressError, StdError};
 use cw_pause_once::PauseError;
 use cw_utils::ParseReplyError;
 use thiserror::Error;
@@ -10,6 +10,9 @@ pub enum ContractError {
 
     #[error(transparent)]
     Pause(#[from] PauseError),
+
+    #[error(transparent)]
+    Instantiate2Error(#[from] Instantiate2AddressError),
 
     #[error("unauthorized")]
     Unauthorized {},
@@ -57,8 +60,3 @@ pub enum ContractError {
     #[error("tokenIds, tokenUris, and tokenData must have the same length")]
     TokenInfoLenMissmatch {},
 }
-
-/// Enum that can never be constructed. Used as an error type where we
-/// can not error.
-#[derive(Error, Debug)]
-pub enum Never {}

@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response, StdResult,
-    WasmMsg,
+    to_json_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response,
+    StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
 use ics721::ibc::NonFungibleTokenPacketData;
@@ -61,7 +61,7 @@ pub fn execute(
 }
 
 mod receive_callbacks {
-    use cosmwasm_std::{from_binary, Addr, DepsMut, Response};
+    use cosmwasm_std::{from_json, Addr, DepsMut, Response};
     use ics721::{
         ibc::NonFungibleTokenPacketData,
         token_types::ClassId,
@@ -87,7 +87,7 @@ mod receive_callbacks {
         deps: DepsMut,
         msg: Ics721ReceiveMsg,
     ) -> Result<Response, ContractError> {
-        match from_binary::<Ics721Callbacks>(&msg.msg)? {
+        match from_json::<Ics721Callbacks>(&msg.msg)? {
             Ics721Callbacks::NftReceived {} => {
                 nft_received(deps, msg.original_packet, msg.local_class_id)
             }
@@ -100,7 +100,7 @@ mod receive_callbacks {
         deps: DepsMut,
         msg: Ics721CallbackMsg,
     ) -> Result<Response, ContractError> {
-        match from_binary::<Ics721Callbacks>(&msg.msg)? {
+        match from_json::<Ics721Callbacks>(&msg.msg)? {
             Ics721Callbacks::NftSent {} => nft_sent(deps, msg.status, msg.original_packet),
             Ics721Callbacks::FailCallback {} => fail_callback(),
             _ => Err(ContractError::InvalidCallback {}),
@@ -219,10 +219,10 @@ fn execute_send_nft(
     // Send send msg to cw721, send it to ics721 with the correct msg.
     let msg = WasmMsg::Execute {
         contract_addr: cw721,
-        msg: to_binary(&cw721::Cw721ExecuteMsg::SendNft {
+        msg: to_json_binary(&cw721::Cw721ExecuteMsg::SendNft {
             contract: ics721,
             token_id,
-            msg: to_binary(&ics721::msg::IbcOutgoingMsg {
+            msg: to_json_binary(&ics721::msg::IbcOutgoingMsg {
                 receiver: recipient,
                 channel_id,
                 timeout: IbcTimeout::with_timestamp(env.block.time.plus_seconds(1000)),
@@ -244,7 +244,7 @@ fn execute_send_packet(
         .add_attribute("method", "send_packet")
         .add_message(IbcMsg::SendPacket {
             channel_id,
-            data: to_binary(&data)?,
+            data: to_json_binary(&data)?,
             timeout,
         }))
 }
@@ -261,12 +261,12 @@ fn execute_set_ack_mode(deps: DepsMut, ack_mode: AckMode) -> Result<Response, Co
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::AckMode {} => to_binary(&ACK_MODE.load(deps.storage)?),
-        QueryMsg::LastAck {} => to_binary(&LAST_ACK.load(deps.storage)?),
-        QueryMsg::GetReceivedCallback {} => to_binary(&RECEIVED_CALLBACK.load(deps.storage)?),
+        QueryMsg::AckMode {} => to_json_binary(&ACK_MODE.load(deps.storage)?),
+        QueryMsg::LastAck {} => to_json_binary(&LAST_ACK.load(deps.storage)?),
+        QueryMsg::GetReceivedCallback {} => to_json_binary(&RECEIVED_CALLBACK.load(deps.storage)?),
         QueryMsg::GetReceivedNftContract {} => {
-            to_binary(&RECEIVED_NFT_CONTRACT.load(deps.storage)?)
+            to_json_binary(&RECEIVED_NFT_CONTRACT.load(deps.storage)?)
         }
-        QueryMsg::GetSentCallback {} => to_binary(&SENT_CALLBACK.load(deps.storage)?),
+        QueryMsg::GetSentCallback {} => to_json_binary(&SENT_CALLBACK.load(deps.storage)?),
     }
 }
