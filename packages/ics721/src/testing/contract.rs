@@ -232,10 +232,10 @@ fn test_receive_nft() {
                     class_data: Some(
                         to_json_binary(&CollectionData {
                             owner: Some(OWNER.to_string()),
-                            contract_info: expected_contract_info.clone(),
+                            contract_info: Some(expected_contract_info.clone()),
                             name: "name".to_string(),
                             symbol: "symbol".to_string(),
-                            num_tokens: 1,
+                            num_tokens: Some(1),
                         })
                         .unwrap()
                     ),
@@ -313,10 +313,10 @@ fn test_receive_nft() {
                     class_data: Some(
                         to_json_binary(&CollectionData {
                             owner: Some(OWNER.to_string()),
-                            contract_info: expected_contract_info,
+                            contract_info: Some(expected_contract_info),
                             name: "name".to_string(),
                             symbol: "symbol".to_string(),
-                            num_tokens: 1,
+                            num_tokens: Some(1),
                         })
                         .unwrap()
                     ),
@@ -468,10 +468,10 @@ fn test_receive_sets_uri() {
         Some(
             to_json_binary(&CollectionData {
                 owner: Some(OWNER.to_string()),
-                contract_info: expected_contract_info,
+                contract_info: Some(expected_contract_info),
                 name: "name".to_string(),
                 symbol: "symbol".to_string(),
-                num_tokens: 1,
+                num_tokens: Some(1),
             })
             .unwrap()
         ),

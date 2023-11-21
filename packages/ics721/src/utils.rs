@@ -32,10 +32,10 @@ pub fn get_collection_data(deps: &DepsMut, collection: &Addr) -> StdResult<Colle
 
     Ok(CollectionData {
         owner,
-        contract_info,
+        contract_info: Some(contract_info),
         name,
         symbol,
-        num_tokens: count,
+        num_tokens: Some(count),
     })
 }
 

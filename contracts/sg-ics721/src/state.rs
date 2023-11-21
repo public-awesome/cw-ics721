@@ -8,12 +8,12 @@ use sg721_base::msg::CollectionInfoResponse;
 pub struct SgCollectionData {
     // CW721 specific props, copied from ics721::state::CollectionData
     pub owner: Option<String>,
-    pub contract_info: ContractInfoResponse,
+    pub contract_info: Option<ContractInfoResponse>,
     pub name: String,
     pub symbol: String,
-    pub num_tokens: u64,
+    pub num_tokens: Option<u64>,
     /// SG721 specific collection info
-    pub collection_info: CollectionInfoResponse,
+    pub collection_info: Option<CollectionInfoResponse>,
 }
 
 #[derive(Default)]

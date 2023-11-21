@@ -562,7 +562,7 @@ fn test_do_instantiate_and_mint_weird_data() {
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
                                 symbol: "symbol".to_string(),
-                                num_tokens: 1,
+                                num_tokens: Some(1),
                             })
                             .unwrap(),
                         ),
@@ -774,7 +774,7 @@ fn test_do_instantiate_and_mint() {
                                     contract_info: Default::default(),
                                     name: "ark".to_string(),
                                     symbol: "protocol".to_string(),
-                                    num_tokens: 1,
+                                    num_tokens: Some(1),
                                 })
                                 .unwrap(),
                             ),
@@ -1445,7 +1445,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
                                 symbol: "symbol".to_string(),
-                                num_tokens: 1,
+                                num_tokens: Some(1),
                             })
                             .unwrap(),
                         ),
@@ -1586,7 +1586,7 @@ fn test_do_instantiate_and_mint_permissions() {
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
                                 symbol: "symbol".to_string(),
-                                num_tokens: 1,
+                                num_tokens: Some(1),
                             })
                             .unwrap(),
                         ),
@@ -1784,11 +1784,11 @@ fn test_receive_nft() {
                 // collection data from source chain
                 test.source_cw721_owner.to_string(),
             ),
-            contract_info: expected_contract_info,
+            contract_info: Some(expected_contract_info),
             name: "name".to_string(),
             symbol: "symbol".to_string(),
-            num_tokens: 1,
-            collection_info: CollectionInfoResponse {
+            num_tokens: Some(1),
+            collection_info: Some(CollectionInfoResponse {
                 creator: test.ics721.to_string(),
                 description: "".to_string(),
                 image: "https://arkprotocol.io".to_string(),
@@ -1796,7 +1796,7 @@ fn test_receive_nft() {
                 explicit_content: None,
                 start_trading_time: None,
                 royalty_info: None,
-            },
+            }),
         })
         .unwrap();
         assert_eq!(

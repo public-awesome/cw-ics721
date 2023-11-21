@@ -31,7 +31,7 @@ impl Ics721Execute for SgIcs721Contract {
             name,
             symbol,
             num_tokens,
-            collection_info,
+            collection_info: Some(collection_info),
         }))
     }
 
