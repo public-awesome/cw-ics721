@@ -1,8 +1,8 @@
-use cosmwasm_schema::cw_serde;
+use cosmwasm_schema::schemars::JsonSchema;
 use cosmwasm_std::{Addr, Binary, ContractInfoResponse, Empty};
 use cw_pause_once::PauseOrchestrator;
 use cw_storage_plus::{Item, Map};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::token_types::{Class, ClassId, TokenId};
 
@@ -50,15 +50,21 @@ pub struct UniversalNftInfoResponse {
     extension: Empty,
 }
 
-/// Collection data provided by the (source) cw721 contract. This is pass as optional class data during interchain transfer to target chain.
+/// Collection data send by ICS721 on source chain. It is an optional class data for interchain transfer to target chain.
 /// ICS721 on target chain is free to use this data or not. Lik in case of `sg721-base` it uses owner for defining creator in collection info.
-#[cw_serde]
+/// `ics721-base` uses name and symbol for instantiating new cw721 contract.
+// NB: Please not cw_serde includes `deny_unknown_fields`: https://github.com/CosmWasm/cosmwasm/blob/v1.5.0/packages/schema-derive/src/cw_serde.rs
+// For incoming data, parsing needs to be more lenient/less strict, so we use `serde` directly.
+#[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq)]
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[schemars(crate = "cosmwasm_schema::schemars")]
+#[serde(crate = "cosmwasm_schema::serde")]
 pub struct CollectionData {
     pub owner: Option<String>,
-    pub contract_info: ContractInfoResponse,
+    pub contract_info: Option<ContractInfoResponse>,
     pub name: String,
     pub symbol: String,
-    pub num_tokens: u64,
+    pub num_tokens: Option<u64>,
 }
 
 #[derive(Deserialize)]
