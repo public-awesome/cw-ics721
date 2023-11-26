@@ -17,16 +17,16 @@ pub struct Ics721Memo {
 pub struct Ics721Callbacks {
     /// Data to pass with a callback on source side (status update)
     /// Note - If this field is empty, no callback will be sent
-    pub src_callback_msg: Option<Binary>,
+    pub ack_callback_data: Option<Binary>,
     /// The address that will receive the callback message
     /// Defaults to the sender address
-    pub src_msg_receiver: Option<String>,
+    pub ack_callback_addr: Option<String>,
     /// Data to pass with a callback on the destination side (ReceiveNftIcs721)
     /// Note - If this field is empty, no callback will be sent
-    pub dest_callback_msg: Option<Binary>,
+    pub receive_callback_data: Option<Binary>,
     /// The address that will receive the callback message
     /// Defaults to the receiver address
-    pub dest_msg_receiver: Option<String>,
+    pub receive_callback_addr: Option<String>,
 }
 
 /// A message is that is being called on receiving the NFT after transfer was completed.

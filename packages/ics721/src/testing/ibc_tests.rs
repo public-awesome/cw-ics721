@@ -1,10 +1,10 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    attr,
+    attr, from_json,
     testing::{mock_dependencies, mock_env, mock_info},
     to_json_binary, to_json_vec, Addr, Attribute, Binary, DepsMut, Empty, Env, IbcAcknowledgement,
     IbcChannel, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder, IbcPacket,
-    IbcPacketReceiveMsg, IbcTimeout, Order, Reply, Response, StdResult, SubMsg, SubMsgResponse,
+    IbcPacketReceiveMsg, IbcTimeout, Order, Reply, Response, StdResult, SubMsgResponse,
     SubMsgResult, Timestamp, WasmMsg,
 };
 
@@ -15,7 +15,7 @@ use crate::{
         INSTANTIATE_CW721_REPLY_ID,
     },
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
-    msg::{InstantiateMsg, QueryMsg},
+    msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
     query::Ics721Query,
     state::{CollectionData, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, PO},
     token_types::{ClassId, TokenId},
@@ -669,10 +669,10 @@ fn test_ibc_packet_receive_callback() {
         memo: Some(
             to_json_binary(&Ics721Memo {
                 callbacks: Some(Ics721Callbacks {
-                    src_callback_msg: Some(to_json_binary("some_random").unwrap()),
-                    src_msg_receiver: None,
-                    dest_callback_msg: Some(dest_callback.clone()),
-                    dest_msg_receiver: None,
+                    ack_callback_data: Some(to_json_binary("some_random").unwrap()),
+                    ack_callback_addr: None,
+                    receive_callback_data: Some(dest_callback.clone()),
+                    receive_callback_addr: None,
                 }),
             })
             .unwrap()
@@ -690,18 +690,33 @@ fn test_ibc_packet_receive_callback() {
         .ibc_packet_receive(deps.as_mut(), env, packet)
         .unwrap();
 
-    assert!(res.messages.contains(&SubMsg::new(WasmMsg::Execute {
-        contract_addr: "blue".to_string(),
-        msg: to_json_binary(&ReceiverExecuteMsg::Ics721ReceiveCallback(
-            Ics721ReceiveCallbackMsg {
-                msg: dest_callback,
-                local_class_id: ClassId::new("wasm.address1/channel-1/id"),
-                original_packet: data,
+    let memo_callback_msg = match res.messages[0].msg.clone() {
+        cosmwasm_std::CosmosMsg::Wasm(WasmMsg::Execute { msg, .. }) => {
+            match from_json::<ExecuteMsg>(msg).unwrap() {
+                ExecuteMsg::Callback(CallbackMsg::Conjunction { operands }) => {
+                    Some(operands[operands.len() - 1].clone())
+                }
+                _ => None,
             }
-        ))
-        .unwrap(),
-        funds: vec![],
-    })))
+        }
+        _ => None,
+    };
+    assert!(memo_callback_msg.is_some());
+    assert_eq!(
+        memo_callback_msg.unwrap(),
+        WasmMsg::Execute {
+            contract_addr: "blue".to_string(),
+            msg: to_json_binary(&ReceiverExecuteMsg::Ics721ReceiveCallback(
+                Ics721ReceiveCallbackMsg {
+                    msg: dest_callback,
+                    local_class_id: ClassId::new("wasm.address1/channel-1/id"),
+                    original_packet: data,
+                }
+            ))
+            .unwrap(),
+            funds: vec![],
+        }
+    )
 }
 
 #[test]
@@ -725,10 +740,10 @@ fn test_extended_memo_not_ignored() {
         memo: Some(
             to_json_binary(&ExtendedMemo {
                 callbacks: Some(Ics721Callbacks {
-                    src_callback_msg: Some(to_json_binary("some_random").unwrap()),
-                    src_msg_receiver: None,
-                    dest_callback_msg: Some(dest_callback.clone()),
-                    dest_msg_receiver: None,
+                    ack_callback_data: Some(to_json_binary("some_random").unwrap()),
+                    ack_callback_addr: None,
+                    receive_callback_data: Some(dest_callback.clone()),
+                    receive_callback_addr: None,
                 }),
                 extra: None,
             })
@@ -745,18 +760,34 @@ fn test_extended_memo_not_ignored() {
     let res = Ics721Contract::default()
         .ibc_packet_receive(deps.as_mut(), env, packet)
         .unwrap();
-    assert!(res.messages.contains(&SubMsg::new(WasmMsg::Execute {
-        contract_addr: "blue".to_string(),
-        msg: to_json_binary(&ReceiverExecuteMsg::Ics721ReceiveCallback(
-            Ics721ReceiveCallbackMsg {
-                msg: dest_callback,
-                local_class_id: ClassId::new("wasm.address1/channel-1/id"),
-                original_packet: data,
+
+    let memo_callback_msg = match res.messages[0].msg.clone() {
+        cosmwasm_std::CosmosMsg::Wasm(WasmMsg::Execute { msg, .. }) => {
+            match from_json::<ExecuteMsg>(msg).unwrap() {
+                ExecuteMsg::Callback(CallbackMsg::Conjunction { operands }) => {
+                    Some(operands[operands.len() - 1].clone())
+                }
+                _ => None,
             }
-        ))
-        .unwrap(),
-        funds: vec![],
-    })))
+        }
+        _ => None,
+    };
+    assert!(memo_callback_msg.is_some());
+    assert_eq!(
+        memo_callback_msg.unwrap(),
+        WasmMsg::Execute {
+            contract_addr: "blue".to_string(),
+            msg: to_json_binary(&ReceiverExecuteMsg::Ics721ReceiveCallback(
+                Ics721ReceiveCallbackMsg {
+                    msg: dest_callback,
+                    local_class_id: ClassId::new("wasm.address1/channel-1/id"),
+                    original_packet: data,
+                }
+            ))
+            .unwrap(),
+            funds: vec![],
+        }
+    );
 }
 
 #[test]
@@ -780,10 +811,10 @@ fn test_different_memo_ignored() {
         memo: Some(
             to_json_binary(&DifferentMemo {
                 different: Some(Ics721Callbacks {
-                    src_callback_msg: Some(to_json_binary("some_random").unwrap()),
-                    src_msg_receiver: None,
-                    dest_callback_msg: Some(dest_callback.clone()),
-                    dest_msg_receiver: None,
+                    ack_callback_data: Some(to_json_binary("some_random").unwrap()),
+                    ack_callback_addr: None,
+                    receive_callback_data: Some(dest_callback),
+                    receive_callback_addr: None,
                 }),
                 extra: None,
             })
@@ -801,16 +832,21 @@ fn test_different_memo_ignored() {
     let res = Ics721Contract::default()
         .ibc_packet_receive(deps.as_mut(), env, packet)
         .unwrap();
-    assert!(!res.messages.contains(&SubMsg::new(WasmMsg::Execute {
-        contract_addr: "blue".to_string(),
-        msg: to_json_binary(&Ics721ReceiveCallbackMsg {
-            msg: dest_callback,
-            local_class_id: ClassId::new("wasm.address1/channel-1/id"),
-            original_packet: data
-        })
-        .unwrap(),
-        funds: vec![],
-    })))
+
+    let memo_callback_msg = match res.messages[0].msg.clone() {
+        cosmwasm_std::CosmosMsg::Wasm(WasmMsg::Execute { msg, .. }) => {
+            match from_json::<ExecuteMsg>(msg).unwrap() {
+                ExecuteMsg::Callback(callback_msg) => match callback_msg {
+                    CallbackMsg::Conjunction { operands } => Some(operands),
+                    _ => Some(vec![]),
+                },
+                _ => None,
+            }
+        }
+        _ => None,
+    };
+    assert!(memo_callback_msg.is_some());
+    assert!(memo_callback_msg.unwrap().is_empty());
 }
 
 #[test]

@@ -52,14 +52,23 @@ pub(crate) fn receive_ibc_packet(
     let data: NonFungibleTokenPacketData = from_json(&packet.data)?;
     data.validate()?;
 
-    // To use in callbacks at the bottom
-    let cloned_data = data.clone();
-
-    let maybe_local_class_id = try_pop_source_prefix(&packet.src, &data.class_id);
     let receiver = deps.api.addr_validate(&data.receiver)?;
     let token_count = data.token_ids.len();
 
-    let mut local_class_id = ClassId::new("");
+    // Check if NFT is local if not get the local class id
+    let is_local_class_id = try_pop_source_prefix(&packet.src, &data.class_id);
+    let local_class_id = match is_local_class_id {
+        Some(local_class_id) => ClassId::new(local_class_id),
+        None => {
+            let local_prefix = get_endpoint_prefix(&packet.dest);
+            ClassId::new(format!("{}{}", local_prefix, data.class_id))
+        }
+    };
+
+    let callback = match receive_callback_msg(deps.as_ref(), data.clone(), local_class_id.clone()) {
+        Some(msg) => vec![msg],
+        None => vec![],
+    };
 
     let submessage = data
         .token_ids
@@ -69,8 +78,8 @@ pub(crate) fn receive_ibc_packet(
         .try_fold(
             Vec::<Action>::with_capacity(token_count),
             |mut messages, ((token_id, token_uri), token_data)| -> StdResult<_> {
-                if let Some(temp_local_class_id) = maybe_local_class_id {
-                    local_class_id = ClassId::new(temp_local_class_id);
+                // If class is not local, its something new
+                if is_local_class_id.is_some() {
                     let key = (local_class_id.clone(), token_id.clone());
                     let outgoing_channel =
                         OUTGOING_CLASS_TOKEN_TO_CHANNEL.may_load(deps.storage, key.clone())?;
@@ -91,8 +100,6 @@ pub(crate) fn receive_ibc_packet(
                 }
                 // It's not something we've sent out before => make a
                 // new NFT.
-                let local_prefix = get_endpoint_prefix(&packet.dest);
-                local_class_id = ClassId::new(format!("{}{}", local_prefix, data.class_id));
                 INCOMING_CLASS_TOKEN_TO_CHANNEL.save(
                     deps.storage,
                     (local_class_id.clone(), token_id.clone()),
@@ -114,7 +121,7 @@ pub(crate) fn receive_ibc_packet(
             ActionAggregator::new(data.class_uri, data.class_data),
             ActionAggregator::add_action,
         )
-        .into_submessage(env.contract.address, receiver)?;
+        .into_submessage(env.contract.address, receiver, callback)?;
 
     let response = if let Some(memo) = data.memo {
         IbcReceiveResponse::default().add_attribute("ics721_memo", memo)
@@ -122,14 +129,8 @@ pub(crate) fn receive_ibc_packet(
         IbcReceiveResponse::default()
     };
 
-    let callback = match receive_callback_msg(deps.as_ref(), cloned_data, local_class_id) {
-        Some(msg) => vec![msg],
-        None => vec![],
-    };
-
     Ok(response
         .add_submessage(submessage)
-        .add_messages(callback)
         .add_attribute("method", "receive_ibc_packet")
         .add_attribute("class_id", data.class_id)
         .add_attribute("local_channel", packet.dest.channel_id)
@@ -235,13 +236,21 @@ impl ActionAggregator {
         self
     }
 
-    pub fn into_submessage(self, contract: Addr, receiver: Addr) -> StdResult<SubMsg<Empty>> {
+    pub fn into_submessage(
+        self,
+        contract: Addr,
+        receiver: Addr,
+        callback: Vec<WasmMsg>,
+    ) -> StdResult<SubMsg<Empty>> {
         let mut m = Vec::with_capacity(2);
         if let Some(redeem) = self.redemption {
             m.push(redeem.into_wasm_msg(contract.clone(), receiver.to_string())?)
         }
         if let Some(create) = self.creation {
             m.push(create.into_wasm_msg(contract.clone(), receiver.into_string())?)
+        }
+        if !callback.is_empty() {
+            m.push(callback[0].clone())
         }
         let message = if m.len() == 1 {
             m[0].clone()

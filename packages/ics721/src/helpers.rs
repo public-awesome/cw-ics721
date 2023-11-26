@@ -1,4 +1,4 @@
-use cosmwasm_std::{from_json, to_json_binary, Binary, CosmosMsg, Deps, SubMsg, WasmMsg};
+use cosmwasm_std::{from_json, to_json_binary, Binary, Deps, SubMsg, WasmMsg};
 use serde::Deserialize;
 
 use crate::{
@@ -37,7 +37,7 @@ pub(crate) fn ack_callback_msg(
     let callbacks = parse_callback(packet.memo.clone())?;
 
     // Validate the address
-    let receiver = callbacks.src_msg_receiver.unwrap_or(packet.sender.clone());
+    let receiver = callbacks.ack_callback_addr.unwrap_or(packet.sender.clone());
     let contract_addr = deps.api.addr_validate(receiver.as_str()).ok()?.to_string();
 
     // Create the message we send to the contract
@@ -46,7 +46,7 @@ pub(crate) fn ack_callback_msg(
     let msg = to_json_binary(&ReceiverExecuteMsg::Ics721AckCallback(
         Ics721AckCallbackMsg {
             status,
-            msg: callbacks.src_callback_msg?,
+            msg: callbacks.ack_callback_data?,
             original_packet: packet,
         },
     ))
@@ -66,13 +66,13 @@ pub(crate) fn receive_callback_msg(
     deps: Deps,
     packet: NonFungibleTokenPacketData,
     local_class_id: ClassId,
-) -> Option<CosmosMsg> {
+) -> Option<WasmMsg> {
     // Get the callback object
     let callbacks = parse_callback(packet.memo.clone())?;
 
     // Validate the address
     let receiver = callbacks
-        .dest_msg_receiver
+        .receive_callback_addr
         .unwrap_or(packet.receiver.clone());
     let contract_addr = deps.api.addr_validate(receiver.as_str()).ok()?.to_string();
 
@@ -81,21 +81,18 @@ pub(crate) fn receive_callback_msg(
     // The msg is the msg we forward from the sender
     let msg = to_json_binary(&ReceiverExecuteMsg::Ics721ReceiveCallback(
         Ics721ReceiveCallbackMsg {
-            msg: callbacks.dest_callback_msg?,
+            msg: callbacks.receive_callback_data?,
             local_class_id,
             original_packet: packet,
         },
     ))
     .ok()?;
 
-    Some(
-        WasmMsg::Execute {
-            contract_addr,
-            msg,
-            funds: vec![],
-        }
-        .into(),
-    )
+    Some(WasmMsg::Execute {
+        contract_addr,
+        msg,
+        funds: vec![],
+    })
 }
 
 mod test {

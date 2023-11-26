@@ -168,7 +168,7 @@ func callbackMemo(src_cb, src_receiver, dest_cb, dest_receiver string) string {
 	src_receiver = parseOptional(src_receiver)
 	dest_cb = parseOptional(dest_cb)
 	dest_receiver = parseOptional(dest_receiver)
-	memo := fmt.Sprintf(`{ "callbacks": { "src_callback_msg": %s, "src_msg_receiver": %s, "dest_callback_msg": %s, "dest_msg_receiver": %s } }`, src_cb, src_receiver, dest_cb, dest_receiver)
+	memo := fmt.Sprintf(`{ "callbacks": { "ack_callback_data": %s, "ack_callback_addr": %s, "receive_callback_data": %s, "receive_callback_addr": %s } }`, src_cb, src_receiver, dest_cb, dest_receiver)
 	return b64.StdEncoding.EncodeToString([]byte(memo))
 }
 

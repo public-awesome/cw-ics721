@@ -675,7 +675,10 @@ func (suite *AdversarialTestSuite) TestDoubleSendInSingleMessage() {
 
 func (suite *AdversarialTestSuite) TestReceiveMultipleNtsDifferentActions() {
 	// Send a NFT from chain A to the evil chain.
-	ics721Nft(suite.T(), suite.chainA, suite.pathAC, suite.coordinator, suite.cw721A.String(), "bad kid 1", suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress(), "")
+	ics721Nft(suite.T(), suite.chainA, suite.pathAC, suite.coordinator, suite.cw721A.String(), suite.tokenIdA, suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress(), "")
+
+	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), suite.tokenIdA)
+	require.Equal(suite.T(), suite.bridgeA.String(), chainAOwner)
 
 	pathCA := suite.pathAC.Invert()
 	chainCClassId := fmt.Sprintf("%s/%s/%s", pathCA.EndpointA.ChannelConfig.PortID, pathCA.EndpointA.ChannelID, suite.cw721A)
@@ -687,7 +690,7 @@ func (suite *AdversarialTestSuite) TestReceiveMultipleNtsDifferentActions() {
 	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
 		Contract: suite.bridgeC.String(),
-		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"%s","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s", "%s"],"tokenUris":["https://metadata-url.com/my-metadata1", "https://moonphase.is/image.svg"],"sender":"%s","receiver":"%s"} }}`, pathCA.EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), chainCClassId, suite.tokenIdA, suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())),
+		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"%s","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s", "%s"],"tokenUris":["https://metadata-url.com/my-metadata1", "https://moonphase.is/image.svg"],"sender":"%s","receiver":"%s", "memo": "{'ignore': ''}"} }}`, pathCA.EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), chainCClassId, suite.tokenIdA, suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())),
 		Funds:    []sdk.Coin{},
 	})
 	require.NoError(suite.T(), err)
@@ -698,7 +701,7 @@ func (suite *AdversarialTestSuite) TestReceiveMultipleNtsDifferentActions() {
 	//
 	// 1. Remote chain says it has minted a new version of our
 	//    local NFT on its chain.
-	// 2. Remote chian says that there are two NFTs belonging to
+	// 2. Remote chain says that there are two NFTs belonging to
 	//    the same collection with the same token ID.
 	//
 	// ICS721 contract is a based and does not care what other
@@ -713,7 +716,7 @@ func (suite *AdversarialTestSuite) TestReceiveMultipleNtsDifferentActions() {
 	// > that one I will create a new collection (so that it
 	// > follows my chain's social norms) and give a token for
 	// > that collection for the receiver.
-	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "bad kid 1")
+	chainAOwner = queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), suite.tokenIdA)
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
 
 	chainAClassId := fmt.Sprintf("%s/%s/%s/%s/%s", suite.pathAC.EndpointA.ChannelConfig.PortID, suite.pathAC.EndpointA.ChannelID, pathCA.EndpointA.ChannelConfig.PortID, pathCA.EndpointA.ChannelID, suite.cw721A)
