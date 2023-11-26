@@ -5,7 +5,7 @@ use crate::{
     ibc::{NonFungibleTokenPacketData, ACK_CALLBACK_REPLY_ID},
     token_types::ClassId,
     types::{
-        Ics721CallbackMsg, Ics721Callbacks, Ics721Memo, Ics721ReceiveMsg, Ics721Status,
+        Ics721AckCallbackMsg, Ics721Callbacks, Ics721Memo, Ics721ReceiveCallbackMsg, Ics721Status,
         ReceiverExecuteMsg,
     },
 };
@@ -37,17 +37,19 @@ pub(crate) fn ack_callback_msg(
     let callbacks = parse_callback(packet.memo.clone())?;
 
     // Validate the address
-    let reciever = callbacks.src_msg_receiver.unwrap_or(packet.sender.clone());
-    let contract_addr = deps.api.addr_validate(reciever.as_str()).ok()?.to_string();
+    let receiver = callbacks.src_msg_receiver.unwrap_or(packet.sender.clone());
+    let contract_addr = deps.api.addr_validate(receiver.as_str()).ok()?.to_string();
 
     // Create the message we send to the contract
     // The status is the status we want to send back to the contract
     // The msg is the msg we forward from the sender
-    let msg = to_json_binary(&ReceiverExecuteMsg::Ics721Callback(Ics721CallbackMsg {
-        status,
-        msg: callbacks.src_callback_msg?,
-        original_packet: packet,
-    }))
+    let msg = to_json_binary(&ReceiverExecuteMsg::Ics721AckCallback(
+        Ics721AckCallbackMsg {
+            status,
+            msg: callbacks.src_callback_msg?,
+            original_packet: packet,
+        },
+    ))
     .ok()?;
 
     Some(SubMsg::reply_on_error(
@@ -69,19 +71,21 @@ pub(crate) fn receive_callback_msg(
     let callbacks = parse_callback(packet.memo.clone())?;
 
     // Validate the address
-    let reciever = callbacks
+    let receiver = callbacks
         .dest_msg_receiver
         .unwrap_or(packet.receiver.clone());
-    let contract_addr = deps.api.addr_validate(reciever.as_str()).ok()?.to_string();
+    let contract_addr = deps.api.addr_validate(receiver.as_str()).ok()?.to_string();
 
     // Create the message we send to the contract
     // The status is the status we want to send back to the contract
     // The msg is the msg we forward from the sender
-    let msg = to_json_binary(&ReceiverExecuteMsg::ReceiveNftIcs721(Ics721ReceiveMsg {
-        msg: callbacks.dest_callback_msg?,
-        local_class_id,
-        original_packet: packet,
-    }))
+    let msg = to_json_binary(&ReceiverExecuteMsg::Ics721ReceiveCallback(
+        Ics721ReceiveCallbackMsg {
+            msg: callbacks.dest_callback_msg?,
+            local_class_id,
+            original_packet: packet,
+        },
+    ))
     .ok()?;
 
     Some(

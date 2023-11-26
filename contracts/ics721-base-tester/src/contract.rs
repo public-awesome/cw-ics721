@@ -38,10 +38,10 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::ReceiveNft(msg) => receive_callbacks::handle_receive_cw_callback(deps, msg),
-        ExecuteMsg::ReceiveNftIcs721(msg) => {
-            receive_callbacks::handle_receive_ics_callback(deps, msg)
+        ExecuteMsg::Ics721ReceiveCallback(msg) => {
+            receive_callbacks::handle_receive_callback(deps, msg)
         }
-        ExecuteMsg::Ics721Callback(msg) => receive_callbacks::handle_callback_callback(deps, msg),
+        ExecuteMsg::Ics721AckCallback(msg) => receive_callbacks::handle_ack_callback(deps, msg),
         ExecuteMsg::SendNft {
             cw721,
             ics721,
@@ -65,7 +65,7 @@ mod receive_callbacks {
     use ics721::{
         ibc::NonFungibleTokenPacketData,
         token_types::ClassId,
-        types::{Ics721CallbackMsg, Ics721ReceiveMsg, Ics721Status},
+        types::{Ics721AckCallbackMsg, Ics721ReceiveCallbackMsg, Ics721Status},
     };
 
     use crate::{
@@ -83,9 +83,9 @@ mod receive_callbacks {
         Ok(Response::new())
     }
 
-    pub(crate) fn handle_receive_ics_callback(
+    pub(crate) fn handle_receive_callback(
         deps: DepsMut,
-        msg: Ics721ReceiveMsg,
+        msg: Ics721ReceiveCallbackMsg,
     ) -> Result<Response, ContractError> {
         match from_json::<Ics721Callbacks>(&msg.msg)? {
             Ics721Callbacks::NftReceived {} => {
@@ -96,9 +96,9 @@ mod receive_callbacks {
         }
     }
 
-    pub(crate) fn handle_callback_callback(
+    pub(crate) fn handle_ack_callback(
         deps: DepsMut,
-        msg: Ics721CallbackMsg,
+        msg: Ics721AckCallbackMsg,
     ) -> Result<Response, ContractError> {
         match from_json::<Ics721Callbacks>(&msg.msg)? {
             Ics721Callbacks::NftSent {} => nft_sent(deps, msg.status, msg.original_packet),

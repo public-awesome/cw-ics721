@@ -300,7 +300,7 @@ func (suite *CbTestSuite) TestSuccessfulTransferWithReceivers() {
 	require.Equal(suite.T(), testerDataOwnerB, suite.chainB.SenderAccount.GetAddress().String())
 }
 
-func (suite *CbTestSuite) TestTimeoutedTransfer() {
+func (suite *CbTestSuite) TestTimeoutTransfer() {
 	memo := callbackMemo(nftSentCb(), "", nftReceivedCb(), "")
 	sendIcsFromChainA(suite, suite.cw721A.String(), "2", memo, false)
 	suite.coordinator.IncrementTimeBy(time.Second * 2001)

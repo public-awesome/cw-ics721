@@ -300,7 +300,10 @@ where
                     SubMsgResult::Err(err) => Ok(Response::new().set_data(ack_fail(err))),
                 }
             }
-            ACK_CALLBACK_REPLY_ID => Ok(Response::new()),
+            ACK_CALLBACK_REPLY_ID => {
+                let err = reply.result.unwrap_err();
+                Ok(Response::new().add_attribute("error", err))
+            }
             _ => Err(ContractError::UnrecognisedReplyId {}),
         }
     }

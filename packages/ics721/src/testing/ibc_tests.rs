@@ -19,7 +19,7 @@ use crate::{
     query::Ics721Query,
     state::{CollectionData, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, PO},
     token_types::{ClassId, TokenId},
-    types::{Ics721Callbacks, Ics721Memo, Ics721ReceiveMsg, ReceiverExecuteMsg},
+    types::{Ics721Callbacks, Ics721Memo, Ics721ReceiveCallbackMsg, ReceiverExecuteMsg},
     utils::get_collection_data,
     ContractError,
 };
@@ -692,11 +692,13 @@ fn test_ibc_packet_receive_callback() {
 
     assert!(res.messages.contains(&SubMsg::new(WasmMsg::Execute {
         contract_addr: "blue".to_string(),
-        msg: to_json_binary(&ReceiverExecuteMsg::ReceiveNftIcs721(Ics721ReceiveMsg {
-            msg: dest_callback,
-            local_class_id: ClassId::new("wasm.address1/channel-1/id"),
-            original_packet: data,
-        }))
+        msg: to_json_binary(&ReceiverExecuteMsg::Ics721ReceiveCallback(
+            Ics721ReceiveCallbackMsg {
+                msg: dest_callback,
+                local_class_id: ClassId::new("wasm.address1/channel-1/id"),
+                original_packet: data,
+            }
+        ))
         .unwrap(),
         funds: vec![],
     })))
@@ -745,11 +747,13 @@ fn test_extended_memo_not_ignored() {
         .unwrap();
     assert!(res.messages.contains(&SubMsg::new(WasmMsg::Execute {
         contract_addr: "blue".to_string(),
-        msg: to_json_binary(&ReceiverExecuteMsg::ReceiveNftIcs721(Ics721ReceiveMsg {
-            msg: dest_callback,
-            local_class_id: ClassId::new("wasm.address1/channel-1/id"),
-            original_packet: data,
-        }))
+        msg: to_json_binary(&ReceiverExecuteMsg::Ics721ReceiveCallback(
+            Ics721ReceiveCallbackMsg {
+                msg: dest_callback,
+                local_class_id: ClassId::new("wasm.address1/channel-1/id"),
+                original_packet: data,
+            }
+        ))
         .unwrap(),
         funds: vec![],
     })))
@@ -799,7 +803,7 @@ fn test_different_memo_ignored() {
         .unwrap();
     assert!(!res.messages.contains(&SubMsg::new(WasmMsg::Execute {
         contract_addr: "blue".to_string(),
-        msg: to_json_binary(&Ics721ReceiveMsg {
+        msg: to_json_binary(&Ics721ReceiveCallbackMsg {
             msg: dest_callback,
             local_class_id: ClassId::new("wasm.address1/channel-1/id"),
             original_packet: data

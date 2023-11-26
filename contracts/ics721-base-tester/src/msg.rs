@@ -43,8 +43,8 @@ pub struct InstantiateMsg {
                                      // for clippy's taste.
 pub enum ExecuteMsg {
     ReceiveNft(cw721::Cw721ReceiveMsg),
-    ReceiveNftIcs721(ics721::types::Ics721ReceiveMsg),
-    Ics721Callback(ics721::types::Ics721CallbackMsg),
+    Ics721ReceiveCallback(ics721::types::Ics721ReceiveCallbackMsg),
+    Ics721AckCallback(ics721::types::Ics721AckCallbackMsg),
     SendNft {
         cw721: String,
         ics721: String,

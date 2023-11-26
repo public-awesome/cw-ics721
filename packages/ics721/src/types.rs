@@ -19,11 +19,13 @@ pub struct Ics721Callbacks {
     /// Note - If this field is empty, no callback will be sent
     pub src_callback_msg: Option<Binary>,
     /// The address that will receive the callback message
+    /// Defaults to the sender address
     pub src_msg_receiver: Option<String>,
     /// Data to pass with a callback on the destination side (ReceiveNftIcs721)
     /// Note - If this field is empty, no callback will be sent
     pub dest_callback_msg: Option<Binary>,
     /// The address that will receive the callback message
+    /// Defaults to the receiver address
     pub dest_msg_receiver: Option<String>,
 }
 
@@ -31,7 +33,7 @@ pub struct Ics721Callbacks {
 /// Receiving this message means that the NFT was successfully transferred.
 /// You must verify this message was called by an approved ICS721 contract, either by code_id or address.
 #[cw_serde]
-pub struct Ics721ReceiveMsg {
+pub struct Ics721ReceiveCallbackMsg {
     pub original_packet: NonFungibleTokenPacketData,
     pub local_class_id: ClassId,
     pub msg: Binary,
@@ -41,7 +43,7 @@ pub struct Ics721ReceiveMsg {
 /// status = Ics721Status::Success - the transfer was successful and NFT is on the other chain
 /// status = Ics721Status::Failed - Transfer failed and contract still owns the NFT
 #[cw_serde]
-pub struct Ics721CallbackMsg {
+pub struct Ics721AckCallbackMsg {
     pub status: Ics721Status,
     pub original_packet: NonFungibleTokenPacketData,
     pub msg: Binary,
@@ -61,8 +63,8 @@ pub enum ReceiverExecuteMsg {
     /// Being called on receiving the NFT after transfer was completed. (destination side)
     /// `on_recieve` hook
     /// Note - Failing this message will fail the transfer.
-    ReceiveNftIcs721(Ics721ReceiveMsg),
+    Ics721ReceiveCallback(Ics721ReceiveCallbackMsg),
     /// Being called as a status update of the transfer. (source side)
     /// Note - Failing this message will NOT fail the transfer, its just a status update.
-    Ics721Callback(Ics721CallbackMsg),
+    Ics721AckCallback(Ics721AckCallbackMsg),
 }
