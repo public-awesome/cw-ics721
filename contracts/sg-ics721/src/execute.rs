@@ -37,9 +37,8 @@ impl Ics721Execute for SgIcs721Contract {
         let ics721_contract_info = deps
             .querier
             .query_wasm_contract_info(env.contract.address.to_string())?;
+        // use by default ClassId, in case there's no class data with name and symbol
         let mut instantiate_msg = sg721::InstantiateMsg {
-            // source chain may not send optional collection data
-            // if not, by default class id is used for name and symbol
             name: class.id.clone().into(),
             symbol: class.id.clone().into(),
             minter: env.contract.address.to_string(),
@@ -57,15 +56,14 @@ impl Ics721Execute for SgIcs721Contract {
             },
         };
 
-        // unwrapped to collection data and in case of success, set creator, name and symbol
-        if let Some(binary) = class.data.clone() {
-            let class_data_result: StdResult<CollectionData> = from_json(binary);
-            if class_data_result.is_ok() {
-                let class_data = class_data_result?;
-                // set name and symbol
-                instantiate_msg.symbol = class_data.symbol;
-                instantiate_msg.name = class_data.name;
-            }
+        // use collection data for setting name and symbol
+        let collection_data = class
+            .data
+            .clone()
+            .and_then(|binary| from_json::<CollectionData>(binary).ok());
+        if let Some(collection_data) = collection_data {
+            instantiate_msg.name = collection_data.name;
+            instantiate_msg.symbol = collection_data.symbol;
         }
 
         to_json_binary(&instantiate_msg)

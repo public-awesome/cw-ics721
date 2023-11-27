@@ -332,14 +332,14 @@ where
             minter: env.contract.address.to_string(),
         };
 
-        // unwrapped to collection data and in case of success, set name and symbol
-        if let Some(binary) = class.data.clone() {
-            let class_data_result: StdResult<CollectionData> = from_json(binary);
-            if class_data_result.is_ok() {
-                let class_data = class_data_result?;
-                instantiate_msg.symbol = class_data.symbol;
-                instantiate_msg.name = class_data.name;
-            }
+        // use collection data for setting name and symbol
+        let collection_data = class
+            .data
+            .clone()
+            .and_then(|binary| from_json::<CollectionData>(binary).ok());
+        if let Some(collection_data) = collection_data {
+            instantiate_msg.name = collection_data.name;
+            instantiate_msg.symbol = collection_data.symbol;
         }
 
         to_json_binary(&instantiate_msg)
