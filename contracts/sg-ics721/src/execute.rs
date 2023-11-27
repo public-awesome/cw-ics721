@@ -44,7 +44,7 @@ impl Ics721Execute for SgIcs721Contract {
             symbol: class.id.clone().into(),
             minter: env.contract.address.to_string(),
             collection_info: sg721::CollectionInfo {
-                // source owner could be: 1. regular owner, 2. contract, or 3. multisig
+                // source owner could be: 1. regular wallet, 2. contract, or 3. multisig
                 // bech32 calculation for 2. and 3. leads to unknown address
                 // therefore, we use ics721 creator as owner
                 creator: ics721_contract_info.creator,
