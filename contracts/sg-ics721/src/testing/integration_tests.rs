@@ -846,20 +846,12 @@ fn test_do_instantiate_and_mint() {
             .wrap()
             .query_wasm_smart(nft_contract.clone(), &Sg721QueryMsg::CollectionInfo {})
             .unwrap();
-        let (_source_hrp, source_data, source_variant) = bech32::decode(
-            test.app
-                .api()
-                .addr_make(COLLECTION_OWNER_SOURCE_CHAIN)
-                .as_str(),
-        )
-        .unwrap();
-        let target_owner = bech32::encode(BECH32_PREFIX_HRP, source_data, source_variant).unwrap();
 
         assert_eq!(
             collection_info,
             CollectionInfoResponse {
                 // creator based on owner from collection in soure chain
-                creator: target_owner, // creator is set to owner as defined by ClassData
+                creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
                 description: "".to_string(),
                 image: "https://arkprotocol.io".to_string(),
                 external_link: None,
@@ -1705,20 +1697,10 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         .wrap()
         .query_wasm_smart(nft_contract.clone(), &Sg721QueryMsg::CollectionInfo {})
         .unwrap();
-    let (_source_hrp, source_data, source_variant) = bech32::decode(
-        test.app
-            .api()
-            .addr_make(COLLECTION_OWNER_SOURCE_CHAIN)
-            .as_str(),
-    )
-    .unwrap();
-    let target_owner = bech32::encode(BECH32_PREFIX_HRP, source_data, source_variant).unwrap();
-
     assert_eq!(
         collection_info,
         CollectionInfoResponse {
-            // creator is set to owner as defined by ClassData in 1st transfer!
-            creator: target_owner,
+            creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
             description: "".to_string(),
             image: "https://arkprotocol.io".to_string(),
             external_link: None,
