@@ -1,9 +1,6 @@
 use cosmwasm_std::{from_json, to_json_binary, Addr, Binary, Deps, DepsMut, Env, StdResult};
 use ics721::{
-    execute::Ics721Execute,
-    state::CollectionData,
-    token_types::Class,
-    utils::{convert_owner_chain_address, get_collection_data},
+    execute::Ics721Execute, state::CollectionData, token_types::Class, utils::get_collection_data,
 };
 use sg721_base::msg::{CollectionInfoResponse, QueryMsg};
 
@@ -31,7 +28,7 @@ impl Ics721Execute for SgIcs721Contract {
             name,
             symbol,
             num_tokens,
-            collection_info,
+            collection_info: Some(collection_info),
         }))
     }
 
@@ -40,13 +37,15 @@ impl Ics721Execute for SgIcs721Contract {
         let ics721_contract_info = deps
             .querier
             .query_wasm_contract_info(env.contract.address.to_string())?;
+        // use by default ClassId, in case there's no class data with name and symbol
         let mut instantiate_msg = sg721::InstantiateMsg {
-            // source chain may not send optional collection data
-            // if not, by default class id is used for name and symbol
             name: class.id.clone().into(),
             symbol: class.id.clone().into(),
             minter: env.contract.address.to_string(),
             collection_info: sg721::CollectionInfo {
+                // source owner could be: 1. regular wallet, 2. contract, or 3. multisig
+                // bech32 calculation for 2. and 3. leads to unknown address
+                // therefore, we use ics721 creator as owner
                 creator: ics721_contract_info.creator,
                 description: "".to_string(),
                 image: "https://arkprotocol.io".to_string(),
@@ -57,31 +56,14 @@ impl Ics721Execute for SgIcs721Contract {
             },
         };
 
-        // unwrapped to collection data and in case of success, set creator, name and symbol
-        if let Some(binary) = class.data.clone() {
-            let class_data_result: StdResult<CollectionData> = from_json(binary);
-            if class_data_result.is_ok() {
-                let class_data = class_data_result?;
-                match class_data.owner {
-                    Some(owner) =>
-                    // owner from source chain is used
-                    {
-                        instantiate_msg.collection_info.creator =
-                            convert_owner_chain_address(env, owner.as_str())?
-                    }
-                    None =>
-                    // ics721 creator is used, in case of none
-                    {
-                        let ics721_contract_info = deps
-                            .querier
-                            .query_wasm_contract_info(env.contract.address.to_string())?;
-                        instantiate_msg.collection_info.creator = ics721_contract_info.creator;
-                    }
-                }
-                // set name and symbol
-                instantiate_msg.symbol = class_data.symbol;
-                instantiate_msg.name = class_data.name;
-            }
+        // use collection data for setting name and symbol
+        let collection_data = class
+            .data
+            .clone()
+            .and_then(|binary| from_json::<CollectionData>(binary).ok());
+        if let Some(collection_data) = collection_data {
+            instantiate_msg.name = collection_data.name;
+            instantiate_msg.symbol = collection_data.symbol;
         }
 
         to_json_binary(&instantiate_msg)
