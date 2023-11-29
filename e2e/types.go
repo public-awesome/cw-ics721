@@ -117,8 +117,8 @@ type TesterReceivedQuery struct {
 	GetReceivedCallback EmptyData `json:"get_received_callback"`
 }
 
-type TesterReceivedNftContractQuery struct {
-	GetReceivedNftContract EmptyData `json:"get_received_nft_contract"`
+type TesterNftContractQuery struct {
+	GetNftContract EmptyData `json:"get_nft_contract"`
 }
 
 // cw721 contract info query.

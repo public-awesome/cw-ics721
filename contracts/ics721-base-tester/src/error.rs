@@ -23,4 +23,7 @@ pub enum ContractError {
 
     #[error("Invalid callback")]
     InvalidCallback,
+
+    #[error("The callback sender is not the ics721")]
+    SenderIsNotIcs721,
 }

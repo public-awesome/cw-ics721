@@ -75,6 +75,6 @@ pub enum QueryMsg {
     /// if no ACK has ever been received. Returns `AckMode`.
     LastAck {},
     GetReceivedCallback {},
-    GetReceivedNftContract {},
+    GetNftContract {},
     GetSentCallback {},
 }

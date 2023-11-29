@@ -10,7 +10,7 @@ use ics721::ibc::NonFungibleTokenPacketData;
 use crate::{
     error::ContractError,
     msg::{AckMode, ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::{ACK_MODE, ICS721, LAST_ACK, RECEIVED_CALLBACK, RECEIVED_NFT_CONTRACT, SENT_CALLBACK},
+    state::{ACK_MODE, ICS721, LAST_ACK, NFT_CONTRACT, RECEIVED_CALLBACK, SENT_CALLBACK},
 };
 
 const CONTRACT_NAME: &str = "crates.io:ics721-base-tester";
@@ -33,15 +33,17 @@ pub fn instantiate(
 pub fn execute(
     deps: DepsMut,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::ReceiveNft(msg) => receive_callbacks::handle_receive_cw_callback(deps, msg),
         ExecuteMsg::Ics721ReceiveCallback(msg) => {
-            receive_callbacks::handle_receive_callback(deps, msg)
+            receive_callbacks::handle_receive_callback(deps, &info, msg)
         }
-        ExecuteMsg::Ics721AckCallback(msg) => receive_callbacks::handle_ack_callback(deps, msg),
+        ExecuteMsg::Ics721AckCallback(msg) => {
+            receive_callbacks::handle_ack_callback(deps, &info, msg)
+        }
         ExecuteMsg::SendNft {
             cw721,
             ics721,
@@ -61,16 +63,15 @@ pub fn execute(
 }
 
 mod receive_callbacks {
-    use cosmwasm_std::{from_json, Addr, DepsMut, Response};
+    use cosmwasm_std::{ensure_eq, from_json, DepsMut, MessageInfo, Response};
     use ics721::{
         ibc::NonFungibleTokenPacketData,
-        token_types::ClassId,
         types::{Ics721AckCallbackMsg, Ics721ReceiveCallbackMsg, Ics721Status},
     };
 
     use crate::{
         msg::Ics721Callbacks,
-        state::{CW721_RECEIVE, ICS721, RECEIVED_CALLBACK, RECEIVED_NFT_CONTRACT, SENT_CALLBACK},
+        state::{CW721_RECEIVE, ICS721, NFT_CONTRACT, RECEIVED_CALLBACK, SENT_CALLBACK},
         ContractError,
     };
 
@@ -85,11 +86,12 @@ mod receive_callbacks {
 
     pub(crate) fn handle_receive_callback(
         deps: DepsMut,
+        info: &MessageInfo,
         msg: Ics721ReceiveCallbackMsg,
     ) -> Result<Response, ContractError> {
         match from_json::<Ics721Callbacks>(&msg.msg)? {
             Ics721Callbacks::NftReceived {} => {
-                nft_received(deps, msg.original_packet, msg.local_class_id)
+                nft_received(deps, info, msg.original_packet, msg.nft_contract)
             }
             Ics721Callbacks::FailCallback {} => fail_callback(),
             _ => Err(ContractError::InvalidCallback {}),
@@ -98,10 +100,17 @@ mod receive_callbacks {
 
     pub(crate) fn handle_ack_callback(
         deps: DepsMut,
+        info: &MessageInfo,
         msg: Ics721AckCallbackMsg,
     ) -> Result<Response, ContractError> {
         match from_json::<Ics721Callbacks>(&msg.msg)? {
-            Ics721Callbacks::NftSent {} => nft_sent(deps, msg.status, msg.original_packet),
+            Ics721Callbacks::NftSent {} => nft_sent(
+                deps,
+                info,
+                msg.status,
+                msg.original_packet,
+                msg.nft_contract,
+            ),
             Ics721Callbacks::FailCallback {} => fail_callback(),
             _ => Err(ContractError::InvalidCallback {}),
         }
@@ -109,19 +118,15 @@ mod receive_callbacks {
 
     fn nft_sent(
         deps: DepsMut,
+        info: &MessageInfo,
         status: Ics721Status,
         packet: NonFungibleTokenPacketData,
+        nft_contract: String,
     ) -> Result<Response, ContractError> {
         let ics_addr = ICS721.load(deps.storage)?;
-        let nft_contract = match deps.querier.query_wasm_smart::<Option<Addr>>(
-            ics_addr,
-            &ics721::msg::QueryMsg::NftContract {
-                class_id: packet.class_id.to_string(),
-            },
-        )? {
-            Some(addr) => addr,
-            None => deps.api.addr_validate(&packet.class_id)?,
-        };
+        ensure_eq!(ics_addr, info.sender, ContractError::SenderIsNotIcs721);
+
+        NFT_CONTRACT.save(deps.storage, &deps.api.addr_validate(&nft_contract)?)?;
 
         let owner: Option<cw721::OwnerOfResponse> = deps
             .querier
@@ -156,22 +161,15 @@ mod receive_callbacks {
     /// we assume the transfer is always successful.`
     fn nft_received(
         deps: DepsMut,
+        info: &MessageInfo,
         packet: NonFungibleTokenPacketData,
-        local_class_id: ClassId,
+        nft_contract: String,
     ) -> Result<Response, ContractError> {
         // Owner should be the receiver.
         let ics_addr = ICS721.load(deps.storage)?;
-        let nft_contract = match deps.querier.query_wasm_smart::<Option<Addr>>(
-            ics_addr,
-            &ics721::msg::QueryMsg::NftContract {
-                class_id: local_class_id.to_string(),
-            },
-        )? {
-            Some(addr) => addr,
-            None => deps.api.addr_validate(&packet.class_id)?,
-        };
+        ensure_eq!(ics_addr, info.sender, ContractError::SenderIsNotIcs721);
 
-        RECEIVED_NFT_CONTRACT.save(deps.storage, &nft_contract)?;
+        NFT_CONTRACT.save(deps.storage, &deps.api.addr_validate(&nft_contract)?)?;
 
         let owner = deps
             .querier
@@ -264,9 +262,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::AckMode {} => to_json_binary(&ACK_MODE.load(deps.storage)?),
         QueryMsg::LastAck {} => to_json_binary(&LAST_ACK.load(deps.storage)?),
         QueryMsg::GetReceivedCallback {} => to_json_binary(&RECEIVED_CALLBACK.load(deps.storage)?),
-        QueryMsg::GetReceivedNftContract {} => {
-            to_json_binary(&RECEIVED_NFT_CONTRACT.load(deps.storage)?)
-        }
+        QueryMsg::GetNftContract {} => to_json_binary(&NFT_CONTRACT.load(deps.storage)?),
         QueryMsg::GetSentCallback {} => to_json_binary(&SENT_CALLBACK.load(deps.storage)?),
     }
 }

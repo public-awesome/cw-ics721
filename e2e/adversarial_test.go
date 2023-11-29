@@ -673,10 +673,65 @@ func (suite *AdversarialTestSuite) TestDoubleSendInSingleMessage() {
 	require.Equal(suite.T(), "", chainACw721)
 }
 
+// NOTE - we comment original test because this case no longer should be handled successfully.
+// please check below test for what should be done in this case.
+// func (suite *AdversarialTestSuite) TestReceiveMultipleNtsDifferentActions() {
+// 	// Send a NFT from chain A to the evil chain.
+// 	ics721Nft(suite.T(), suite.chainA, suite.pathAC, suite.coordinator, suite.cw721A.String(), suite.tokenIdA, suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress(), "")
+
+// 	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), suite.tokenIdA)
+// 	require.Equal(suite.T(), suite.bridgeA.String(), chainAOwner)
+
+// 	pathCA := suite.pathAC.Invert()
+// 	chainCClassId := fmt.Sprintf("%s/%s/%s", pathCA.EndpointA.ChannelConfig.PortID, pathCA.EndpointA.ChannelID, suite.cw721A)
+
+// 	// Evil chain responds with:
+// 	//
+// 	// class ID: class ID of sent NFT
+// 	// token IDs: [chainAToken, chainAToken]
+// 	_, err := suite.chainC.SendMsgs(&wasmtypes.MsgExecuteContract{
+// 		Sender:   suite.chainC.SenderAccount.GetAddress().String(),
+// 		Contract: suite.bridgeC.String(),
+// 		Msg:      []byte(fmt.Sprintf(`{ "send_packet": { "channel_id": "%s", "timeout": { "timestamp": "%d" }, "data": {"classId":"%s","classUri":"https://metadata-url.com/my-metadata","tokenIds":["%s", "%s"],"tokenUris":["https://metadata-url.com/my-metadata1", "https://moonphase.is/image.svg"],"sender":"%s","receiver":"%s", "memo": "{'ignore': ''}"} }}`, pathCA.EndpointA.ChannelID, suite.coordinator.CurrentTime.Add(time.Hour*100).UnixNano(), chainCClassId, suite.tokenIdA, suite.tokenIdA, suite.chainC.SenderAccount.GetAddress().String(), suite.chainA.SenderAccount.GetAddress().String())),
+// 		Funds:    []sdk.Coin{},
+// 	})
+// 	require.NoError(suite.T(), err)
+// 	suite.coordinator.UpdateTime()
+// 	suite.coordinator.RelayAndAckPendingPackets(suite.pathAC.Invert())
+
+// 	// All assumptions have now been violated.
+// 	//
+// 	// 1. Remote chain says it has minted a new version of our
+// 	//    local NFT on its chain.
+// 	// 2. Remote chain says that there are two NFTs belonging to
+// 	//    the same collection with the same token ID.
+// 	//
+// 	// ICS721 contract is a based and does not care what other
+// 	// chain's NFT rules are. Only rule is that NFTs on ICS721
+// 	// contract's chain follow bridge contract's chain's NFT
+// 	// rules. ICS721 contract says:
+// 	//
+// 	// > I know one of those tokens is valid and corresponds to the
+// 	// > NFT I previously sent away so I will return that one to
+// 	// > the recipient. For all I know chain C social norms allow
+// 	// > for more than one collection with the same ID, so for
+// 	// > that one I will create a new collection (so that it
+// 	// > follows my chain's social norms) and give a token for
+// 	// > that collection for the receiver.
+// 	chainAOwner = queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), suite.tokenIdA)
+// 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
+
+// 	chainAClassId := fmt.Sprintf("%s/%s/%s/%s/%s", suite.pathAC.EndpointA.ChannelConfig.PortID, suite.pathAC.EndpointA.ChannelID, pathCA.EndpointA.ChannelConfig.PortID, pathCA.EndpointA.ChannelID, suite.cw721A)
+// 	chainANft := queryGetNftForClass(suite.T(), suite.chainA, suite.bridgeA.String(), chainAClassId)
+// 	chainAOwner = queryGetOwnerOf(suite.T(), suite.chainA, chainANft, "bad kid 1")
+// 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
+// }
+
 func (suite *AdversarialTestSuite) TestReceiveMultipleNtsDifferentActions() {
 	// Send a NFT from chain A to the evil chain.
 	ics721Nft(suite.T(), suite.chainA, suite.pathAC, suite.coordinator, suite.cw721A.String(), suite.tokenIdA, suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress(), "")
 
+	// Verify nft is escrowed by the bridge on A
 	chainAOwner := queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), suite.tokenIdA)
 	require.Equal(suite.T(), suite.bridgeA.String(), chainAOwner)
 
@@ -707,20 +762,14 @@ func (suite *AdversarialTestSuite) TestReceiveMultipleNtsDifferentActions() {
 	// ICS721 contract is a based and does not care what other
 	// chain's NFT rules are. Only rule is that NFTs on ICS721
 	// contract's chain follow bridge contract's chain's NFT
-	// rules. ICS721 contract says:
+	// rules.
 	//
-	// > I know one of those tokens is valid and corresponds to the
-	// > NFT I previously sent away so I will return that one to
-	// > the recipient. For all I know chain C social norms allow
-	// > for more than one collection with the same ID, so for
-	// > that one I will create a new collection (so that it
-	// > follows my chain's social norms) and give a token for
-	// > that collection for the receiver.
-	chainAOwner = queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), suite.tokenIdA)
-	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
+	// BUT I know that 2 different actions in the same transfer is not possible,
+	// which means it is a malicious attack and I will not accept it.
+	// While I know that separating that same transfer into 2 separate transfers
+	// will still work, I catch what I can.
 
-	chainAClassId := fmt.Sprintf("%s/%s/%s/%s/%s", suite.pathAC.EndpointA.ChannelConfig.PortID, suite.pathAC.EndpointA.ChannelID, pathCA.EndpointA.ChannelConfig.PortID, pathCA.EndpointA.ChannelID, suite.cw721A)
-	chainANft := queryGetNftForClass(suite.T(), suite.chainA, suite.bridgeA.String(), chainAClassId)
-	chainAOwner = queryGetOwnerOf(suite.T(), suite.chainA, chainANft, "bad kid 1")
-	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), chainAOwner)
+	// The NFT should still be escrowed by the bridge on chain A, tx failed.
+	chainAOwner = queryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), suite.tokenIdA)
+	require.Equal(suite.T(), suite.bridgeA.String(), chainAOwner)
 }

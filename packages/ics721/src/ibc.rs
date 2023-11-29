@@ -185,8 +185,12 @@ where
                 },
             )?;
 
-            let callback = match ack_callback_msg(deps.as_ref(), Ics721Status::Success, msg.clone())
-            {
+            let callback = match ack_callback_msg(
+                deps.as_ref(),
+                Ics721Status::Success,
+                msg.clone(),
+                nft_contract.to_string(),
+            ) {
                 Some(msg) => vec![msg],
                 None => vec![],
             };
@@ -219,7 +223,7 @@ where
         error: &str,
     ) -> Result<IbcBasicResponse, ContractError> {
         let message: NonFungibleTokenPacketData = from_json(&packet.data)?;
-        let nft_address = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, message.class_id.clone())?;
+        let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, message.class_id.clone())?;
         let sender = deps.api.addr_validate(&message.sender)?;
 
         let messages = message
@@ -230,7 +234,7 @@ where
                 OUTGOING_CLASS_TOKEN_TO_CHANNEL
                     .remove(deps.storage, (message.class_id.clone(), token_id.clone()));
                 Ok(WasmMsg::Execute {
-                    contract_addr: nft_address.to_string(),
+                    contract_addr: nft_contract.to_string(),
                     msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
                         recipient: sender.to_string(),
                         token_id: token_id.into(),
@@ -240,8 +244,12 @@ where
             })
             .collect::<StdResult<Vec<_>>>()?;
 
-        let callback = match ack_callback_msg(deps.as_ref(), Ics721Status::Failed, message.clone())
-        {
+        let callback = match ack_callback_msg(
+            deps.as_ref(),
+            Ics721Status::Failed,
+            message.clone(),
+            nft_contract.to_string(),
+        ) {
             Some(msg) => vec![msg],
             None => vec![],
         };

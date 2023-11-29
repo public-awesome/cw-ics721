@@ -2,7 +2,7 @@ use cosmwasm_schema::{cw_serde, schemars::JsonSchema};
 use cosmwasm_std::Binary;
 use serde::{Deserialize, Serialize};
 
-use crate::{ibc::NonFungibleTokenPacketData, token_types::ClassId};
+use crate::ibc::NonFungibleTokenPacketData;
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq)]
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -34,8 +34,8 @@ pub struct Ics721Callbacks {
 /// You must verify this message was called by an approved ICS721 contract, either by code_id or address.
 #[cw_serde]
 pub struct Ics721ReceiveCallbackMsg {
+    pub nft_contract: String,
     pub original_packet: NonFungibleTokenPacketData,
-    pub local_class_id: ClassId,
     pub msg: Binary,
 }
 
@@ -45,6 +45,7 @@ pub struct Ics721ReceiveCallbackMsg {
 #[cw_serde]
 pub struct Ics721AckCallbackMsg {
     pub status: Ics721Status,
+    pub nft_contract: String,
     pub original_packet: NonFungibleTokenPacketData,
     pub msg: Binary,
 }

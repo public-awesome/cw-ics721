@@ -1,13 +1,16 @@
-use cosmwasm_std::{from_json, to_json_binary, Binary, Deps, SubMsg, WasmMsg};
+use cosmwasm_std::{
+    from_json, instantiate2_address, to_json_binary, Addr, Binary, CodeInfoResponse, Deps, SubMsg,
+    WasmMsg,
+};
 use serde::Deserialize;
 
 use crate::{
     ibc::{NonFungibleTokenPacketData, ACK_CALLBACK_REPLY_ID},
-    token_types::ClassId,
     types::{
         Ics721AckCallbackMsg, Ics721Callbacks, Ics721Memo, Ics721ReceiveCallbackMsg, Ics721Status,
         ReceiverExecuteMsg,
     },
+    ContractError,
 };
 
 /// Parse the memo field into the type we want
@@ -32,6 +35,7 @@ pub(crate) fn ack_callback_msg(
     deps: Deps,
     status: Ics721Status,
     packet: NonFungibleTokenPacketData,
+    nft_contract: String,
 ) -> Option<SubMsg> {
     // Get the callback object
     let callbacks = parse_callback(packet.memo.clone())?;
@@ -46,8 +50,9 @@ pub(crate) fn ack_callback_msg(
     let msg = to_json_binary(&ReceiverExecuteMsg::Ics721AckCallback(
         Ics721AckCallbackMsg {
             status,
-            msg: callbacks.ack_callback_data?,
+            nft_contract,
             original_packet: packet,
+            msg: callbacks.ack_callback_data?,
         },
     ))
     .ok()?;
@@ -62,28 +67,41 @@ pub(crate) fn ack_callback_msg(
     ))
 }
 
-pub(crate) fn receive_callback_msg(
-    deps: Deps,
-    packet: NonFungibleTokenPacketData,
-    local_class_id: ClassId,
-) -> Option<WasmMsg> {
-    // Get the callback object
+/// Get the msg and address from the memo field
+/// if there is no receive callback returns None
+pub(crate) fn get_receive_callback(
+    packet: &NonFungibleTokenPacketData,
+) -> Option<(Binary, Option<String>)> {
     let callbacks = parse_callback(packet.memo.clone())?;
 
-    // Validate the address
-    let receiver = callbacks
-        .receive_callback_addr
-        .unwrap_or(packet.receiver.clone());
-    let contract_addr = deps.api.addr_validate(receiver.as_str()).ok()?.to_string();
+    Some((
+        callbacks.receive_callback_data?,
+        callbacks.receive_callback_addr,
+    ))
+}
+
+pub(crate) fn generate_receive_callback_msg(
+    deps: Deps,
+    packet: &NonFungibleTokenPacketData,
+    receive_callback_data: Binary,
+    receive_callback_addr: Option<String>,
+    nft_contract: String,
+) -> Option<WasmMsg> {
+    let callback_receiver = receive_callback_addr.unwrap_or(packet.receiver.clone());
+    let contract_addr = deps
+        .api
+        .addr_validate(callback_receiver.as_str())
+        .ok()?
+        .to_string();
 
     // Create the message we send to the contract
     // The status is the status we want to send back to the contract
     // The msg is the msg we forward from the sender
     let msg = to_json_binary(&ReceiverExecuteMsg::Ics721ReceiveCallback(
         Ics721ReceiveCallbackMsg {
-            msg: callbacks.receive_callback_data?,
-            local_class_id,
-            original_packet: packet,
+            msg: receive_callback_data,
+            nft_contract,
+            original_packet: packet.clone(),
         },
     ))
     .ok()?;
@@ -93,6 +111,23 @@ pub(crate) fn receive_callback_msg(
         msg,
         funds: vec![],
     })
+}
+
+pub fn get_instantiate2_address(
+    deps: Deps,
+    creator: &str,
+    salt: &[u8],
+    code_id: u64,
+) -> Result<Addr, ContractError> {
+    // Get the canonical address of the contract creator
+    let canonical_creator = deps.api.addr_canonicalize(creator)?;
+
+    // get the checksum of the contract we're going to instantiate
+    let CodeInfoResponse { checksum, .. } = deps.querier.query_wasm_code_info(code_id)?;
+
+    let canonical_cw721_addr = instantiate2_address(&checksum, &canonical_creator, salt)?;
+
+    Ok(deps.api.addr_humanize(&canonical_cw721_addr)?)
 }
 
 mod test {
