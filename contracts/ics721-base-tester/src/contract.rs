@@ -148,7 +148,7 @@ mod receive_callbacks {
                 // the owner should be ics721 if we on
                 // dest chain, the owner should be None
             }
-            Ics721Status::Failed => {
+            Ics721Status::Failed(..) => {
                 // Transfer failed, the NFT owner should be the sender
             }
         }

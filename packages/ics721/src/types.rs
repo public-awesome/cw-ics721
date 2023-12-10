@@ -54,7 +54,7 @@ pub struct Ics721AckCallbackMsg {
 #[cw_serde]
 pub enum Ics721Status {
     Success,
-    Failed,
+    Failed(String),
 }
 
 /// This is a wrapper for ics721 callbacks

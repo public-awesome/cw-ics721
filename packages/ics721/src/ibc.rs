@@ -246,7 +246,7 @@ where
 
         let callback = match ack_callback_msg(
             deps.as_ref(),
-            Ics721Status::Failed,
+            Ics721Status::Failed(error.to_string()),
             message.clone(),
             nft_contract.to_string(),
         ) {
