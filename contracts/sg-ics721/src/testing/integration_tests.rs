@@ -11,7 +11,7 @@ use cw721_base::msg::QueryMsg as Cw721QueryMsg;
 use cw_cii::{Admin, ContractInstantiateInfo};
 use cw_multi_test::{
     AddressGenerator, App, AppBuilder, BankKeeper, Contract, ContractWrapper, DistributionKeeper,
-    Executor, FailingModule, IbcAcceptingModule, Router, StakeKeeper, WasmKeeper,
+    Executor, FailingModule, IbcAcceptingModule, Router, StakeKeeper, StargateFailing, WasmKeeper,
 };
 use cw_pause_once::PauseError;
 use ics721::{
@@ -49,6 +49,7 @@ type MockRouter = Router<
     DistributionKeeper,
     IbcAcceptingModule,
     FailingModule<GovMsg, Empty, Empty>,
+    StargateFailing,
 >;
 
 type MockApp = App<
