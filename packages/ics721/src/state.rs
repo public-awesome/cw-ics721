@@ -9,7 +9,7 @@ use crate::token_types::{Class, ClassId, TokenId};
 /// The code ID we will use for instantiating new cw721s.
 pub const CW721_CODE_ID: Item<u64> = Item::new("a");
 /// The proxy that this contract is receiving NFTs from, if any.
-pub const PROXY: Item<Option<Addr>> = Item::new("b");
+pub const OUTGOING_PROXY: Item<Option<Addr>> = Item::new("b");
 /// Manages contract pauses.
 pub const PO: PauseOrchestrator = PauseOrchestrator::new("c", "d");
 

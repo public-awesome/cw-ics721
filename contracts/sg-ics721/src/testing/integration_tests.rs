@@ -319,7 +319,7 @@ impl Test {
                 app.api().addr_make(ICS721_CREATOR),
                 &InstantiateMsg {
                     cw721_base_code_id: source_cw721_id,
-                    proxy,
+                    outgoing_proxy: proxy,
                     pauser: admin_and_pauser
                         .clone()
                         .map(|p| app.api().addr_make(&p).to_string()),

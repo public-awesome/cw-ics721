@@ -14,7 +14,7 @@ use crate::{
     ibc_packet_receive::receive_ibc_packet,
     state::{
         CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID,
-        OUTGOING_CLASS_TOKEN_TO_CHANNEL, PROXY, TOKEN_METADATA,
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, TOKEN_METADATA,
     },
     token_types::{ClassId, TokenId},
     types::Ics721Status,
@@ -24,7 +24,7 @@ use crate::{
 /// Submessage reply ID used for instantiating cw721 contracts.
 pub(crate) const INSTANTIATE_CW721_REPLY_ID: u64 = 0;
 /// Submessage reply ID used for instantiating the proxy contract.
-pub(crate) const INSTANTIATE_PROXY_REPLY_ID: u64 = 1;
+pub(crate) const INSTANTIATE_OUTGOING_PROXY_REPLY_ID: u64 = 1;
 /// Submessages dispatched with this reply ID will set the ack on the
 /// response depending on if the submessage execution succeded or
 /// failed.
@@ -286,14 +286,14 @@ where
                     .add_attribute("class_id", class_id)
                     .add_attribute("cw721_addr", cw721_addr))
             }
-            INSTANTIATE_PROXY_REPLY_ID => {
+            INSTANTIATE_OUTGOING_PROXY_REPLY_ID => {
                 let res = parse_reply_instantiate_data(reply)?;
                 let proxy_addr = deps.api.addr_validate(&res.contract_address)?;
-                PROXY.save(deps.storage, &Some(proxy_addr))?;
+                OUTGOING_PROXY.save(deps.storage, &Some(proxy_addr))?;
 
                 Ok(Response::default()
-                    .add_attribute("method", "instantiate_proxy_reply_id")
-                    .add_attribute("proxy", res.contract_address))
+                    .add_attribute("method", "instantiate_outgoing_proxy_reply_id")
+                    .add_attribute("outgoing_proxy", res.contract_address))
             }
             // These messages don't need to do any state changes in the
             // reply - just need to commit an ack.

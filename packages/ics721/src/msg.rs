@@ -19,7 +19,7 @@ pub struct InstantiateMsg {
     /// will only accept NFTs from that proxy. The proxy is expected
     /// to implement the cw721 proxy interface defined in the
     /// cw721-proxy crate.
-    pub proxy: Option<ContractInstantiateInfo>,
+    pub outgoing_proxy: Option<ContractInstantiateInfo>,
     /// Address that may pause the contract. PAUSER may pause the
     /// contract a single time; in pausing the contract they burn the
     /// right to do so again. A new pauser may be later nominated by

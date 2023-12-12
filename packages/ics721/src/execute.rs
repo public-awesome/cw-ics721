@@ -9,12 +9,14 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     helpers::get_instantiate2_address,
-    ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
+    ibc::{
+        NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
+    },
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg},
     state::{
         CollectionData, UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
-        CW721_CODE_ID, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY,
-        TOKEN_METADATA,
+        CW721_CODE_ID, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY,
+        PO, TOKEN_METADATA,
     },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
     ContractError,
@@ -34,13 +36,13 @@ where
         msg: InstantiateMsg,
     ) -> StdResult<Response<T>> {
         CW721_CODE_ID.save(deps.storage, &msg.cw721_base_code_id)?;
-        PROXY.save(deps.storage, &None)?;
+        OUTGOING_PROXY.save(deps.storage, &None)?;
         PO.set_pauser(deps.storage, deps.api, msg.pauser.as_deref())?;
 
         let proxy_instantiate = msg
-            .proxy
+            .outgoing_proxy
             .map(|m| m.into_wasm_msg(env.contract.address))
-            .map(|wasm| SubMsg::reply_on_success(wasm, INSTANTIATE_PROXY_REPLY_ID))
+            .map(|wasm| SubMsg::reply_on_success(wasm, INSTANTIATE_OUTGOING_PROXY_REPLY_ID))
             .map_or(vec![], |s| vec![s]);
 
         Ok(Response::default()
@@ -80,7 +82,7 @@ where
         sender: String,
         msg: Binary,
     ) -> Result<Response<T>, ContractError> {
-        if PROXY.load(deps.storage)?.is_some() {
+        if OUTGOING_PROXY.load(deps.storage)?.is_some() {
             Err(ContractError::Unauthorized {})
         } else {
             self.receive_nft(deps, env, info, TokenId::new(token_id), sender, msg)
@@ -95,7 +97,7 @@ where
         eyeball: String,
         msg: cw721::Cw721ReceiveMsg,
     ) -> Result<Response<T>, ContractError> {
-        if PROXY
+        if OUTGOING_PROXY
             .load(deps.storage)?
             .map_or(true, |proxy| info.sender != proxy)
         {
@@ -429,12 +431,12 @@ where
         match msg {
             MigrateMsg::WithUpdate {
                 pauser,
-                proxy,
+                proxy: outgoing_proxy,
                 cw721_base_code_id,
             } => {
-                PROXY.save(
+                OUTGOING_PROXY.save(
                     deps.storage,
-                    &proxy
+                    &outgoing_proxy
                         .as_ref()
                         .map(|h| deps.api.addr_validate(h))
                         .transpose()?,
@@ -446,7 +448,10 @@ where
                 Ok(Response::default()
                     .add_attribute("method", "migrate")
                     .add_attribute("pauser", pauser.map_or_else(|| "none".to_string(), |or| or))
-                    .add_attribute("proxy", proxy.map_or_else(|| "none".to_string(), |or| or))
+                    .add_attribute(
+                        "outgoing_proxy",
+                        outgoing_proxy.map_or_else(|| "none".to_string(), |or| or),
+                    )
                     .add_attribute(
                         "cw721_base_code_id",
                         cw721_base_code_id.map_or_else(|| "none".to_string(), |or| or.to_string()),
