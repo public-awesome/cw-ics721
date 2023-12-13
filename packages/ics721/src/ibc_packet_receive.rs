@@ -2,13 +2,18 @@ use cosmwasm_std::{
     from_json, to_json_binary, Addr, Binary, DepsMut, Empty, Env, IbcPacket, IbcReceiveResponse,
     StdResult, SubMsg, WasmMsg,
 };
+use sha2::{Digest, Sha256};
 use zip_optional::Zippable;
 
 use crate::{
+    helpers::{generate_receive_callback_msg, get_instantiate2_address, get_receive_callback},
     ibc::{NonFungibleTokenPacketData, ACK_AND_DO_NOTHING},
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg},
-    state::{INCOMING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO},
+    state::{
+        CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL,
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO,
+    },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
     ContractError,
 };
@@ -51,11 +56,15 @@ pub(crate) fn receive_ibc_packet(
     let data: NonFungibleTokenPacketData = from_json(&packet.data)?;
     data.validate()?;
 
-    let local_class_id = try_pop_source_prefix(&packet.src, &data.class_id);
+    let cloned_data = data.clone();
     let receiver = deps.api.addr_validate(&data.receiver)?;
     let token_count = data.token_ids.len();
 
-    let submessage = data
+    // Check if NFT is local if not get the local class id
+    let maybe_local_class_id = try_pop_source_prefix(&packet.src, &data.class_id);
+    let callback = get_receive_callback(&data);
+
+    let action_aggregator = data
         .token_ids
         .into_iter()
         .zip_optional(data.token_uris)
@@ -63,14 +72,18 @@ pub(crate) fn receive_ibc_packet(
         .try_fold(
             Vec::<Action>::with_capacity(token_count),
             |mut messages, ((token_id, token_uri), token_data)| -> StdResult<_> {
-                if let Some(local_class_id) = local_class_id {
+                // If class is not local, its something new
+                if let Some(local_class_id) = maybe_local_class_id {
                     let local_class_id = ClassId::new(local_class_id);
-                    let key = (local_class_id.clone(), token_id.clone());
+                    let key: (ClassId, TokenId) = (local_class_id.clone(), token_id.clone());
                     let outgoing_channel =
                         OUTGOING_CLASS_TOKEN_TO_CHANNEL.may_load(deps.storage, key.clone())?;
+
+                    // Make sure the channel that used for outgoing transfer, is the same you use to transfer back
                     let returning_to_source = outgoing_channel.map_or(false, |outgoing_channel| {
                         outgoing_channel == packet.dest.channel_id
                     });
+
                     if returning_to_source {
                         // We previously sent this NFT out on this
                         // channel. Unlock the local version for the
@@ -87,6 +100,7 @@ pub(crate) fn receive_ibc_packet(
                 // new NFT.
                 let local_prefix = get_endpoint_prefix(&packet.dest);
                 let local_class_id = ClassId::new(format!("{}{}", local_prefix, data.class_id));
+
                 INCOMING_CLASS_TOKEN_TO_CHANNEL.save(
                     deps.storage,
                     (local_class_id.clone(), token_id.clone()),
@@ -107,8 +121,60 @@ pub(crate) fn receive_ibc_packet(
         .fold(
             ActionAggregator::new(data.class_uri, data.class_data),
             ActionAggregator::add_action,
+        );
+
+    // All token ids in the transfer must be either a redeption or creation
+    // they can't be both, if they are both something is wrong.
+    if action_aggregator.redemption.is_some() && action_aggregator.creation.is_some() {
+        return Err(ContractError::InvalidTransferBothActions);
+    }
+
+    // if there is a callback, generate the callback message
+    let callback_msg = if let Some((receive_callback_data, receive_callback_addr)) = callback {
+        // callback require the nft contract, get it using the class id from the action
+        let nft_contract = if let Some(voucher) = action_aggregator.redemption.clone() {
+            // If its a redemption, it means we already have the contract address in storage
+
+            CLASS_ID_TO_NFT_CONTRACT
+                .load(deps.storage, voucher.class.id.clone())
+                .map_err(|_| ContractError::NoNftContractForClassId(voucher.class.id.to_string()))
+        } else if let Some(voucher) = action_aggregator.creation.clone() {
+            // If its a creation action, we can use the instantiate2 function to get the nft contract
+            // we don't care of the contract is instantiated yet or not, as later submessage will instantiate it if its not.
+            // The reason we use instantiate2 here is because we don't know if it was already instantiated or not.
+
+            let cw721_code_id = CW721_CODE_ID.load(deps.storage)?;
+            // for creating a predictable nft contract using, using instantiate2, we need: checksum, creator, and salt:
+            // - using class id as salt for instantiating nft contract guarantees a) predictable address and b) uniqueness
+            // for this salt must be of length 32 bytes, so we use sha256 to hash class id
+            let mut hasher = Sha256::new();
+            hasher.update(voucher.class.id.as_bytes());
+            let salt = hasher.finalize().to_vec();
+
+            get_instantiate2_address(
+                deps.as_ref(),
+                env.contract.address.as_str(),
+                &salt,
+                cw721_code_id,
+            )
+        } else {
+            // This should never happen, as we must have at least 1 of the above actions
+            Err(ContractError::InvalidTransferNoAction)
+        }?;
+
+        generate_receive_callback_msg(
+            deps.as_ref(),
+            &cloned_data,
+            receive_callback_data,
+            receive_callback_addr,
+            nft_contract.to_string(),
         )
-        .into_submessage(env.contract.address, receiver)?;
+    } else {
+        None
+    };
+
+    let submessage =
+        action_aggregator.into_submessage(env.contract.address, receiver, callback_msg)?;
 
     let response = if let Some(memo) = data.memo {
         IbcReceiveResponse::default().add_attribute("ics721_memo", memo)
@@ -185,6 +251,9 @@ impl ActionAggregator {
     //
     // see `TestDoubleSendInSingleMessage` in `/e2e/adversarial_test.go`
     // for a test demonstrating this.
+    //
+    // Having both redemption and creation action in the same transfer
+    // tells us its a malicious act that we should reject.
     pub fn add_action(mut self, action: Action) -> Self {
         match action {
             Action::Redemption { class_id, token_id } => {
@@ -223,13 +292,21 @@ impl ActionAggregator {
         self
     }
 
-    pub fn into_submessage(self, contract: Addr, receiver: Addr) -> StdResult<SubMsg<Empty>> {
+    pub fn into_submessage(
+        self,
+        contract: Addr,
+        receiver: Addr,
+        callback_msg: Option<WasmMsg>,
+    ) -> StdResult<SubMsg<Empty>> {
         let mut m = Vec::with_capacity(2);
         if let Some(redeem) = self.redemption {
             m.push(redeem.into_wasm_msg(contract.clone(), receiver.to_string())?)
         }
         if let Some(create) = self.creation {
             m.push(create.into_wasm_msg(contract.clone(), receiver.into_string())?)
+        }
+        if let Some(callback_msg) = callback_msg {
+            m.push(callback_msg)
         }
         let message = if m.len() == 1 {
             m[0].clone()

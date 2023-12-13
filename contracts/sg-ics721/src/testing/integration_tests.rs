@@ -183,7 +183,7 @@ impl Api for MockApiBech32 {
                 }
             }
         }
-        Err(StdError::generic_err(format!("Invalid input: {}", input)))
+        Err(StdError::generic_err(format!("Invalid input: {input}")))
     }
 
     fn addr_humanize(&self, canonical: &CanonicalAddr) -> StdResult<Addr> {
@@ -319,16 +319,14 @@ impl Test {
                 app.api().addr_make(ICS721_CREATOR),
                 &InstantiateMsg {
                     cw721_base_code_id: source_cw721_id,
-                    proxy: proxy.clone(),
+                    proxy,
                     pauser: admin_and_pauser
                         .clone()
                         .map(|p| app.api().addr_make(&p).to_string()),
                 },
                 &[],
                 "sg-ics721",
-                admin_and_pauser
-                    .clone()
-                    .map(|p| app.api().addr_make(&p).to_string()),
+                admin_and_pauser.map(|p| app.api().addr_make(&p).to_string()),
             )
             .unwrap();
 
@@ -634,7 +632,7 @@ fn test_do_instantiate_and_mint() {
         // Check entry added in CLASS_ID_TO_NFT_CONTRACT
         let nft_contracts = test.query_nft_contracts();
         assert_eq!(nft_contracts.len(), 1);
-        assert_eq!(nft_contracts[0].0, class_id.to_string());
+        assert_eq!(nft_contracts[0].0, class_id);
         // Get the address of the instantiated NFT.
         let nft_contract: Addr = test
             .app
@@ -733,7 +731,7 @@ fn test_do_instantiate_and_mint() {
                 test.ics721,
                 &QueryMsg::Owner {
                     token_id: "1".to_string(),
-                    class_id: class_id.to_string(),
+                    class_id,
                 },
             )
             .unwrap();
@@ -810,7 +808,7 @@ fn test_do_instantiate_and_mint() {
         // Check entry added in CLASS_ID_TO_NFT_CONTRACT
         let nft_contracts = test.query_nft_contracts();
         assert_eq!(nft_contracts.len(), 1);
-        assert_eq!(nft_contracts[0].0, class_id.to_string());
+        assert_eq!(nft_contracts[0].0, class_id);
         // Get the address of the instantiated NFT.
         let nft_contract: Addr = test
             .app
@@ -909,7 +907,7 @@ fn test_do_instantiate_and_mint() {
                 test.ics721,
                 &QueryMsg::Owner {
                     token_id: "1".to_string(),
-                    class_id: class_id.to_string(),
+                    class_id,
                 },
             )
             .unwrap();
@@ -984,7 +982,7 @@ fn test_do_instantiate_and_mint() {
         // Check entry added in CLASS_ID_TO_NFT_CONTRACT
         let nft_contracts = test.query_nft_contracts();
         assert_eq!(nft_contracts.len(), 1);
-        assert_eq!(nft_contracts[0].0, class_id.to_string());
+        assert_eq!(nft_contracts[0].0, class_id);
         // Get the address of the instantiated NFT.
         let nft_contract: Addr = test
             .app
@@ -1083,7 +1081,7 @@ fn test_do_instantiate_and_mint() {
                 test.ics721,
                 &QueryMsg::Owner {
                     token_id: "1".to_string(),
-                    class_id: class_id.to_string(),
+                    class_id,
                 },
             )
             .unwrap();
@@ -1162,7 +1160,7 @@ fn test_do_instantiate_and_mint() {
         // Check entry added in CLASS_ID_TO_NFT_CONTRACT
         let nft_contracts = test.query_nft_contracts();
         assert_eq!(nft_contracts.len(), 1);
-        assert_eq!(nft_contracts[0].0, class_id.to_string());
+        assert_eq!(nft_contracts[0].0, class_id);
         // Get the address of the instantiated NFT.
         let nft_contract: Addr = test
             .app
@@ -1261,7 +1259,185 @@ fn test_do_instantiate_and_mint() {
                 test.ics721,
                 &QueryMsg::Owner {
                     token_id: "1".to_string(),
+                    class_id,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(owner.owner, nft_contract.to_string());
+
+        // check cw721 owner query matches ics721 owner query
+        let base_owner: cw721::OwnerOfResponse = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                nft_contract,
+                &cw721::Cw721QueryMsg::OwnerOf {
+                    token_id: "1".to_string(),
+                    include_expired: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(base_owner, owner);
+    }
+    // test case: instantiate cw721 with PartialCustomCollectionData (includes name and symbol)
+    // results in nft contract using name and symbol
+    {
+        let mut test = Test::new(false, None, sg721_base_contract());
+        let collection_contract_source_chain =
+            ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
+        let class_id = format!(
+            "wasm.{}/{}/{}",
+            test.ics721, CHANNEL_TARGET_CHAIN, collection_contract_source_chain
+        );
+        test.app
+            .execute_contract(
+                test.ics721.clone(),
+                test.ics721.clone(),
+                &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
+                    receiver: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
+                    create: VoucherCreation {
+                        class: Class {
+                            id: ClassId::new(class_id.clone()),
+                            uri: Some("https://moonphase.is".to_string()),
+                            data: Some(
+                                // CustomClassData doesn't apply to CollectionData type and won't be considered
+                                // collection name wont be transferred to instantiated nft contract
+                                to_json_binary(&PartialCustomCollectionData {
+                                    owner: None,
+                                    name: "collection-name".to_string(),
+                                    symbol: "collection-symbol".to_string(),
+                                    bar: "bar".to_string(),
+                                    foo: Some(
+                                        test.app
+                                            .api()
+                                            .addr_make(COLLECTION_OWNER_TARGET_CHAIN)
+                                            .to_string(),
+                                    ),
+                                })
+                                .unwrap(),
+                            ),
+                        },
+                        tokens: vec![
+                            Token {
+                                id: TokenId::new("1"),
+                                uri: Some("https://moonphase.is/image.svg".to_string()),
+                                data: None,
+                            },
+                            Token {
+                                id: TokenId::new("2"),
+                                uri: Some("https://foo.bar".to_string()),
+                                data: None,
+                            },
+                        ],
+                    },
+                }),
+                &[],
+            )
+            .unwrap();
+        // Check entry added in CLASS_ID_TO_NFT_CONTRACT
+        let nft_contracts = test.query_nft_contracts();
+        assert_eq!(nft_contracts.len(), 1);
+        assert_eq!(nft_contracts[0].0, class_id);
+        // Get the address of the instantiated NFT.
+        let nft_contract: Addr = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                test.ics721.clone(),
+                &QueryMsg::NftContract {
                     class_id: class_id.to_string(),
+                },
+            )
+            .unwrap();
+
+        // check name and symbol contains class id for instantiated nft contract
+        let contract_info: cw721::ContractInfoResponse = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                nft_contract.clone(),
+                &Cw721QueryMsg::<Empty>::ContractInfo {},
+            )
+            .unwrap();
+        assert_eq!(
+            contract_info,
+            cw721::ContractInfoResponse {
+                name: "collection-name".to_string(),
+                symbol: "collection-symbol".to_string()
+            }
+        );
+
+        // check collection info is properly set
+        let collection_info: CollectionInfoResponse = test
+            .app
+            .wrap()
+            .query_wasm_smart(nft_contract.clone(), &Sg721QueryMsg::CollectionInfo {})
+            .unwrap();
+
+        assert_eq!(
+            collection_info,
+            CollectionInfoResponse {
+                // creator of ics721 contract is creator of nft contract, since no owner in ClassData provided
+                creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
+                description: "".to_string(),
+                image: "https://arkprotocol.io".to_string(),
+                external_link: None,
+                explicit_content: None,
+                start_trading_time: None,
+                royalty_info: None,
+            }
+        );
+
+        // Check that token_uri was set properly.
+        let token_info: cw721::NftInfoResponse<Empty> = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                nft_contract.clone(),
+                &cw721::Cw721QueryMsg::NftInfo {
+                    token_id: "1".to_string(),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            token_info.token_uri,
+            Some("https://moonphase.is/image.svg".to_string())
+        );
+        let token_info: cw721::NftInfoResponse<Empty> = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                nft_contract.clone(),
+                &cw721::Cw721QueryMsg::NftInfo {
+                    token_id: "2".to_string(),
+                },
+            )
+            .unwrap();
+        assert_eq!(token_info.token_uri, Some("https://foo.bar".to_string()));
+
+        // After transfer to target, test owner can do any action, like transfer, on collection
+        test.app
+            .execute_contract(
+                test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN),
+                nft_contract.clone(),
+                &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
+                    recipient: nft_contract.to_string(), // new owner
+                    token_id: "1".to_string(),
+                },
+                &[],
+            )
+            .unwrap();
+
+        // ics721 owner query and check nft contract owns it
+        let owner: cw721::OwnerOfResponse = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                test.ics721,
+                &QueryMsg::Owner {
+                    token_id: "1".to_string(),
+                    class_id,
                 },
             )
             .unwrap();
@@ -1364,8 +1540,8 @@ fn test_do_instantiate_and_mint_2_different_collections() {
         // Check entry added in CLASS_ID_TO_NFT_CONTRACT
         let nft_contracts = test.query_nft_contracts();
         assert_eq!(nft_contracts.len(), 2);
-        assert_eq!(nft_contracts[0].0, class_id_1.to_string());
-        assert_eq!(nft_contracts[1].0, class_id_2.to_string());
+        assert_eq!(nft_contracts[0].0, class_id_1);
+        assert_eq!(nft_contracts[1].0, class_id_2);
         // Get the address of the instantiated NFT.
         let nft_contract_1: Addr = test
             .app
@@ -1545,7 +1721,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
                 test.ics721.clone(),
                 &QueryMsg::Owner {
                     token_id: "1".to_string(),
-                    class_id: class_id_1.to_string(),
+                    class_id: class_id_1,
                 },
             )
             .unwrap();
@@ -1556,7 +1732,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
                 test.ics721,
                 &QueryMsg::Owner {
                     token_id: "1".to_string(),
-                    class_id: class_id_2.to_string(),
+                    class_id: class_id_2,
                 },
             )
             .unwrap();
@@ -1646,7 +1822,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
     // Check entry added in CLASS_ID_TO_NFT_CONTRACT
     let class_id_to_nft_contract = test.query_nft_contracts();
     assert_eq!(class_id_to_nft_contract.len(), 1);
-    assert_eq!(class_id_to_nft_contract[0].0, class_id.to_string());
+    assert_eq!(class_id_to_nft_contract[0].0, class_id);
 
     // 2nd call will only do a mint as the contract for the class ID has
     // already been instantiated.
@@ -1683,12 +1859,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
     let nft_contract: Addr = test
         .app
         .wrap()
-        .query_wasm_smart(
-            test.ics721,
-            &QueryMsg::NftContract {
-                class_id: class_id.to_string(),
-            },
-        )
+        .query_wasm_smart(test.ics721, &QueryMsg::NftContract { class_id })
         .unwrap();
 
     // check collection info is properly set
@@ -1899,46 +2070,44 @@ fn test_proxy_authorized() {
 
 #[test]
 fn test_receive_nft() {
-    // test case: receive nft from sg721-base
-    {
-        let mut test = Test::new(false, None, sg721_base_contract());
-        // simplify: mint and escrowed/owned by ics721, as a precondition for receive nft
-        let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
-        // ics721 receives NFT from sender/collection contract,
-        // if - and only if - nft is escrowed by ics721, ics721 will interchain transfer NFT!
-        // otherwise proxy is unauthorised to transfer NFT
-        let res = test
-            .app
-            .execute_contract(
-                test.source_cw721.clone(),
-                test.ics721.clone(),
-                &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
-                    sender: test.source_cw721_owner.to_string(),
-                    token_id: token_id.clone(),
-                    msg: to_json_binary(&IbcOutgoingMsg {
-                        receiver: NFT_OWNER_TARGET_CHAIN.to_string(), // nft owner for other chain, on this chain ics721 is owner
-                        channel_id: "channel-0".to_string(),
-                        timeout: IbcTimeout::with_block(IbcTimeoutBlock {
-                            revision: 0,
-                            height: 10,
-                        }),
-                        memo: None,
-                    })
-                    .unwrap(),
-                }),
-                &[],
-            )
-            .unwrap();
+    let mut test = Test::new(false, None, sg721_base_contract());
+    // simplify: mint and escrowed/owned by ics721, as a precondition for receive nft
+    let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
+    // ics721 receives NFT from sender/collection contract,
+    // if - and only if - nft is escrowed by ics721, ics721 will interchain transfer NFT!
+    // otherwise proxy is unauthorised to transfer NFT
+    let res = test
+        .app
+        .execute_contract(
+            test.source_cw721.clone(),
+            test.ics721.clone(),
+            &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+                sender: test.source_cw721_owner.to_string(),
+                token_id,
+                msg: to_json_binary(&IbcOutgoingMsg {
+                    receiver: "mr-t".to_string(),
+                    channel_id: "channel-0".to_string(),
+                    timeout: IbcTimeout::with_block(IbcTimeoutBlock {
+                        revision: 0,
+                        height: 10,
+                    }),
+                    memo: None,
+                })
+                .unwrap(),
+            }),
+            &[],
+        )
+        .unwrap();
 
-        // get class data (containing collection data) from response
-        let event = res.events.into_iter().find(|e| e.ty == "wasm").unwrap();
-        let class_data_attribute = event
-            .attributes
-            .into_iter()
-            .find(|a| a.key == "class_data")
-            .unwrap();
-        // check collection data matches with data from source nft contract
-        let expected_contract_info: cosmwasm_std::ContractInfoResponse =
+    // get class data (containing collection data) from response
+    let event = res.events.into_iter().find(|e| e.ty == "wasm").unwrap();
+    let class_data_attribute = event
+        .attributes
+        .into_iter()
+        .find(|a| a.key == "class_data")
+        .unwrap();
+    // check collection data matches with data from source nft contract
+    let expected_contract_info: cosmwasm_std::ContractInfoResponse =
         // workaround using from_json/to_json_binary since ContractInfoResponse is non-exhaustive, can't be created directly
         from_json(
             to_json_binary(&ContractInfoResponse {
@@ -1951,31 +2120,30 @@ fn test_receive_nft() {
             .unwrap(),
         )
         .unwrap();
-        let expected_collection_data = to_json_binary(&SgCollectionData {
-            owner: Some(
-                // collection data from source chain
-                test.source_cw721_owner.to_string(),
-            ),
-            contract_info: Some(expected_contract_info),
-            name: "name".to_string(),
-            symbol: "symbol".to_string(),
-            num_tokens: Some(1),
-            collection_info: Some(CollectionInfoResponse {
-                creator: test.ics721.to_string(),
-                description: "".to_string(),
-                image: "https://arkprotocol.io".to_string(),
-                external_link: None,
-                explicit_content: None,
-                start_trading_time: None,
-                royalty_info: None,
-            }),
-        })
-        .unwrap();
-        assert_eq!(
-            class_data_attribute.value,
-            format!("{:?}", expected_collection_data)
-        );
-    }
+    let expected_collection_data = to_json_binary(&SgCollectionData {
+        owner: Some(
+            // collection data from source chain
+            test.source_cw721_owner.to_string(),
+        ),
+        contract_info: Some(expected_contract_info),
+        name: "name".to_string(),
+        symbol: "symbol".to_string(),
+        num_tokens: Some(1),
+        collection_info: Some(CollectionInfoResponse {
+            creator: test.ics721.to_string(),
+            description: "".to_string(),
+            image: "https://arkprotocol.io".to_string(),
+            external_link: None,
+            explicit_content: None,
+            start_trading_time: None,
+            royalty_info: None,
+        }),
+    })
+    .unwrap();
+    assert_eq!(
+        class_data_attribute.value,
+        format!("{expected_collection_data:?}")
+    );
 }
 
 /// In case proxy for ICS721 is defined, ICS721 only accepts receival from proxy - not from nft contract!

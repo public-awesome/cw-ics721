@@ -1,13 +1,14 @@
 use std::fmt::Debug;
 
 use cosmwasm_std::{
-    from_json, instantiate2_address, to_json_binary, Addr, Binary, CodeInfoResponse, Deps, DepsMut,
-    Empty, Env, IbcMsg, MessageInfo, Response, StdResult, SubMsg, WasmMsg,
+    from_json, to_json_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcMsg, MessageInfo,
+    Response, StdResult, SubMsg, WasmMsg,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
+    helpers::get_instantiate2_address,
     ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg},
     state::{
@@ -199,7 +200,7 @@ where
         // so only can output binary here
         let class_data_string = class
             .data
-            .map_or("none".to_string(), |data| format!("{:?}", data));
+            .map_or("none".to_string(), |data| format!("{data:?}"));
 
         Ok(Response::default()
             .add_attribute("method", "execute_receive_nft")
@@ -264,29 +265,29 @@ where
             vec![]
         } else {
             let class_id = ClassId::new(class.id.clone());
+            let cw721_code_id = CW721_CODE_ID.load(deps.storage)?;
             // for creating a predictable nft contract using, using instantiate2, we need: checksum, creator, and salt:
             // - using class id as salt for instantiating nft contract guarantees a) predictable address and b) uniqueness
             // for this salt must be of length 32 bytes, so we use sha256 to hash class id
             let mut hasher = Sha256::new();
             hasher.update(class_id.as_bytes());
             let salt = hasher.finalize().to_vec();
-            // Get the canonical address of the contract creator
-            let canonical_creator = deps.api.addr_canonicalize(env.contract.address.as_str())?;
-            // get the checksum of the contract we're going to instantiate
-            let CodeInfoResponse { checksum, .. } = deps
-                .querier
-                .query_wasm_code_info(CW721_CODE_ID.load(deps.storage)?)?;
-            let canonical_cw721_addr = instantiate2_address(&checksum, &canonical_creator, &salt)?;
-            let cw721_addr = deps.api.addr_humanize(&canonical_cw721_addr)?;
+
+            let cw721_addr = get_instantiate2_address(
+                deps.as_ref(),
+                env.contract.address.as_str(),
+                &salt,
+                cw721_code_id,
+            )?;
 
             // Save classId <-> contract mappings.
             CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class_id.clone(), &cw721_addr)?;
-            NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, cw721_addr.clone(), &class_id)?;
+            NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, cw721_addr, &class_id)?;
 
             let message = SubMsg::<T>::reply_on_success(
                 WasmMsg::Instantiate2 {
                     admin: None,
-                    code_id: CW721_CODE_ID.load(deps.storage)?,
+                    code_id: cw721_code_id,
                     msg: self.init_msg(deps.as_ref(), &env, &class)?,
                     funds: vec![],
                     // Attempting to fit the class ID in the label field

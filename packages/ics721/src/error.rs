@@ -59,4 +59,13 @@ pub enum ContractError {
 
     #[error("tokenIds, tokenUris, and tokenData must have the same length")]
     TokenInfoLenMissmatch {},
+
+    #[error("Transfer contains both redemption and a creation action")]
+    InvalidTransferBothActions,
+
+    #[error("Transfer Doesn't contain any action, no redemption or creation")]
+    InvalidTransferNoAction,
+
+    #[error("Couldn't find nft contract for this class id: {0}")]
+    NoNftContractForClassId(String),
 }

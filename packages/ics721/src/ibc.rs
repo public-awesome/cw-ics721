@@ -9,6 +9,7 @@ use cw_utils::parse_reply_instantiate_data;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
+    helpers::ack_callback_msg,
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error, validate_order_and_version},
     ibc_packet_receive::receive_ibc_packet,
     state::{
@@ -16,6 +17,7 @@ use crate::{
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, PROXY, TOKEN_METADATA,
     },
     token_types::{ClassId, TokenId},
+    types::Ics721Status,
     ContractError,
 };
 
@@ -27,6 +29,8 @@ pub(crate) const INSTANTIATE_PROXY_REPLY_ID: u64 = 1;
 /// response depending on if the submessage execution succeded or
 /// failed.
 pub(crate) const ACK_AND_DO_NOTHING: u64 = 2;
+/// Reply on callback
+pub(crate) const ACK_CALLBACK_REPLY_ID: u64 = 3;
 /// The IBC version this contract expects to communicate with.
 pub const IBC_VERSION: &str = "ics721-1";
 
@@ -181,8 +185,19 @@ where
                 },
             )?;
 
+            let callback = match ack_callback_msg(
+                deps.as_ref(),
+                Ics721Status::Success,
+                msg.clone(),
+                nft_contract.to_string(),
+            ) {
+                Some(msg) => vec![msg],
+                None => vec![],
+            };
+
             Ok(IbcBasicResponse::new()
                 .add_messages(burn_notices)
+                .add_submessages(callback)
                 .add_attribute("method", "acknowledge")
                 .add_attribute("sender", msg.sender)
                 .add_attribute("receiver", msg.receiver)
@@ -208,7 +223,7 @@ where
         error: &str,
     ) -> Result<IbcBasicResponse, ContractError> {
         let message: NonFungibleTokenPacketData = from_json(&packet.data)?;
-        let nft_address = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, message.class_id.clone())?;
+        let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, message.class_id.clone())?;
         let sender = deps.api.addr_validate(&message.sender)?;
 
         let messages = message
@@ -219,7 +234,7 @@ where
                 OUTGOING_CLASS_TOKEN_TO_CHANNEL
                     .remove(deps.storage, (message.class_id.clone(), token_id.clone()));
                 Ok(WasmMsg::Execute {
-                    contract_addr: nft_address.to_string(),
+                    contract_addr: nft_contract.to_string(),
                     msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
                         recipient: sender.to_string(),
                         token_id: token_id.into(),
@@ -229,8 +244,19 @@ where
             })
             .collect::<StdResult<Vec<_>>>()?;
 
+        let callback = match ack_callback_msg(
+            deps.as_ref(),
+            Ics721Status::Failed(error.to_string()),
+            message.clone(),
+            nft_contract.to_string(),
+        ) {
+            Some(msg) => vec![msg],
+            None => vec![],
+        };
+
         Ok(IbcBasicResponse::new()
             .add_messages(messages)
+            .add_submessages(callback)
             .add_attribute("method", "handle_packet_fail")
             .add_attribute("token_ids", format!("{:?}", message.token_ids))
             .add_attribute("class_id", message.class_id)
@@ -281,6 +307,10 @@ where
                     // https://github.com/CosmWasm/cosmwasm/blob/main/SEMANTICS.md#handling-the-reply
                     SubMsgResult::Err(err) => Ok(Response::new().set_data(ack_fail(err))),
                 }
+            }
+            ACK_CALLBACK_REPLY_ID => {
+                let err = reply.result.unwrap_err();
+                Ok(Response::new().add_attribute("error", err))
             }
             _ => Err(ContractError::UnrecognisedReplyId {}),
         }

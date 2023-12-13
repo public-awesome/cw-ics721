@@ -20,10 +20,10 @@ loc:
 # Generate optimized WASM artifacts
 optimize:
   #!/usr/bin/env sh
-  nohup docker run --rm -v "$(pwd)":/code --platform {{platform}} \
+  docker run --rm -v "$(pwd)":/code --platform {{platform}} \
     --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
     --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-    {{image}} > optimize.log &
+    {{image}}
 
 optimize-watch:
   @tail -f optimize.log | bat --paging=never -l log
