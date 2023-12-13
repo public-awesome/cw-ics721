@@ -40,6 +40,7 @@ pub fn instantiate(
             name: msg.name,
             symbol: msg.symbol,
             minter: msg.minter,
+            withdraw_address: None,
         },
     )?;
     TARGET.save(deps.storage, &deps.api.addr_validate(&msg.target)?)?;

@@ -16,9 +16,9 @@ cw-ownable      = "0.5.0"
 cw-paginate-storage = { version = "2.2.0", git = "https://github.com/DA0-DA0/dao-contracts.git" }
 cw-storage-plus = "1.1"
 cw2 = "1.1"
-cw721 = "0.18"
+cw721 = { git = "https://github.com/arkprotocol/cw-nfts", branch = "fee_share"}
 cw721-016 = { version = "0.16.0", package = "cw721" }
-cw721-base = "0.18"
+cw721-base = { git = "https://github.com/arkprotocol/cw-nfts", branch = "fee_share"}
 cw721-base-016  = { version = "0.16.0", package = "cw721-base" }
 cw721-proxy-derive = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.7" }
 cw721-rate-limited-proxy = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.7" }

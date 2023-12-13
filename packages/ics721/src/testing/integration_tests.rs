@@ -284,6 +284,7 @@ impl Test {
         proxy: bool,
         admin_and_pauser: Option<String>,
         cw721_code: Box<dyn Contract<Empty>>,
+        is_cw721_018: bool,
     ) -> Self {
         let mut app = AppBuilder::new()
             .with_wasm::<WasmKeeper<Empty, Empty>>(
@@ -331,20 +332,37 @@ impl Test {
             .unwrap();
 
         let source_cw721_owner = app.api().addr_make(COLLECTION_OWNER_SOURCE_CHAIN);
-        let source_cw721 = app
-            .instantiate_contract(
-                source_cw721_id,
-                source_cw721_owner.clone(),
-                &Cw721InstantiateMsg {
-                    name: "name".to_string(),
-                    symbol: "symbol".to_string(),
-                    minter: source_cw721_owner.to_string(),
-                },
-                &[],
-                "cw721-base",
-                None,
-            )
-            .unwrap();
+        let source_cw721 = match is_cw721_018 {
+            true => app
+                .instantiate_contract(
+                    source_cw721_id,
+                    source_cw721_owner.clone(),
+                    &Cw721InstantiateMsg {
+                        name: "name".to_string(),
+                        symbol: "symbol".to_string(),
+                        minter: source_cw721_owner.to_string(),
+                        withdraw_address: None,
+                    },
+                    &[],
+                    "cw721-base",
+                    None,
+                )
+                .unwrap(),
+            false => app
+                .instantiate_contract(
+                    source_cw721_id,
+                    source_cw721_owner.clone(),
+                    &cw721_base_016::msg::InstantiateMsg {
+                        name: "name".to_string(),
+                        symbol: "symbol".to_string(),
+                        minter: source_cw721_owner.to_string(),
+                    },
+                    &[],
+                    "cw721-base",
+                    None,
+                )
+                .unwrap(),
+        };
 
         Self {
             app,
@@ -509,7 +527,7 @@ fn proxy_contract() -> Box<dyn Contract<Empty>> {
 
 #[test]
 fn test_instantiate() {
-    let mut test = Test::new(false, None, cw721_base_contract());
+    let mut test = Test::new(false, None, cw721_base_contract(), true);
 
     // check stores are properly initialized
     let cw721_id = test.query_cw721_id();
@@ -524,7 +542,7 @@ fn test_instantiate() {
 
 #[test]
 fn test_do_instantiate_and_mint_weird_data() {
-    let mut test = Test::new(false, None, cw721_base_contract());
+    let mut test = Test::new(false, None, cw721_base_contract(), true);
     let collection_contract_source_chain =
         ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
     let class_id = format!(
@@ -575,7 +593,7 @@ fn test_do_instantiate_and_mint_weird_data() {
 fn test_do_instantiate_and_mint() {
     // test case: instantiate cw721 with no ClassData (without owner, name, and symbol)
     {
-        let mut test = Test::new(false, None, cw721_base_contract());
+        let mut test = Test::new(false, None, cw721_base_contract(), true);
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id = format!(
@@ -714,7 +732,7 @@ fn test_do_instantiate_and_mint() {
     }
     // test case: instantiate cw721 with ClassData containing owner, name, and symbol
     {
-        let mut test = Test::new(false, None, cw721_base_contract());
+        let mut test = Test::new(false, None, cw721_base_contract(), true);
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id = format!(
@@ -869,7 +887,7 @@ fn test_do_instantiate_and_mint() {
     // test case: instantiate cw721 with CustomClassData (includes name, but without owner and symbol)
     // results in nft contract using class id for name and symbol
     {
-        let mut test = Test::new(false, None, cw721_base_contract());
+        let mut test = Test::new(false, None, cw721_base_contract(), true);
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id = format!(
@@ -1023,7 +1041,7 @@ fn test_do_instantiate_and_mint() {
     // test case: instantiate cw721 with PartialCustomCollectionData (includes name and symbol)
     // results in nft contract using name and symbol
     {
-        let mut test = Test::new(false, None, cw721_base_contract());
+        let mut test = Test::new(false, None, cw721_base_contract(), true);
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id = format!(
@@ -1183,7 +1201,7 @@ fn test_do_instantiate_and_mint() {
 fn test_do_instantiate_and_mint_2_different_collections() {
     // test case: instantiate two cw721 contracts with different class id and make sure instantiate2 creates 2 different, predictable contracts
     {
-        let mut test = Test::new(false, None, cw721_base_contract());
+        let mut test = Test::new(false, None, cw721_base_contract(), true);
         let collection_contract_source_chain_1 =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id_1 = format!(
@@ -1450,7 +1468,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
 
 #[test]
 fn test_do_instantiate_and_mint_no_instantiate() {
-    let mut test = Test::new(false, None, cw721_base_contract());
+    let mut test = Test::new(false, None, cw721_base_contract(), true);
     let collection_contract_source_chain =
         ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
     let class_id = format!(
@@ -1558,7 +1576,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
 
 #[test]
 fn test_do_instantiate_and_mint_permissions() {
-    let mut test = Test::new(false, None, cw721_base_contract());
+    let mut test = Test::new(false, None, cw721_base_contract(), true);
     let collection_contract_source_chain =
         ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
     let class_id = format!(
@@ -1612,7 +1630,7 @@ fn test_do_instantiate_and_mint_permissions() {
 /// Tests that we can not proxy NFTs if no proxy is configured.
 #[test]
 fn test_no_proxy_unauthorized() {
-    let mut test = Test::new(false, None, cw721_base_contract());
+    let mut test = Test::new(false, None, cw721_base_contract(), true);
     let err: ContractError = test
         .app
         .execute_contract(
@@ -1636,7 +1654,7 @@ fn test_no_proxy_unauthorized() {
 
 #[test]
 fn test_proxy_authorized() {
-    let mut test = Test::new(true, None, cw721_base_contract());
+    let mut test = Test::new(true, None, cw721_base_contract(), true);
     let proxy_address: Option<Addr> = test
         .app
         .wrap()
@@ -1660,6 +1678,7 @@ fn test_proxy_authorized() {
                     .api()
                     .addr_make(COLLECTION_OWNER_SOURCE_CHAIN)
                     .to_string(),
+                withdraw_address: None,
             },
             &[],
             "label cw721",
@@ -1719,7 +1738,9 @@ fn test_proxy_authorized() {
 fn test_receive_nft() {
     // test case: receive nft from cw721-base
     {
-        let mut test = Test::new(false, None, cw721_base_contract());
+        println!(">>>>>>>>>>>>1");
+        let mut test = Test::new(false, None, cw721_base_contract(), true);
+        println!(">>>>>>>>>>>>2");
         // simplify: mint and escrowed/owned by ics721, as a precondition for receive nft
         let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
         // ics721 receives NFT from sender/collection contract,
@@ -1787,7 +1808,7 @@ fn test_receive_nft() {
     }
     // test case: backward compatibility - receive nft also works for old/v016 cw721-base
     {
-        let mut test = Test::new(false, None, cw721_v016_base_contract());
+        let mut test = Test::new(false, None, cw721_v016_base_contract(), false);
         // simplify: mint and escrowed/owned by ics721, as a precondition for receive nft
         let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
         // ics721 receives NFT from sender/collection contract,
@@ -1861,7 +1882,7 @@ fn test_receive_nft() {
 /// In case proxy for ICS721 is defined, ICS721 only accepts receival from proxy - not from nft contract!
 #[test]
 fn test_no_receive_with_proxy() {
-    let mut test = Test::new(true, None, cw721_base_contract());
+    let mut test = Test::new(true, None, cw721_base_contract(), true);
     // unauthorized to receive nft from nft contract
     let err: ContractError = test
         .app
@@ -1897,6 +1918,7 @@ fn test_pause() {
         true,
         Some(ICS721_ADMIN_AND_PAUSER.to_string()),
         cw721_base_contract(),
+        true,
     );
     // Should start unpaused.
     let (paused, pauser) = test.query_pause_info();
@@ -1979,6 +2001,7 @@ fn test_migration() {
         true,
         Some(ICS721_ADMIN_AND_PAUSER.to_string()),
         cw721_base_contract(),
+        true,
     );
     // assert instantiation worked
     let (_, pauser) = test.query_pause_info();

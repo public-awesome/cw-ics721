@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
 use cosmwasm_std::{
-    from_json, to_json_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcMsg, MessageInfo,
-    Response, StdResult, SubMsg, WasmMsg,
+    from_json, to_json_binary, Addr, Binary, ContractInfoResponse, Deps, DepsMut, Empty, Env,
+    IbcMsg, MessageInfo, Response, StdResult, SubMsg, WasmMsg,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
@@ -325,12 +325,18 @@ where
     }
 
     /// Default implementation using `cw721_base::msg::InstantiateMsg`
-    fn init_msg(&self, _deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
+    fn init_msg(&self, deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
+        // use ics721 creator for withdraw address
+        let ContractInfoResponse { creator, .. } = deps
+            .querier
+            .query_wasm_contract_info(env.contract.address.to_string())?;
+
         // use by default ClassId, in case there's no class data with name and symbol
         let mut instantiate_msg = cw721_base::msg::InstantiateMsg {
             name: class.id.clone().into(),
             symbol: class.id.clone().into(),
             minter: env.contract.address.to_string(),
+            withdraw_address: Some(creator),
         };
 
         // use collection data for setting name and symbol
