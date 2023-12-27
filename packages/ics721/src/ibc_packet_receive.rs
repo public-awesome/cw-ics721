@@ -7,7 +7,7 @@ use zip_optional::Zippable;
 
 use crate::{
     helpers::{generate_receive_callback_msg, get_instantiate2_address, get_receive_callback},
-    ibc::{ACK_AND_DO_NOTHING},
+    ibc::ACK_AND_DO_NOTHING,
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg},
     state::{
@@ -17,7 +17,11 @@ use crate::{
     token_types::{VoucherCreation, VoucherRedemption},
     ContractError,
 };
-use ics721_types::{token_types::{Class, ClassId, Token, TokenId}, ibc::NonFungibleTokenPacketData, types::Ics721ReceiveIbcPacketMsg};
+use ics721_types::{
+    ibc::NonFungibleTokenPacketData,
+    token_types::{Class, ClassId, Token, TokenId},
+    types::Ics721ReceiveIbcPacketMsg,
+};
 
 /// Every incoming token has some associated action.
 enum Action {

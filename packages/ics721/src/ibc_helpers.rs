@@ -1,13 +1,9 @@
 use cosmwasm_std::{
     from_json, to_json_binary, Binary, IbcAcknowledgement, IbcChannel, IbcEndpoint, IbcOrder,
 };
-use ics721_types::ibc::NonFungibleTokenPacketData;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    ibc::IBC_VERSION,
-    ContractError,
-};
+use crate::{ibc::IBC_VERSION, ContractError};
 
 /// Tries to remove the source prefix from a given class_id. If the
 /// class_id does not begin with the given prefix, returns
@@ -124,7 +120,6 @@ pub(crate) fn validate_order_and_version(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ics721_types::token_types::{ClassId, TokenId};
 
     #[test]
     fn test_pop_source_simple() {

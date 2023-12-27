@@ -10,10 +10,7 @@ use cosmwasm_std::{
 
 use crate::{
     execute::Ics721Execute,
-    ibc::{
-        Ics721Ibc, ACK_AND_DO_NOTHING, IBC_VERSION,
-        INSTANTIATE_CW721_REPLY_ID,
-    },
+    ibc::{Ics721Ibc, ACK_AND_DO_NOTHING, IBC_VERSION, INSTANTIATE_CW721_REPLY_ID},
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
     query::Ics721Query,
@@ -21,7 +18,11 @@ use crate::{
     utils::get_collection_data,
     ContractError,
 };
-use ics721_types::{token_types::{ClassId, TokenId}, ibc::NonFungibleTokenPacketData, types::Ics721Callbacks};
+use ics721_types::{
+    ibc::NonFungibleTokenPacketData,
+    token_types::{ClassId, TokenId},
+    types::Ics721Callbacks,
+};
 
 const CONTRACT_PORT: &str = "wasm.address1";
 const REMOTE_PORT: &str = "stars.address1";
@@ -557,7 +558,12 @@ fn test_ibc_packet_receive_missmatched_lengths() {
 
     assert_eq!(
         error,
-        Some(ContractError::ValidationError(ics721_types::error::ValidationError::TokenInfoLenMissmatch{}).to_string())
+        Some(
+            ContractError::ValidationError(
+                ics721_types::error::ValidationError::TokenInfoLenMissmatch {}
+            )
+            .to_string()
+        )
     );
 
     // More token data are provided than tokens.
@@ -589,7 +595,12 @@ fn test_ibc_packet_receive_missmatched_lengths() {
 
     assert_eq!(
         error,
-        Some(ContractError::ValidationError(ics721_types::error::ValidationError::TokenInfoLenMissmatch{}).to_string())
+        Some(
+            ContractError::ValidationError(
+                ics721_types::error::ValidationError::TokenInfoLenMissmatch {}
+            )
+            .to_string()
+        )
     )
 }
 

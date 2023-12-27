@@ -1,6 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{to_json_binary, Addr, StdResult, WasmMsg};
-use ics721_types::token_types::{Class, TokenId, Token};
+use ics721_types::token_types::{Class, Token, TokenId};
 
 use crate::msg::{CallbackMsg, ExecuteMsg};
 

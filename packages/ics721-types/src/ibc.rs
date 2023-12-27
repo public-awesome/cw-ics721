@@ -1,7 +1,10 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Binary;
 
-use crate::{token_types::{ClassId, TokenId}, error::ValidationError};
+use crate::{
+    error::ValidationError,
+    token_types::{ClassId, TokenId},
+};
 
 #[cw_serde]
 #[serde(rename_all = "camelCase")]

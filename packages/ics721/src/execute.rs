@@ -4,15 +4,18 @@ use cosmwasm_std::{
     from_json, to_json_binary, Addr, Binary, ContractInfoResponse, Deps, DepsMut, Empty, Env,
     IbcMsg, MessageInfo, Response, StdResult, SubMsg, WasmMsg,
 };
-use ics721_types::{token_types::{TokenId, Class, ClassId, Token}, ibc::NonFungibleTokenPacketData};
+use ics721_types::{
+    ibc::NonFungibleTokenPacketData,
+    token_types::{Class, ClassId, Token, TokenId},
+};
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
     helpers::get_instantiate2_address,
     ibc::{
-        INSTANTIATE_CW721_REPLY_ID,
-        INSTANTIATE_INCOMING_PROXY_REPLY_ID, INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
+        INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_INCOMING_PROXY_REPLY_ID,
+        INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
     },
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg},
     state::{

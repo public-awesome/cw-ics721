@@ -13,5 +13,4 @@ pub enum ValidationError {
 
     #[error("tokenIds, tokenUris, and tokenData must have the same length")]
     TokenInfoLenMissmatch {},
-
 }
