@@ -4,12 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::ibc::NonFungibleTokenPacketData;
 
-#[cw_serde]
-pub struct Ics721ReceiveIbcPacketMsg {
-    pub packet: IbcPacket,
-    pub data: NonFungibleTokenPacketData,
-}
-
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq)]
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[schemars(crate = "cosmwasm_schema::schemars")]
@@ -74,4 +68,9 @@ pub enum ReceiverExecuteMsg {
     /// Being called as a status update of the transfer. (source side)
     /// Note - Failing this message will NOT fail the transfer, its just a status update.
     Ics721AckCallback(Ics721AckCallbackMsg),
+
+    Ics721ReceivePacketMsg {
+        packet: IbcPacket,
+        data: NonFungibleTokenPacketData,
+    }
 }

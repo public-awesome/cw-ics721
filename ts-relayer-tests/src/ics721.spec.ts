@@ -181,7 +181,7 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
   t.pass();
 };
 
-test.serial("transfer NFT", async (t) => {
+test.serial("transfer NFT: wasmd -> osmo", async (t) => {
   await standardSetup(t);
 
   const {
@@ -213,7 +213,7 @@ test.serial("transfer NFT", async (t) => {
     },
   };
 
-  t.log("transfering to osmo chain");
+  t.log(`transfering to osmo chain via ${channel.channel.src.channelId}`);
 
   const transferResponse = await sendNft(
     wasmClient,
@@ -235,8 +235,6 @@ test.serial("transfer NFT", async (t) => {
   tokenOwner = await ownerOf(wasmClient, wasmCw721, tokenId);
   t.is(wasmIcs721, tokenOwner.owner);
 
-  t.context.channel.channel.dest.channelId;
-
   const osmoClassId = `${t.context.channel.channel.dest.portId}/${t.context.channel.channel.dest.channelId}/${t.context.wasmCw721}`;
   const osmoCw721 = await osmoClient.sign.queryContractSmart(osmoIcs721, {
     nft_contract: { class_id: osmoClassId },
@@ -245,6 +243,72 @@ test.serial("transfer NFT", async (t) => {
   tokenOwner = await ownerOf(osmoClient, osmoCw721, tokenId);
   t.is(osmoAddr, tokenOwner.owner);
 });
+
+test.serial.only(
+  "transfer NFT with incoming proxy: osmo -> wasmd",
+  async (t) => {
+    await standardSetup(t);
+
+    const {
+      wasmClient,
+      wasmAddr,
+      wasmIcs721,
+      osmoClient,
+      osmoAddr,
+      osmoCw721,
+      osmoIcs721,
+      channel,
+    } = t.context;
+
+    t.log(JSON.stringify(osmoClient, undefined, 2));
+    const tokenId = "1";
+    await mint(osmoClient, osmoCw721, tokenId, osmoAddr, undefined);
+    // assert token is minted
+    let tokenOwner = await ownerOf(osmoClient, osmoCw721, tokenId);
+    t.is(osmoAddr, tokenOwner.owner);
+
+    const ibcMsg = {
+      receiver: wasmAddr,
+      channel_id: channel.channel.dest.channelId,
+      timeout: {
+        block: {
+          revision: 1,
+          height: 90000,
+        },
+      },
+    };
+
+    t.log(`transfering to wasm chain via ${channel.channel.dest.channelId}`);
+
+    const transferResponse = await sendNft(
+      osmoClient,
+      osmoCw721,
+      osmoIcs721,
+      ibcMsg,
+      tokenId
+    );
+    t.truthy(transferResponse);
+
+    t.log("relaying packets");
+
+    const info = await channel.link.relayAll();
+
+    // Verify we got a success
+    assertAckSuccess(info.acksFromA);
+
+    // assert NFT on chain A is locked/owned by ICS contract
+    tokenOwner = await ownerOf(osmoClient, osmoCw721, tokenId);
+    t.is(osmoIcs721, tokenOwner.owner);
+
+    const wasmClassId = `${t.context.channel.channel.src.portId}/${t.context.channel.channel.src.channelId}/${t.context.osmoCw721}`;
+    const wasmCw721 = await wasmClient.sign.queryContractSmart(wasmIcs721, {
+      nft_contract: { class_id: wasmClassId },
+    });
+
+    tokenOwner = await ownerOf(wasmClient, wasmCw721, tokenId);
+    t.is(wasmAddr, tokenOwner.owner);
+  }
+);
 
 test.serial("malicious NFT", async (t) => {
   await standardSetup(t);

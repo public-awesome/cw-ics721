@@ -19,8 +19,7 @@ use crate::{
 };
 use ics721_types::{
     ibc::NonFungibleTokenPacketData,
-    token_types::{Class, ClassId, Token, TokenId},
-    types::Ics721ReceiveIbcPacketMsg,
+    token_types::{Class, ClassId, Token, TokenId}, types::ReceiverExecuteMsg,
 };
 
 /// Every incoming token has some associated action.
@@ -62,13 +61,13 @@ pub(crate) fn receive_ibc_packet(
 
     let incoming_proxy_msg = match INCOMING_PROXY.load(deps.storage).ok().flatten() {
         Some(incoming_proxy) => {
-            let msg = Ics721ReceiveIbcPacketMsg {
+            let msg = to_json_binary(&ReceiverExecuteMsg::Ics721ReceivePacketMsg {
                 packet: packet.clone(),
                 data: data.clone(),
-            };
+            })?;
             Some(WasmMsg::Execute {
                 contract_addr: incoming_proxy.to_string(),
-                msg: to_json_binary(&msg)?,
+                msg,
                 funds: vec![],
             })
         }
