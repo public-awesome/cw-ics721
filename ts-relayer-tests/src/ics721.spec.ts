@@ -4,10 +4,12 @@ import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
 import { instantiateContract } from "./controller";
 import { mint, ownerOf, sendNft } from "./cw721-utils";
+import { migrate } from "./ics721-utils";
 import {
   assertAckErrors,
   assertAckSuccess,
-  ChannelInfo,
+  bigIntReplacer,
+  ChannelAndLinkInfo,
   ContractMsg,
   createIbcConnectionAndChannel,
   MNEMONIC,
@@ -26,15 +28,20 @@ interface TestContext {
 
   wasmCw721: string;
   wasmIcs721: string;
+  wasmCw721IncomingProxy: string;
 
+  osmoCw721: string;
   osmoIcs721: string;
 
-  channel: ChannelInfo;
+  channel: ChannelAndLinkInfo;
+
+  otherChannel: ChannelAndLinkInfo;
 }
 
 const test = anyTest as TestFn<TestContext>;
 
 const WASM_FILE_CW721 = "./internal/cw721_base_v0.18.0.wasm";
+const WASM_FILE_CW721_INCOMING_PROXY = "./internal/cw721_incoming_proxy.wasm";
 const WASM_FILE_CW_ICS721_ICS721 = "./internal/ics721_base.wasm";
 const MALICIOUS_CW721 = "./internal/cw721_tester.wasm";
 
@@ -56,6 +63,10 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
         minter: wasmClient.senderAddress,
       },
     },
+    cw721IncomingProxy: {
+      path: WASM_FILE_CW721_INCOMING_PROXY,
+      instantiateMsg: undefined,
+    },
     ics721: {
       path: WASM_FILE_CW_ICS721_ICS721,
       instantiateMsg: undefined,
@@ -64,7 +75,11 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
   const osmoContracts: Record<string, ContractMsg> = {
     cw721: {
       path: WASM_FILE_CW721,
-      instantiateMsg: undefined,
+      instantiateMsg: {
+        name: "ark",
+        symbol: "ark",
+        minter: osmoClient.senderAddress,
+      },
     },
     ics721: {
       path: WASM_FILE_CW_ICS721_ICS721,
@@ -80,33 +95,39 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
   );
 
   const wasmCw721Id = info.wasmContractInfos.cw721.codeId;
+  const wasmCw721IncomingProxyId =
+    info.wasmContractInfos.cw721IncomingProxy.codeId;
   const osmoCw721Id = info.osmoContractInfos.cw721.codeId;
 
   const wasmIcs721Id = info.wasmContractInfos.ics721.codeId;
   const osmoIcs721Id = info.osmoContractInfos.ics721.codeId;
 
   t.context.wasmCw721 = info.wasmContractInfos.cw721.address as string;
+  t.context.osmoCw721 = info.osmoContractInfos.cw721.address as string;
 
   t.log(`instantiating wasm ICS721 contract (${wasmIcs721Id})`);
-
   const { contractAddress: wasmIcs721 } = await instantiateContract(
     wasmClient,
     wasmIcs721Id,
     { cw721_base_code_id: wasmCw721Id },
     "label ics721"
   );
+  t.log(`- wasm ICS721 contract address: ${wasmIcs721}`);
   t.context.wasmIcs721 = wasmIcs721;
 
   t.log(`instantiating osmo ICS721 contract (${osmoIcs721Id})`);
-
   const { contractAddress: osmoIcs721 } = await instantiateContract(
     osmoClient,
     osmoIcs721Id,
     { cw721_base_code_id: osmoCw721Id },
     "label ics721"
   );
+  t.log(`- osmo ICS721 contract address: ${osmoIcs721}`);
   t.context.osmoIcs721 = osmoIcs721;
 
+  t.log(
+    `creating IBC connection and channel between ${wasmIcs721} <-> ${osmoIcs721}`
+  );
   const channelInfo = await createIbcConnectionAndChannel(
     wasmClient,
     osmoClient,
@@ -115,8 +136,47 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
     Order.ORDER_UNORDERED,
     "ics721-1"
   );
-
+  t.log(`- channel: ${JSON.stringify(channelInfo, bigIntReplacer, 2)}`);
   t.context.channel = channelInfo;
+
+  t.log(
+    `instantiating wasm cw721-incoming-proxy (${wasmCw721IncomingProxyId}) for channel ${channelInfo.channel.src.channelId}`
+  );
+  const { contractAddress: wasmCw721IncomingProxy } = await instantiateContract(
+    wasmClient,
+    wasmCw721IncomingProxyId,
+    {
+      origin: wasmIcs721,
+      source_channels: [channelInfo.channel.src.channelId],
+    },
+    "label incoming proxy"
+  );
+  t.log(`- wasm cw721-incoming-proxy address: ${wasmCw721IncomingProxy}`);
+  t.context.wasmCw721IncomingProxy = wasmCw721IncomingProxy;
+
+  t.log(`migrate ${wasmIcs721} contract to use incoming proxy`);
+  const migrateResult = await migrate(
+    wasmClient,
+    wasmIcs721,
+    wasmIcs721Id,
+    wasmCw721IncomingProxy
+  );
+  t.log(
+    `- migrate result: ${JSON.stringify(migrateResult, bigIntReplacer, 2)}`
+  );
+
+  t.log(
+    `creating another IBC connection and channel between wasm and osmo (${wasmIcs721} <-> ${osmoIcs721})`
+  );
+  const otherChannelInfo = await createIbcConnectionAndChannel(
+    wasmClient,
+    osmoClient,
+    wasmIcs721,
+    osmoIcs721,
+    Order.ORDER_UNORDERED,
+    "ics721-1"
+  );
+  t.context.otherChannel = otherChannelInfo;
 
   t.pass();
 };

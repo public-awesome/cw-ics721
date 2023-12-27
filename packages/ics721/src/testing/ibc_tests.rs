@@ -105,6 +105,7 @@ fn add_channel(mut deps: DepsMut, env: Env, channel_id: &str) {
 fn do_instantiate(deps: DepsMut, env: Env, sender: &str) -> StdResult<Response> {
     let msg = InstantiateMsg {
         cw721_base_code_id: CW721_CODE_ID,
+        incoming_proxy: None,
         outgoing_proxy: None,
         pauser: None,
     };
@@ -476,7 +477,7 @@ fn test_ibc_packet_receive() {
 #[test]
 fn test_ibc_packet_receive_invalid_packet_data() {
     // the actual message used here is unimportant. this just
-    // constructs a valud JSON blob that is not a valid ICS-721
+    // constructs a valid JSON blob that is not a valid ICS-721
     // packet.
     let data = to_json_binary(&QueryMsg::ClassMetadata {
         class_id: "foobar".to_string(),

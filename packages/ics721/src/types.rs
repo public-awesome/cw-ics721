@@ -1,8 +1,14 @@
 use cosmwasm_schema::{cw_serde, schemars::JsonSchema};
-use cosmwasm_std::Binary;
+use cosmwasm_std::{Binary, IbcPacket};
 use serde::{Deserialize, Serialize};
 
 use crate::ibc::NonFungibleTokenPacketData;
+
+#[cw_serde]
+pub struct Ics721ReceiveIbcPacketMsg {
+    pub packet: IbcPacket,
+    pub data: NonFungibleTokenPacketData,
+}
 
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq)]
 #[allow(clippy::derive_partial_eq_without_eq)]

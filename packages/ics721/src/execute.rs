@@ -10,13 +10,13 @@ use sha2::{Digest, Sha256};
 use crate::{
     helpers::get_instantiate2_address,
     ibc::{
-        NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
+        NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_OUTGOING_PROXY_REPLY_ID, INSTANTIATE_INCOMING_PROXY_REPLY_ID,
     },
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg},
     state::{
         CollectionData, UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
         CW721_CODE_ID, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY,
-        PO, TOKEN_METADATA,
+        PO, TOKEN_METADATA, INCOMING_PROXY,
     },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
     ContractError,
@@ -37,16 +37,25 @@ where
     ) -> StdResult<Response<T>> {
         CW721_CODE_ID.save(deps.storage, &msg.cw721_base_code_id)?;
         OUTGOING_PROXY.save(deps.storage, &None)?;
+        INCOMING_PROXY.save(deps.storage, &None)?;
         PO.set_pauser(deps.storage, deps.api, msg.pauser.as_deref())?;
 
-        let proxy_instantiate = msg
-            .outgoing_proxy
-            .map(|m| m.into_wasm_msg(env.contract.address))
-            .map(|wasm| SubMsg::reply_on_success(wasm, INSTANTIATE_OUTGOING_PROXY_REPLY_ID))
-            .map_or(vec![], |s| vec![s]);
+        let mut proxies_instantiate: Vec<SubMsg<T>> = Vec::new();
+        if let Some(cii) = msg.incoming_proxy {
+            proxies_instantiate.push(SubMsg::reply_on_success(
+                cii.into_wasm_msg(env.clone().contract.address),
+                INSTANTIATE_INCOMING_PROXY_REPLY_ID,
+            ));
+        }
+        if let Some(cii) = msg.outgoing_proxy {
+            proxies_instantiate.push(SubMsg::reply_on_success(
+                cii.into_wasm_msg(env.contract.address),
+                INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
+            ));
+        }
 
         Ok(Response::default()
-            .add_submessages(proxy_instantiate)
+            .add_submessages(proxies_instantiate)
             .add_attribute("method", "instantiate")
             .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string()))
     }
@@ -431,9 +440,17 @@ where
         match msg {
             MigrateMsg::WithUpdate {
                 pauser,
-                proxy: outgoing_proxy,
+                incoming_proxy,
+                outgoing_proxy,
                 cw721_base_code_id,
             } => {
+                INCOMING_PROXY.save(
+                    deps.storage,
+                    &incoming_proxy
+                        .as_ref()
+                        .map(|h| deps.api.addr_validate(h))
+                        .transpose()?,
+                )?;
                 OUTGOING_PROXY.save(
                     deps.storage,
                     &outgoing_proxy

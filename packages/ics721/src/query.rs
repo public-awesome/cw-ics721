@@ -6,7 +6,7 @@ use crate::{
     state::{
         UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
         INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
-        OUTGOING_PROXY, PO, TOKEN_METADATA,
+        OUTGOING_PROXY, PO, TOKEN_METADATA, INCOMING_PROXY,
     },
     token_types::{Class, ClassId, Token, TokenId},
 };
@@ -31,7 +31,8 @@ pub trait Ics721Query {
             }
             QueryMsg::Pauser {} => to_json_binary(&PO.query_pauser(deps.storage)?),
             QueryMsg::Paused {} => to_json_binary(&PO.query_paused(deps.storage)?),
-            QueryMsg::Proxy {} => to_json_binary(&OUTGOING_PROXY.load(deps.storage)?),
+            QueryMsg::OutgoingProxy {} => to_json_binary(&OUTGOING_PROXY.load(deps.storage)?),
+            QueryMsg::IncomingProxy {} => to_json_binary(&INCOMING_PROXY.load(deps.storage)?),
             QueryMsg::Cw721CodeId {} => to_json_binary(&self.query_cw721_code_id(deps)?),
             QueryMsg::NftContracts { start_after, limit } => {
                 to_json_binary(&self.query_nft_contracts(deps, start_after, limit)?)

@@ -148,13 +148,27 @@
       "additionalProperties": false
     },
     {
-      "description": "Gets this contract's cw721-proxy if one is set.",
+      "description": "Gets this contract's outgoing cw721-outgoing-proxy if one is set.",
       "type": "object",
       "required": [
-        "proxy"
+        "outgoing_proxy"
       ],
       "properties": {
-        "proxy": {
+        "outgoing_proxy": {
+          "type": "object",
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Gets this contract's incoming cw721-outgoing-proxy if one is set.",
+      "type": "object",
+      "required": [
+        "incoming_proxy"
+      ],
+      "properties": {
+        "incoming_proxy": {
           "type": "object",
           "additionalProperties": false
         }

@@ -13,15 +13,16 @@ cosmwasm-std = "^1.5"
 cosmwasm-schema = "^1.5"
 cosmwasm-storage = "^1.5"
 cw-ownable      = "^0.5"
-cw-paginate-storage = { version = "2.2.0", git = "https://github.com/DA0-DA0/dao-contracts.git" }
+cw-paginate-storage = { version = "^2.4", git = "https://github.com/DA0-DA0/dao-contracts.git" }
 cw-storage-plus = "1.1"
 cw2 = "1.1"
 cw721 = { git = "https://github.com/arkprotocol/cw-nfts", branch = "withdrawal_address"} # TODO switch to official repo, once merged
 cw721-016 = { version = "0.16.0", package = "cw721" }
 cw721-base = { git = "https://github.com/arkprotocol/cw-nfts", branch = "withdrawal_address"} # TODO switch to official repo, once merged
 cw721-base-016  = { version = "0.16.0", package = "cw721-base" }
-cw721-proxy-derive = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.7" }
-cw721-rate-limited-proxy = { git = "https://github.com/arkprotocol/cw721-proxy.git", tag = "v0.0.7" }
+cw721-incoming-proxy = { git = "https://github.com/arkprotocol/cw721-proxy.git" }
+cw721-outgoing-proxy-derive = { git = "https://github.com/arkprotocol/cw721-proxy.git" }
+cw721-outgoing-proxy-rate-limit = { git = "https://github.com/arkprotocol/cw721-proxy.git" }
 cw-multi-test = { version = "^0.20", features = ["cosmwasm_1_2"] }
 cw-utils = "^1.0"
 sha2 = "^0.10"

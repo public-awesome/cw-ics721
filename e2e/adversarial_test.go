@@ -77,6 +77,7 @@ func (suite *AdversarialTestSuite) SetupTest() {
 			2,
 			nil,
 			nil,
+			nil,
 		}
 		instantiateBridgeRaw, err := json.Marshal(instantiateBridge)
 		require.NoError(suite.T(), err)

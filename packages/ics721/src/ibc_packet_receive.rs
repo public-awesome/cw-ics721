@@ -11,10 +11,11 @@ use crate::{
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg},
     state::{
-        CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL,
+        CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO,
     },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
+    types::Ics721ReceiveIbcPacketMsg,
     ContractError,
 };
 
@@ -52,9 +53,23 @@ pub(crate) fn receive_ibc_packet(
     packet: IbcPacket,
 ) -> Result<IbcReceiveResponse, ContractError> {
     PO.error_if_paused(deps.storage)?;
-
     let data: NonFungibleTokenPacketData = from_json(&packet.data)?;
     data.validate()?;
+
+    let incoming_proxy_msg = match INCOMING_PROXY.load(deps.storage).ok().flatten() {
+        Some(incoming_proxy) => {
+            let msg = Ics721ReceiveIbcPacketMsg {
+                packet: packet.clone(),
+                data: data.clone(),
+            };
+            Some(WasmMsg::Execute {
+                contract_addr: incoming_proxy.to_string(),
+                msg: to_json_binary(&msg)?,
+                funds: vec![],
+            })
+        }
+        None => None,
+    };
 
     let cloned_data = data.clone();
     let receiver = deps.api.addr_validate(&data.receiver)?;
@@ -173,8 +188,12 @@ pub(crate) fn receive_ibc_packet(
         None
     };
 
-    let submessage =
-        action_aggregator.into_submessage(env.contract.address, receiver, callback_msg)?;
+    let submessage = action_aggregator.into_submessage(
+        env.contract.address,
+        receiver,
+        callback_msg,
+        incoming_proxy_msg,
+    )?;
 
     let response = if let Some(memo) = data.memo {
         IbcReceiveResponse::default().add_attribute("ics721_memo", memo)
@@ -297,8 +316,12 @@ impl ActionAggregator {
         contract: Addr,
         receiver: Addr,
         callback_msg: Option<WasmMsg>,
+        incoming_proxy_msg: Option<WasmMsg>,
     ) -> StdResult<SubMsg<Empty>> {
         let mut m = Vec::with_capacity(2);
+        if let Some(incoming_proxy_msg) = incoming_proxy_msg {
+            m.push(incoming_proxy_msg)
+        }
         if let Some(redeem) = self.redemption {
             m.push(redeem.into_wasm_msg(contract.clone(), receiver.to_string())?)
         }

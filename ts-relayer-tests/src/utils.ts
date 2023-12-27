@@ -26,6 +26,13 @@ const {
 
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
+export function bigIntReplacer(_key: string, value: any) {
+  if (typeof value === "bigint") {
+    return value.toString();
+  }
+  return value;
+}
+
 export const MNEMONIC =
   "harsh adult scrub stadium solution impulse company agree tomorrow poem dirt innocent coyote slight nice digital scissors cool pact person item moon double wagon";
 
@@ -46,7 +53,7 @@ export interface ContractInfo {
   address: string | undefined;
 }
 
-export interface ChannelInfo {
+export interface ChannelAndLinkInfo {
   channel: ChannelPair;
   link: Link;
 }
@@ -118,7 +125,7 @@ export async function createIbcConnectionAndChannel(
   osmoContractAddress: string,
   ordering: Order,
   version: string
-): Promise<ChannelInfo> {
+): Promise<ChannelAndLinkInfo> {
   const { ibcPortId: wasmContractIbcPortId } =
     await wasmClient.sign.getContract(wasmContractAddress);
   assert(wasmContractIbcPortId);
@@ -126,7 +133,7 @@ export async function createIbcConnectionAndChannel(
     await osmoClient.sign.getContract(osmoContractAddress);
   assert(osmoContractIbcPortId);
   // create a connection and channel
-  const [src, dest] = await setup(wasmd, osmosis);
+  const [srcIbcClient, destIbcClient] = await setup(wasmd, osmosis);
   const logger: Logger = {
     debug(message: string, meta?: Record<string, unknown>): Logger {
       const logMsg = meta ? message + ": " + JSON.stringify(meta) : message;
@@ -158,7 +165,11 @@ export async function createIbcConnectionAndChannel(
       return this;
     },
   };
-  const link = await Link.createWithNewConnections(src, dest, logger);
+  const link = await Link.createWithNewConnections(
+    srcIbcClient,
+    destIbcClient,
+    logger
+  );
   const channel = await link.createChannel(
     "A",
     wasmContractIbcPortId,

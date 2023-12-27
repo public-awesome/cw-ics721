@@ -21,8 +21,8 @@ pub enum PauseError {
 }
 
 pub struct PauseOrchestrator<'a> {
-    pauser: Item<'a, Option<Addr>>,
-    paused: Item<'a, bool>,
+    pub pauser: Item<'a, Option<Addr>>,
+    pub paused: Item<'a, bool>,
 }
 
 impl<'a> PauseOrchestrator<'a> {

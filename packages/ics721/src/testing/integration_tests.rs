@@ -282,7 +282,9 @@ struct Test {
 
 impl Test {
     fn new(
-        proxy: bool,
+        outgoing_proxy: bool,
+        incoming_proxy: bool,
+        source_channels: Option<Vec<String>>,
         admin_and_pauser: Option<String>,
         cw721_code: Box<dyn Contract<Empty>>,
         is_cw721_018: bool,
@@ -297,19 +299,35 @@ impl Test {
         let source_cw721_id = app.store_code(cw721_code);
         let ics721_id = app.store_code(ics721_contract());
 
-        use cw721_rate_limited_proxy as rlp;
-        let proxy = match proxy {
+        let outgoing_proxy = match outgoing_proxy {
             true => {
-                let proxy_id = app.store_code(proxy_contract());
+                let proxy_id = app.store_code(outgoing_proxy_contract());
                 Some(ContractInstantiateInfo {
                     code_id: proxy_id,
-                    msg: to_json_binary(&rlp::msg::InstantiateMsg {
-                        rate_limit: rlp::Rate::PerBlock(10),
+                    msg: to_json_binary(&cw721_outgoing_proxy_rate_limit::msg::InstantiateMsg {
+                        rate_limit: cw721_outgoing_proxy_rate_limit::Rate::PerBlock(10),
                         origin: None,
                     })
                     .unwrap(),
                     admin: Some(Admin::Instantiator {}),
-                    label: "rate limited proxy".to_string(),
+                    label: "outgoing proxy rate limit".to_string(),
+                })
+            }
+            false => None,
+        };
+
+        let incoming_proxy = match incoming_proxy {
+            true => {
+                let proxy_id = app.store_code(incoming_proxy_contract());
+                Some(ContractInstantiateInfo {
+                    code_id: proxy_id,
+                    msg: to_json_binary(&cw721_incoming_proxy::msg::InstantiateMsg {
+                        origin: None,
+                        source_channels,
+                    })
+                    .unwrap(),
+                    admin: Some(Admin::Instantiator {}),
+                    label: "incoming proxy".to_string(),
                 })
             }
             false => None,
@@ -321,7 +339,8 @@ impl Test {
                 app.api().addr_make(ICS721_CREATOR),
                 &InstantiateMsg {
                     cw721_base_code_id: source_cw721_id,
-                    outgoing_proxy: proxy,
+                    incoming_proxy,
+                    outgoing_proxy,
                     pauser: admin_and_pauser
                         .clone()
                         .map(|p| app.api().addr_make(&p).to_string()),
@@ -414,10 +433,17 @@ impl Test {
         (paused, pauser)
     }
 
-    fn query_proxy(&mut self) -> Option<Addr> {
+    fn query_outgoing_proxy(&mut self) -> Option<Addr> {
         self.app
             .wrap()
-            .query_wasm_smart(self.ics721.clone(), &QueryMsg::Proxy {})
+            .query_wasm_smart(self.ics721.clone(), &QueryMsg::OutgoingProxy {})
+            .unwrap()
+    }
+
+    fn query_incoming_proxy(&mut self) -> Option<Addr> {
+        self.app
+            .wrap()
+            .query_wasm_smart(self.ics721.clone(), &QueryMsg::IncomingProxy {})
             .unwrap()
     }
 
@@ -517,18 +543,27 @@ fn ics721_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
-fn proxy_contract() -> Box<dyn Contract<Empty>> {
+fn incoming_proxy_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cw721_rate_limited_proxy::contract::execute::<Empty>,
-        cw721_rate_limited_proxy::contract::instantiate,
-        cw721_rate_limited_proxy::contract::query,
+        cw721_incoming_proxy::contract::execute,
+        cw721_incoming_proxy::contract::instantiate,
+        cw721_incoming_proxy::contract::query,
+    );
+    Box::new(contract)
+}
+
+fn outgoing_proxy_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        cw721_outgoing_proxy_rate_limit::contract::execute,
+        cw721_outgoing_proxy_rate_limit::contract::instantiate,
+        cw721_outgoing_proxy_rate_limit::contract::query,
     );
     Box::new(contract)
 }
 
 #[test]
 fn test_instantiate() {
-    let mut test = Test::new(false, None, cw721_base_contract(), true);
+    let mut test = Test::new(true, true, None, None, cw721_base_contract(), true);
 
     // check stores are properly initialized
     let cw721_id = test.query_cw721_id();
@@ -539,11 +574,15 @@ fn test_instantiate() {
     assert_eq!(outgoing_channels, []);
     let incoming_channels = test.query_incoming_channels();
     assert_eq!(incoming_channels, []);
+    let outgoing_proxy = test.query_outgoing_proxy();
+    assert!(outgoing_proxy.is_some());
+    let incoming_proxy = test.query_incoming_proxy();
+    assert!(incoming_proxy.is_some());
 }
 
 #[test]
 fn test_do_instantiate_and_mint_weird_data() {
-    let mut test = Test::new(false, None, cw721_base_contract(), true);
+    let mut test = Test::new(false, false, None, None, cw721_base_contract(), true);
     let collection_contract_source_chain =
         ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
     let class_id = format!(
@@ -594,7 +633,7 @@ fn test_do_instantiate_and_mint_weird_data() {
 fn test_do_instantiate_and_mint() {
     // test case: instantiate cw721 with no ClassData (without owner, name, and symbol)
     {
-        let mut test = Test::new(false, None, cw721_base_contract(), true);
+        let mut test = Test::new(false, false, None, None, cw721_base_contract(), true);
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id = format!(
@@ -733,7 +772,7 @@ fn test_do_instantiate_and_mint() {
     }
     // test case: instantiate cw721 with ClassData containing owner, name, and symbol
     {
-        let mut test = Test::new(false, None, cw721_base_contract(), true);
+        let mut test = Test::new(false, false, None, None, cw721_base_contract(), true);
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id = format!(
@@ -888,7 +927,7 @@ fn test_do_instantiate_and_mint() {
     // test case: instantiate cw721 with CustomClassData (includes name, but without owner and symbol)
     // results in nft contract using class id for name and symbol
     {
-        let mut test = Test::new(false, None, cw721_base_contract(), true);
+        let mut test = Test::new(false, false, None, None, cw721_base_contract(), true);
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id = format!(
@@ -1042,7 +1081,7 @@ fn test_do_instantiate_and_mint() {
     // test case: instantiate cw721 with PartialCustomCollectionData (includes name and symbol)
     // results in nft contract using name and symbol
     {
-        let mut test = Test::new(false, None, cw721_base_contract(), true);
+        let mut test = Test::new(false, false, None, None, cw721_base_contract(), true);
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id = format!(
@@ -1202,7 +1241,7 @@ fn test_do_instantiate_and_mint() {
 fn test_do_instantiate_and_mint_2_different_collections() {
     // test case: instantiate two cw721 contracts with different class id and make sure instantiate2 creates 2 different, predictable contracts
     {
-        let mut test = Test::new(false, None, cw721_base_contract(), true);
+        let mut test = Test::new(false, false, None, None, cw721_base_contract(), true);
         let collection_contract_source_chain_1 =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id_1 = format!(
@@ -1469,7 +1508,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
 
 #[test]
 fn test_do_instantiate_and_mint_no_instantiate() {
-    let mut test = Test::new(false, None, cw721_base_contract(), true);
+    let mut test = Test::new(false, false, None, None, cw721_base_contract(), true);
     let collection_contract_source_chain =
         ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
     let class_id = format!(
@@ -1577,7 +1616,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
 
 #[test]
 fn test_do_instantiate_and_mint_permissions() {
-    let mut test = Test::new(false, None, cw721_base_contract(), true);
+    let mut test = Test::new(false, false, None, None, cw721_base_contract(), true);
     let collection_contract_source_chain =
         ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
     let class_id = format!(
@@ -1631,7 +1670,7 @@ fn test_do_instantiate_and_mint_permissions() {
 /// Tests that we can not proxy NFTs if no proxy is configured.
 #[test]
 fn test_no_proxy_unauthorized() {
-    let mut test = Test::new(false, None, cw721_base_contract(), true);
+    let mut test = Test::new(false, false, None, None, cw721_base_contract(), true);
     let err: ContractError = test
         .app
         .execute_contract(
@@ -1655,11 +1694,11 @@ fn test_no_proxy_unauthorized() {
 
 #[test]
 fn test_proxy_authorized() {
-    let mut test = Test::new(true, None, cw721_base_contract(), true);
+    let mut test = Test::new(true, false, None, None, cw721_base_contract(), true);
     let proxy_address: Option<Addr> = test
         .app
         .wrap()
-        .query_wasm_smart(&test.ics721, &QueryMsg::Proxy {})
+        .query_wasm_smart(&test.ics721, &QueryMsg::OutgoingProxy {})
         .unwrap();
     // check proxy is set
     let proxy_address = proxy_address.expect("expected a proxy");
@@ -1739,9 +1778,7 @@ fn test_proxy_authorized() {
 fn test_receive_nft() {
     // test case: receive nft from cw721-base
     {
-        println!(">>>>>>>>>>>>1");
-        let mut test = Test::new(false, None, cw721_base_contract(), true);
-        println!(">>>>>>>>>>>>2");
+        let mut test = Test::new(false, false, None, None, cw721_base_contract(), true);
         // simplify: mint and escrowed/owned by ics721, as a precondition for receive nft
         let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
         // ics721 receives NFT from sender/collection contract,
@@ -1809,7 +1846,7 @@ fn test_receive_nft() {
     }
     // test case: backward compatibility - receive nft also works for old/v016 cw721-base
     {
-        let mut test = Test::new(false, None, cw721_v016_base_contract(), false);
+        let mut test = Test::new(false, false, None, None, cw721_v016_base_contract(), false);
         // simplify: mint and escrowed/owned by ics721, as a precondition for receive nft
         let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
         // ics721 receives NFT from sender/collection contract,
@@ -1883,7 +1920,7 @@ fn test_receive_nft() {
 /// In case proxy for ICS721 is defined, ICS721 only accepts receival from proxy - not from nft contract!
 #[test]
 fn test_no_receive_with_proxy() {
-    let mut test = Test::new(true, None, cw721_base_contract(), true);
+    let mut test = Test::new(true, false, None, None, cw721_base_contract(), true);
     // unauthorized to receive nft from nft contract
     let err: ContractError = test
         .app
@@ -1917,6 +1954,8 @@ fn test_no_receive_with_proxy() {
 fn test_pause() {
     let mut test = Test::new(
         true,
+        false,
+        None,
         Some(ICS721_ADMIN_AND_PAUSER.to_string()),
         cw721_base_contract(),
         true,
@@ -1974,7 +2013,8 @@ fn test_pause() {
                 new_code_id: ics721_id,
                 msg: to_json_binary(&MigrateMsg::WithUpdate {
                     pauser: Some(test.app.api().addr_make("new_pauser").to_string()),
-                    proxy: None,
+                    incoming_proxy: None,
+                    outgoing_proxy: None,
                     cw721_base_code_id: None,
                 })
                 .unwrap(),
@@ -2000,6 +2040,8 @@ fn test_pause() {
 fn test_migration() {
     let mut test = Test::new(
         true,
+        false,
+        None,
         Some(ICS721_ADMIN_AND_PAUSER.to_string()),
         cw721_base_contract(),
         true,
@@ -2010,8 +2052,8 @@ fn test_migration() {
         pauser,
         Some(test.app.api().addr_make(ICS721_ADMIN_AND_PAUSER))
     );
-    let proxy = test.query_proxy();
-    assert!(proxy.is_some());
+    let outgoing_proxy = test.query_outgoing_proxy();
+    assert!(outgoing_proxy.is_some());
     let cw721_code_id = test.query_cw721_id();
     assert_eq!(cw721_code_id, test.source_cw721_id);
 
@@ -2024,7 +2066,8 @@ fn test_migration() {
                 new_code_id: test.ics721_id,
                 msg: to_json_binary(&MigrateMsg::WithUpdate {
                     pauser: None,
-                    proxy: None,
+                    incoming_proxy: None,
+                    outgoing_proxy: None,
                     cw721_base_code_id: Some(12345678),
                 })
                 .unwrap(),
@@ -2035,7 +2078,7 @@ fn test_migration() {
     // assert migration worked
     let (_, pauser) = test.query_pause_info();
     assert_eq!(pauser, None);
-    let proxy = test.query_proxy();
+    let proxy = test.query_outgoing_proxy();
     assert!(proxy.is_none());
     let cw721_code_id = test.query_cw721_id();
     assert_eq!(cw721_code_id, 12345678);
@@ -2049,7 +2092,8 @@ fn test_migration() {
                 new_code_id: test.ics721_id,
                 msg: to_json_binary(&MigrateMsg::WithUpdate {
                     pauser: None,
-                    proxy: None,
+                    incoming_proxy: None,
+                    outgoing_proxy: None,
                     cw721_base_code_id: None,
                 })
                 .unwrap(),
@@ -2060,7 +2104,7 @@ fn test_migration() {
     // assert migration worked
     let (_, pauser) = test.query_pause_info();
     assert_eq!(pauser, None);
-    let proxy = test.query_proxy();
+    let proxy = test.query_outgoing_proxy();
     assert!(proxy.is_none());
     let cw721_code_id = test.query_cw721_id();
     assert_eq!(cw721_code_id, 12345678);

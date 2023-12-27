@@ -25,7 +25,8 @@ type ModuleInstantiateInfo struct {
 
 type InstantiateICS721Bridge struct {
 	CW721CodeID uint64                 `json:"cw721_base_code_id"`
-	Proxy       *ModuleInstantiateInfo `json:"outgoing_proxy"`
+	OutgoingProxy       *ModuleInstantiateInfo `json:"outgoing_proxy"`
+	IncomingProxy       *ModuleInstantiateInfo `json:"incoming_proxy"`
 	Pauser      *string                `json:"pauser"`
 }
 

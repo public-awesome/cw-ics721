@@ -53,6 +53,7 @@ func (suite *TransferTestSuite) SetupTest() {
 		// no pauser nor proxy by default.
 		nil,
 		nil,
+		nil,
 	}
 	instantiateICS721Raw, err := json.Marshal(instantiateICS721)
 	require.NoError(suite.T(), err)
@@ -267,6 +268,7 @@ func instantiateBridge(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAdd
 	// Instantiate the ICS721 contract.
 	instantiateICS721 := InstantiateICS721Bridge{
 		cw721resp.CodeID,
+		nil,
 		nil,
 		nil,
 	}
@@ -618,6 +620,7 @@ func TestCloseRejected(t *testing.T) {
 	// Store the cw721_base contract.
 	instantiateICS721 := InstantiateICS721Bridge{
 		2,
+		nil,
 		nil,
 		nil,
 	}
