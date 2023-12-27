@@ -16,9 +16,9 @@ docker run --rm -v "$(pwd)":/code --platform linux/amd64 \
 	--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 	cosmwasm/workspace-optimizer:0.15.0
 
-mkdir -p $SCRIPT_DIR/internal
-cp $ARTIFACTS_DIR/*.wasm $SCRIPT_DIR/internal
-cp $EXTERNAL_WASMS_DIR/*.wasm $SCRIPT_DIR/internal
+mkdir -p "$SCRIPT_DIR/internal"
+cp "$ARTIFACTS_DIR/*.wasm $SCRIPT_DIR/internal"
+cp "$EXTERNAL_WASMS_DIR/*.wasm $SCRIPT_DIR/internal"
 
 echo "done. avaliable wasm blobs:"
 ls ./ts-relayer-tests/internal
