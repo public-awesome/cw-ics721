@@ -60,6 +60,9 @@ pub(crate) fn receive_ibc_packet(
     let data: NonFungibleTokenPacketData = from_json(&packet.data)?;
     data.validate()?;
 
+    // If there is an incoming proxy, let proxy validate the packet, in case it fails, we fail the transfer
+    // This proxy for example whitelist channels that can send to this contract:
+    // https://github.com/arkprotocol/cw721-proxy/tree/main/contracts/cw721-incoming-proxy
     let incoming_proxy_msg = match INCOMING_PROXY.load(deps.storage).ok().flatten() {
         Some(incoming_proxy) => {
             let msg = to_json_binary(&ReceiverExecuteMsg::Ics721ReceivePacketMsg {

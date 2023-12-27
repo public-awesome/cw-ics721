@@ -69,6 +69,9 @@ pub enum ReceiverExecuteMsg {
     /// Note - Failing this message will NOT fail the transfer, its just a status update.
     Ics721AckCallback(Ics721AckCallbackMsg),
 
+    /// Being called on receiving the NFT before transfer is completed. (destination side)
+    /// `on_recieve` hook
+    /// Note - Failing this message will fail the transfer.
     Ics721ReceivePacketMsg {
         packet: IbcPacket,
         data: NonFungibleTokenPacketData,

@@ -282,6 +282,7 @@ struct Test {
 }
 
 impl Test {
+    /// Test setup with optional pauser and proxy contracts.
     fn new(
         outgoing_proxy: bool,
         incoming_proxy: bool,

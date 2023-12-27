@@ -41,20 +41,23 @@ where
         msg: InstantiateMsg,
     ) -> StdResult<Response<T>> {
         CW721_CODE_ID.save(deps.storage, &msg.cw721_base_code_id)?;
-        OUTGOING_PROXY.save(deps.storage, &None)?;
+        // proxy contracts are optional
         INCOMING_PROXY.save(deps.storage, &None)?;
+        OUTGOING_PROXY.save(deps.storage, &None)?;
         PO.set_pauser(deps.storage, deps.api, msg.pauser.as_deref())?;
 
         let mut proxies_instantiate: Vec<SubMsg<T>> = Vec::new();
         if let Some(cii) = msg.incoming_proxy {
             proxies_instantiate.push(SubMsg::reply_on_success(
                 cii.into_wasm_msg(env.clone().contract.address),
+                // on reply proxy contract is set in INCOMING_PROXY
                 INSTANTIATE_INCOMING_PROXY_REPLY_ID,
             ));
         }
         if let Some(cii) = msg.outgoing_proxy {
             proxies_instantiate.push(SubMsg::reply_on_success(
                 cii.into_wasm_msg(env.contract.address),
+                // on reply proxy contract is set in OUTGOING_PROXY
                 INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
             ));
         }
@@ -449,6 +452,7 @@ where
                 outgoing_proxy,
                 cw721_base_code_id,
             } => {
+                // disables incoming proxy if none is provided!
                 INCOMING_PROXY.save(
                     deps.storage,
                     &incoming_proxy
@@ -456,6 +460,7 @@ where
                         .map(|h| deps.api.addr_validate(h))
                         .transpose()?,
                 )?;
+                // disables outgoing proxy if none is provided!
                 OUTGOING_PROXY.save(
                     deps.storage,
                     &outgoing_proxy
