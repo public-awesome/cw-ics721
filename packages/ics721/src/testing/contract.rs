@@ -12,7 +12,10 @@ use cw_ownable::Ownership;
 
 use crate::{
     execute::Ics721Execute,
-    ibc::{Ics721Ibc, NonFungibleTokenPacketData, INSTANTIATE_OUTGOING_PROXY_REPLY_ID, INSTANTIATE_INCOMING_PROXY_REPLY_ID},
+    ibc::{
+        Ics721Ibc, NonFungibleTokenPacketData, INSTANTIATE_INCOMING_PROXY_REPLY_ID,
+        INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
+    },
     msg::{IbcOutgoingMsg, InstantiateMsg},
     query::Ics721Query,
     state::{
@@ -515,7 +518,8 @@ fn test_instantiate() {
         .instantiate(deps.as_mut(), env.clone(), info, msg.clone())
         .unwrap();
 
-    let expected_incoming_proxy_msg = incoming_proxy_init_msg.into_wasm_msg(env.clone().contract.address);
+    let expected_incoming_proxy_msg =
+        incoming_proxy_init_msg.into_wasm_msg(env.clone().contract.address);
     let expected_outgoing_proxy_msg = outgoing_proxy_init_msg.into_wasm_msg(env.contract.address);
     let expected_response = Response::<Empty>::default()
         .add_submessage(SubMsg::reply_on_success(
@@ -533,6 +537,9 @@ fn test_instantiate() {
     // incoming and outgoing proxy initially set to None and set later in sub msg
     assert_eq!(OUTGOING_PROXY.load(&deps.storage).unwrap(), None);
     assert_eq!(INCOMING_PROXY.load(&deps.storage).unwrap(), None);
-    assert_eq!(PO.pauser.load(&deps.storage).unwrap(), Some(Addr::unchecked(PAUSER_ADDR)));
-    assert_eq!(PO.paused.load(&deps.storage).unwrap(), false);
+    assert_eq!(
+        PO.pauser.load(&deps.storage).unwrap(),
+        Some(Addr::unchecked(PAUSER_ADDR))
+    );
+    assert!(!PO.paused.load(&deps.storage).unwrap());
 }

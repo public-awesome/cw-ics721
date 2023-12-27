@@ -10,13 +10,14 @@ use sha2::{Digest, Sha256};
 use crate::{
     helpers::get_instantiate2_address,
     ibc::{
-        NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_OUTGOING_PROXY_REPLY_ID, INSTANTIATE_INCOMING_PROXY_REPLY_ID,
+        NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID,
+        INSTANTIATE_INCOMING_PROXY_REPLY_ID, INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
     },
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg},
     state::{
         CollectionData, UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
-        CW721_CODE_ID, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY,
-        PO, TOKEN_METADATA, INCOMING_PROXY,
+        CW721_CODE_ID, INCOMING_PROXY, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+        OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
     token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
     ContractError,
