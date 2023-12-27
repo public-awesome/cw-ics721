@@ -19,7 +19,8 @@ use crate::{
 };
 use ics721_types::{
     ibc::NonFungibleTokenPacketData,
-    token_types::{Class, ClassId, Token, TokenId}, types::ReceiverExecuteMsg,
+    token_types::{Class, ClassId, Token, TokenId},
+    types::ReceiverExecuteMsg,
 };
 
 /// Every incoming token has some associated action.

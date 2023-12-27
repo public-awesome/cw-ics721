@@ -72,5 +72,5 @@ pub enum ReceiverExecuteMsg {
     Ics721ReceivePacketMsg {
         packet: IbcPacket,
         data: NonFungibleTokenPacketData,
-    }
+    },
 }
