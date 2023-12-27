@@ -1,7 +1,9 @@
 use cosmwasm_std::{from_json, to_json_binary, Addr, Binary, Deps, DepsMut, Env, StdResult};
 use ics721::{
-    execute::Ics721Execute, state::CollectionData, token_types::Class, utils::get_collection_data,
+    execute::Ics721Execute, state::CollectionData, utils::get_collection_data,
 };
+use ics721_types::token_types::{Class};
+
 use sg721_base::msg::{CollectionInfoResponse, QueryMsg};
 
 use crate::state::{SgCollectionData, SgIcs721Contract};

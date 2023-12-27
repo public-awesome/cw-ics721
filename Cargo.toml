@@ -37,6 +37,7 @@ sg721-base = "^3.3"
 cw-cii = { path = "./packages/cw-cii" }
 cw-pause-once = { path = "./packages/cw-pause-once" }
 ics721 = { path = "./packages/ics721" }
+ics721-types = { path = "./packages/ics721-types" }
 zip-optional = { path = "./packages/zip-optional" }
 ics721-base = { path = "./contracts/ics721-base"}
 ics721-base-tester = { path = "./contracts/cw-ics721-base-tester"}

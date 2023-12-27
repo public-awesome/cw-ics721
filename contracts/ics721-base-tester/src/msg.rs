@@ -43,8 +43,8 @@ pub struct InstantiateMsg {
                                      // for clippy's taste.
 pub enum ExecuteMsg {
     ReceiveNft(cw721::Cw721ReceiveMsg),
-    Ics721ReceiveCallback(ics721::types::Ics721ReceiveCallbackMsg),
-    Ics721AckCallback(ics721::types::Ics721AckCallbackMsg),
+    Ics721ReceiveCallback(ics721_types::types::Ics721ReceiveCallbackMsg),
+    Ics721AckCallback(ics721_types::types::Ics721AckCallbackMsg),
     SendNft {
         cw721: String,
         ics721: String,
@@ -60,7 +60,7 @@ pub enum ExecuteMsg {
         channel_id: String,
         timeout: IbcTimeout,
 
-        data: ics721::ibc::NonFungibleTokenPacketData,
+        data: ics721_types::ibc::NonFungibleTokenPacketData,
     },
     SetAckMode {
         ack_mode: AckMode,

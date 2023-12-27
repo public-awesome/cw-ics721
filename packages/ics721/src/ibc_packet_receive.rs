@@ -7,17 +7,17 @@ use zip_optional::Zippable;
 
 use crate::{
     helpers::{generate_receive_callback_msg, get_instantiate2_address, get_receive_callback},
-    ibc::{NonFungibleTokenPacketData, ACK_AND_DO_NOTHING},
+    ibc::{ACK_AND_DO_NOTHING},
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg},
     state::{
         CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO,
     },
-    token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
-    types::Ics721ReceiveIbcPacketMsg,
+    token_types::{VoucherCreation, VoucherRedemption},
     ContractError,
 };
+use ics721_types::{token_types::{Class, ClassId, Token, TokenId}, ibc::NonFungibleTokenPacketData, types::Ics721ReceiveIbcPacketMsg};
 
 /// Every incoming token has some associated action.
 enum Action {

@@ -20,8 +20,9 @@ use ics721::{
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
     state::CollectionData,
-    token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
+    token_types::VoucherCreation,
 };
+use ics721_types::token_types::{Class, ClassId, Token, TokenId};
 use sg721::InstantiateMsg as Sg721InstantiateMsg;
 use sg721_base::msg::{CollectionInfoResponse, QueryMsg as Sg721QueryMsg};
 use sha2::{digest::Update, Digest, Sha256};

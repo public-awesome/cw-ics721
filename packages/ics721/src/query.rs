@@ -8,8 +8,8 @@ use crate::{
         INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY, NFT_CONTRACT_TO_CLASS_ID,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
-    token_types::{Class, ClassId, Token, TokenId},
 };
+use ics721_types::token_types::{Class, ClassId, Token, TokenId};
 
 pub trait Ics721Query {
     fn query(&self, deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {

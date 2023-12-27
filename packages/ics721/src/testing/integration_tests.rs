@@ -22,9 +22,10 @@ use crate::{
     msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
     state::CollectionData,
-    token_types::{Class, ClassId, Token, TokenId, VoucherCreation},
+    token_types::{VoucherCreation},
     ContractError,
 };
+use ics721_types::token_types::{Class, ClassId, Token, TokenId};
 
 use super::contract::Ics721Contract;
 

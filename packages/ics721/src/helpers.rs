@@ -5,13 +5,13 @@ use cosmwasm_std::{
 use serde::Deserialize;
 
 use crate::{
-    ibc::{NonFungibleTokenPacketData, ACK_CALLBACK_REPLY_ID},
-    types::{
-        Ics721AckCallbackMsg, Ics721Callbacks, Ics721Memo, Ics721ReceiveCallbackMsg, Ics721Status,
-        ReceiverExecuteMsg,
-    },
+    ibc::ACK_CALLBACK_REPLY_ID,
     ContractError,
 };
+use ics721_types::{types::{
+    Ics721AckCallbackMsg, Ics721Callbacks, Ics721Memo, Ics721ReceiveCallbackMsg, Ics721Status,
+    ReceiverExecuteMsg,
+}, ibc::NonFungibleTokenPacketData};
 
 /// Parse the memo field into the type we want
 /// Ideally it would be `Ics721Memo` type or any type that extends it

@@ -13,7 +13,7 @@ use cw_ownable::Ownership;
 use crate::{
     execute::Ics721Execute,
     ibc::{
-        Ics721Ibc, NonFungibleTokenPacketData, INSTANTIATE_INCOMING_PROXY_REPLY_ID,
+        Ics721Ibc, INSTANTIATE_INCOMING_PROXY_REPLY_ID,
         INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
     },
     msg::{IbcOutgoingMsg, InstantiateMsg},
@@ -22,9 +22,9 @@ use crate::{
         CollectionData, CLASS_ID_TO_CLASS, CW721_CODE_ID, INCOMING_PROXY,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
     },
-    token_types::{ClassId, TokenId},
     utils::get_collection_data,
 };
+use ics721_types::{token_types::{ClassId, TokenId}, ibc::NonFungibleTokenPacketData};
 
 const NFT_ADDR: &str = "nft";
 const OWNER_ADDR: &str = "owner";

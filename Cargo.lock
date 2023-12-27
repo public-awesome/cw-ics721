@@ -241,7 +241,7 @@ dependencies = [
  "cw-incoming-proxy-derive",
  "cw-paginate-storage",
  "cw-storage-plus 1.2.0",
- "ics721-types",
+ "ics721-types 0.1.0 (git+https://github.com/arkprotocol/ark-cw-ics721?branch=incoming_proxy)",
  "schemars",
  "serde",
  "thiserror",
@@ -253,7 +253,7 @@ version = "0.0.1"
 source = "git+https://github.com/arkprotocol/cw721-proxy.git#c5fa004766f423538f5bfcca6370348a124fcdb7"
 dependencies = [
  "cosmwasm-std",
- "ics721-types",
+ "ics721-types 0.1.0 (git+https://github.com/arkprotocol/ark-cw-ics721?branch=incoming_proxy)",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -526,7 +526,7 @@ dependencies = [
  "cw721 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cw721-outgoing-proxy",
  "cw721-outgoing-proxy-derive",
- "ics721-types",
+ "ics721-types 0.1.0 (git+https://github.com/arkprotocol/ark-cw-ics721?branch=incoming_proxy)",
  "serde",
  "thiserror",
 ]
@@ -791,6 +791,7 @@ dependencies = [
  "cw721-incoming-proxy",
  "cw721-outgoing-proxy-derive",
  "cw721-outgoing-proxy-rate-limit",
+ "ics721-types 0.1.0",
  "serde",
  "sha2 0.10.8",
  "thiserror",
@@ -817,6 +818,18 @@ dependencies = [
  "cw2 1.1.2",
  "cw721 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=withdrawal_address)",
  "ics721",
+ "ics721-types 0.1.0",
+ "thiserror",
+]
+
+[[package]]
+name = "ics721-types"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus 1.2.0",
+ "serde",
  "thiserror",
 ]
 
@@ -1099,6 +1112,7 @@ dependencies = [
  "cw721-incoming-proxy",
  "cw721-outgoing-proxy-rate-limit",
  "ics721",
+ "ics721-types 0.1.0",
  "sg-std",
  "sg721",
  "sg721-base",

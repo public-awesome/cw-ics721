@@ -4,7 +4,7 @@ use cw_pause_once::PauseOrchestrator;
 use cw_storage_plus::{Item, Map};
 use serde::{Deserialize, Serialize};
 
-use crate::token_types::{Class, ClassId, TokenId};
+use ics721_types::token_types::{Class, ClassId, TokenId};
 
 /// The code ID we will use for instantiating new cw721s.
 pub const CW721_CODE_ID: Item<u64> = Item::new("a");

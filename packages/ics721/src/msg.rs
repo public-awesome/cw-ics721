@@ -3,7 +3,8 @@ use cosmwasm_std::{Addr, IbcTimeout, WasmMsg};
 use cw721_outgoing_proxy_derive::cw721_outgoing_proxy;
 use cw_cii::ContractInstantiateInfo;
 
-use crate::token_types::{ClassId, Token, TokenId, VoucherCreation, VoucherRedemption};
+use crate::token_types::{VoucherCreation, VoucherRedemption};
+use ics721_types::token_types::{Class, ClassId, Token, TokenId};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -104,7 +105,7 @@ pub enum QueryMsg {
     /// Gets the classID this contract has stored for a given NFT
     /// contract. If there is no class ID for the provided contract,
     /// returns None.
-    #[returns(Option<crate::token_types::ClassId>)]
+    #[returns(Option<ClassId>)]
     ClassId { contract: String },
 
     /// Gets the NFT contract associated wtih the provided class
@@ -116,10 +117,10 @@ pub enum QueryMsg {
     /// Gets the class level metadata URI for the provided
     /// class_id. If there is no metadata, returns None. Returns
     /// `Option<Class>`.
-    #[returns(Option<crate::token_types::Class>)]
+    #[returns(Option<Class>)]
     ClassMetadata { class_id: String },
 
-    #[returns(Option<crate::token_types::Token>)]
+    #[returns(Option<Token>)]
     TokenMetadata { class_id: String, token_id: String },
 
     /// Gets the owner of the NFT identified by CLASS_ID and

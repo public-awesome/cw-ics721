@@ -1,10 +1,14 @@
 use cosmwasm_std::{Instantiate2AddressError, StdError};
 use cw_pause_once::PauseError;
 use cw_utils::ParseReplyError;
+use ics721_types::error::ValidationError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
+    #[error(transparent)]
+    ValidationError(#[from] ValidationError),
+
     #[error(transparent)]
     Std(#[from] StdError),
 
@@ -32,15 +36,6 @@ pub enum ContractError {
     #[error("class ID already exists")]
     ClassIdAlreadyExists {},
 
-    #[error("empty class ID")]
-    EmptyClassId {},
-
-    #[error("must transfer at least one token")]
-    NoTokens {},
-
-    #[error("optional fields may not be empty if provided")]
-    EmptyOptional {},
-
     #[error("unrecognised reply ID")]
     UnrecognisedReplyId {},
 
@@ -56,9 +51,6 @@ pub enum ContractError {
         expected: Option<String>,
         actual: Option<String>,
     },
-
-    #[error("tokenIds, tokenUris, and tokenData must have the same length")]
-    TokenInfoLenMissmatch {},
 
     #[error("Transfer contains both redemption and a creation action")]
     InvalidTransferBothActions,
