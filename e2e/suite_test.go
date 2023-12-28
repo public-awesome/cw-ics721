@@ -114,6 +114,7 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 		"bad/kids",
 		"bad/kids",
 		suite.chainA.SenderAccount.GetAddress().String(),
+		nil,
 	}
 	instantiateRaw, err := json.Marshal(cw721Instantiate)
 	require.NoError(suite.T(), err)
@@ -280,6 +281,7 @@ func instantiateCw721(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAddr
 		"bad/kids",
 		"bad/kids",
 		chain.SenderAccount.GetAddress().String(),
+		nil,
 	}
 	instantiateRaw, err := json.Marshal(cw721Instantiate)
 	require.NoError(t, err)

@@ -33,6 +33,7 @@ type InstantiateCw721 struct {
 	Name   string `json:"name"`
 	Symbol string `json:"symbol"`
 	Minter string `json:"minter"`
+	WithdrawAddress *string `json:"withdraw_address"`
 }
 
 type InstantiateBridgeTester struct {

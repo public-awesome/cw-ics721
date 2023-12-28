@@ -70,6 +70,7 @@ func (suite *CbTestSuite) SetupTest() {
 				"bad/kids",
 				"bad/kids",
 				suite.chainA.SenderAccount.GetAddress().String(),
+				nil,
 			}
 			instantiateRaw, err := json.Marshal(cw721Instantiate)
 			require.NoError(suite.T(), err)
@@ -133,6 +134,7 @@ func (suite *CbTestSuite) SetupTest() {
 		"bad/kids",
 		"bad/kids",
 		suite.chainA.SenderAccount.GetAddress().String(),
+		nil,
 	}
 	instantiateRaw, err := json.Marshal(cw721Instantiate)
 	require.NoError(suite.T(), err)
