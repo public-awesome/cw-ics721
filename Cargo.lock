@@ -15,9 +15,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.75"
+version = "1.0.77"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
+checksum = "c9d19de80eff169429ac1e9f48fffb163916b448a44e8e046186232046d9e1f9"
 
 [[package]]
 name = "base16ct"
@@ -87,9 +87,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "const-oid"
-version = "0.9.5"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28c122c3980598d243d63d9a704629a2d748d101f278052ff068be5a4423ab6f"
+checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
 name = "cosmwasm-crypto"
@@ -278,8 +278,8 @@ dependencies = [
 
 [[package]]
 name = "cw-paginate-storage"
-version = "2.3.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts.git#4cc8cc4afdd74e12ba7e69daf5a17caa333f72be"
+version = "2.4.0"
+source = "git+https://github.com/DA0-DA0/dao-contracts.git#3ead037e9366d922c862614974b16b4dc732b329"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -420,7 +420,7 @@ dependencies = [
 [[package]]
 name = "cw721"
 version = "0.18.0"
-source = "git+https://github.com/arkprotocol/cw-nfts?branch=fee_share#1c081d84cbeaec28cae62f4f82ea8ff86a92259d"
+source = "git+https://github.com/arkprotocol/cw-nfts?branch=withdrawal_address#8691baf71422448b50d98bc5e516b9115dc13336"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -468,7 +468,7 @@ dependencies = [
 [[package]]
 name = "cw721-base"
 version = "0.18.0"
-source = "git+https://github.com/arkprotocol/cw-nfts?branch=fee_share#1c081d84cbeaec28cae62f4f82ea8ff86a92259d"
+source = "git+https://github.com/arkprotocol/cw-nfts?branch=withdrawal_address#8691baf71422448b50d98bc5e516b9115dc13336"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -476,7 +476,7 @@ dependencies = [
  "cw-storage-plus 1.2.0",
  "cw-utils 1.0.3",
  "cw2 1.1.2",
- "cw721 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=fee_share)",
+ "cw721 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=withdrawal_address)",
  "cw721-base 0.16.0",
  "schemars",
  "serde",
@@ -532,7 +532,7 @@ dependencies = [
  "cosmwasm-std",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw721-base 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=fee_share)",
+ "cw721-base 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=withdrawal_address)",
  "thiserror",
 ]
 
@@ -737,9 +737,9 @@ dependencies = [
  "cw-utils 1.0.3",
  "cw2 1.1.2",
  "cw721 0.16.0",
- "cw721 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=fee_share)",
+ "cw721 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=withdrawal_address)",
  "cw721-base 0.16.0",
- "cw721-base 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=fee_share)",
+ "cw721-base 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=withdrawal_address)",
  "cw721-proxy-derive",
  "cw721-rate-limited-proxy",
  "serde",
@@ -766,7 +766,7 @@ dependencies = [
  "cosmwasm-storage",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw721 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=fee_share)",
+ "cw721 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=withdrawal_address)",
  "ics721",
  "thiserror",
 ]
@@ -855,9 +855,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.70"
+version = "1.0.71"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39278fbbf5fb4f646ce651690877f89d1c5811a3d4acb27700c1cb3cdb78fd3b"
+checksum = "75cb1540fadbd5b8fbccc4dddad2734eba435053f725621c070711a14bb5f4b8"
 dependencies = [
  "unicode-ident",
 ]
@@ -882,7 +882,7 @@ dependencies = [
  "itertools 0.11.0",
  "proc-macro2",
  "quote",
- "syn 2.0.41",
+ "syn 2.0.43",
 ]
 
 [[package]]
@@ -995,7 +995,7 @@ checksum = "43576ca501357b9b071ac53cdc7da8ef0cbd9493d8df094cd821777ea6e894d3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.41",
+ "syn 2.0.43",
 ]
 
 [[package]]
@@ -1033,8 +1033,8 @@ dependencies = [
  "cw-pause-once",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw721 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=fee_share)",
- "cw721-base 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=fee_share)",
+ "cw721 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=withdrawal_address)",
+ "cw721-base 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=withdrawal_address)",
  "cw721-rate-limited-proxy",
  "ics721",
  "sg-std",
@@ -1163,9 +1163,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.41"
+version = "2.0.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44c8b28c477cc3bf0e7966561e3460130e1255f7a1cf71931075f1c5e7a7e269"
+checksum = "ee659fb5f3d355364e1f3e5bc10fb82068efbf824a1e9d1c9504244a6469ad53"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1174,22 +1174,22 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.50"
+version = "1.0.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9a7210f5c9a7156bb50aa36aed4c95afb51df0df00713949448cf9e97d382d2"
+checksum = "83a48fd946b02c0a526b2e9481c8e2a17755e47039164a86c4070446e3a4614d"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.50"
+version = "1.0.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "266b2e40bc00e5a6c09c3584011e08b06f123c00362c92b975ba9843aaaa14b8"
+checksum = "e7fbe9b594d6568a6a1443250a7e67d80b74e1e96f6d1715e1e21cc1888291d3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.41",
+ "syn 2.0.43",
 ]
 
 [[package]]
