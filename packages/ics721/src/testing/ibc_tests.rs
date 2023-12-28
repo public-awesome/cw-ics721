@@ -10,7 +10,7 @@ use cosmwasm_std::{
 
 use crate::{
     execute::Ics721Execute,
-    ibc::{Ics721Ibc, ACK_AND_DO_NOTHING, IBC_VERSION, INSTANTIATE_CW721_REPLY_ID},
+    ibc::{Ics721Ibc, ACK_AND_DO_NOTHING_REPLY_ID, IBC_VERSION, INSTANTIATE_CW721_REPLY_ID},
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
     query::Ics721Query,
@@ -19,7 +19,7 @@ use crate::{
     ContractError,
 };
 use ics721_types::{
-    ibc::NonFungibleTokenPacketData,
+    ibc_types::NonFungibleTokenPacketData,
     token_types::{ClassId, TokenId},
     types::Ics721Callbacks,
 };
@@ -180,7 +180,7 @@ fn test_stateless_reply() {
     let mut deps = mock_dependencies();
 
     let rep = Reply {
-        id: ACK_AND_DO_NOTHING,
+        id: ACK_AND_DO_NOTHING_REPLY_ID,
         result: SubMsgResult::Ok(SubMsgResponse {
             events: vec![],
             data: None,
@@ -192,7 +192,7 @@ fn test_stateless_reply() {
     assert_eq!(res.data, Some(ack_success()));
 
     let rep = Reply {
-        id: ACK_AND_DO_NOTHING,
+        id: ACK_AND_DO_NOTHING_REPLY_ID,
         result: SubMsgResult::Err("some failure".to_string()),
     };
     let res = Ics721Contract::default()
@@ -497,7 +497,7 @@ fn test_ibc_packet_receive_invalid_packet_data() {
 
     assert!(error
         .unwrap()
-        .starts_with("Error parsing into type ics721_types::ibc::NonFungibleTokenPacketData"))
+        .starts_with("Error parsing into type ics721_types::ibc_types::NonFungibleTokenPacketData"))
 }
 
 #[test]

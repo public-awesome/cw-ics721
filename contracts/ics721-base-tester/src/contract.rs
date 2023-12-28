@@ -5,7 +5,7 @@ use cosmwasm_std::{
     StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
-use ics721_types::ibc::NonFungibleTokenPacketData;
+use ics721_types::ibc_types::NonFungibleTokenPacketData;
 
 use crate::{
     error::ContractError,
@@ -65,7 +65,7 @@ pub fn execute(
 mod receive_callbacks {
     use cosmwasm_std::{ensure_eq, from_json, DepsMut, MessageInfo, Response};
     use ics721_types::{
-        ibc::NonFungibleTokenPacketData,
+        ibc_types::NonFungibleTokenPacketData,
         types::{Ics721AckCallbackMsg, Ics721ReceiveCallbackMsg, Ics721Status},
     };
 

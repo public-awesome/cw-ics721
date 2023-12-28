@@ -5,7 +5,7 @@ use cosmwasm_std::{
     IbcMsg, MessageInfo, Response, StdResult, SubMsg, WasmMsg,
 };
 use ics721_types::{
-    ibc::NonFungibleTokenPacketData,
+    ibc_types::NonFungibleTokenPacketData,
     token_types::{Class, ClassId, Token, TokenId},
 };
 use serde::{de::DeserializeOwned, Serialize};

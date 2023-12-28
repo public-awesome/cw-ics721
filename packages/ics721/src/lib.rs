@@ -11,7 +11,7 @@ pub mod token_types;
 pub mod utils;
 pub use crate::error::ContractError;
 pub use ics721_types::{
-    ibc::NonFungibleTokenPacketData,
+    ibc_types::NonFungibleTokenPacketData,
     token_types::{Class, ClassId, Token, TokenId},
 };
 

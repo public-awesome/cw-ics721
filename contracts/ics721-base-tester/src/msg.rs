@@ -60,7 +60,7 @@ pub enum ExecuteMsg {
         channel_id: String,
         timeout: IbcTimeout,
 
-        data: ics721_types::ibc::NonFungibleTokenPacketData,
+        data: ics721_types::ibc_types::NonFungibleTokenPacketData,
     },
     SetAckMode {
         ack_mode: AckMode,

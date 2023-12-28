@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 use crate::{ibc::ACK_CALLBACK_REPLY_ID, ContractError};
 use ics721_types::{
-    ibc::NonFungibleTokenPacketData,
+    ibc_types::NonFungibleTokenPacketData,
     types::{
         Ics721AckCallbackMsg, Ics721Callbacks, Ics721Memo, Ics721ReceiveCallbackMsg, Ics721Status,
         ReceiverExecuteMsg,

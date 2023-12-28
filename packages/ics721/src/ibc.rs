@@ -5,7 +5,7 @@ use cosmwasm_std::{
     StdResult, SubMsgResult, WasmMsg,
 };
 use cw_utils::parse_reply_instantiate_data;
-use ics721_types::{ibc::NonFungibleTokenPacketData, types::Ics721Status};
+use ics721_types::{ibc_types::NonFungibleTokenPacketData, types::Ics721Status};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
@@ -22,15 +22,15 @@ use crate::{
 /// Submessage reply ID used for instantiating cw721 contracts.
 pub(crate) const INSTANTIATE_CW721_REPLY_ID: u64 = 0;
 /// Submessage reply ID used for instantiating the proxy contract.
-pub(crate) const INSTANTIATE_INCOMING_PROXY_REPLY_ID: u64 = 4;
+pub(crate) const INSTANTIATE_INCOMING_PROXY_REPLY_ID: u64 = 1;
 /// Submessage reply ID used for instantiating the proxy contract.
-pub(crate) const INSTANTIATE_OUTGOING_PROXY_REPLY_ID: u64 = 1;
+pub(crate) const INSTANTIATE_OUTGOING_PROXY_REPLY_ID: u64 = 2;
 /// Submessages dispatched with this reply ID will set the ack on the
 /// response depending on if the submessage execution succeded or
 /// failed.
-pub(crate) const ACK_AND_DO_NOTHING: u64 = 2;
+pub(crate) const ACK_AND_DO_NOTHING_REPLY_ID: u64 = 3;
 /// Reply on callback
-pub(crate) const ACK_CALLBACK_REPLY_ID: u64 = 3;
+pub(crate) const ACK_CALLBACK_REPLY_ID: u64 = 4;
 /// The IBC version this contract expects to communicate with.
 pub const IBC_VERSION: &str = "ics721-1";
 
@@ -271,7 +271,7 @@ where
             }
             // These messages don't need to do any state changes in the
             // reply - just need to commit an ack.
-            ACK_AND_DO_NOTHING => {
+            ACK_AND_DO_NOTHING_REPLY_ID => {
                 match reply.result {
                     // On success, set a successful ack. Nothing else to do.
                     SubMsgResult::Ok(_) => Ok(Response::new().set_data(ack_success())),

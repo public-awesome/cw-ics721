@@ -7,7 +7,7 @@ use zip_optional::Zippable;
 
 use crate::{
     helpers::{generate_receive_callback_msg, get_instantiate2_address, get_receive_callback},
-    ibc::ACK_AND_DO_NOTHING,
+    ibc::ACK_AND_DO_NOTHING_REPLY_ID,
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg},
     state::{
@@ -18,7 +18,7 @@ use crate::{
     ContractError,
 };
 use ics721_types::{
-    ibc::NonFungibleTokenPacketData,
+    ibc_types::NonFungibleTokenPacketData,
     token_types::{Class, ClassId, Token, TokenId},
     types::ReceiverExecuteMsg,
 };
@@ -349,6 +349,6 @@ impl ActionAggregator {
                 funds: vec![],
             }
         };
-        Ok(SubMsg::reply_always(message, ACK_AND_DO_NOTHING))
+        Ok(SubMsg::reply_always(message, ACK_AND_DO_NOTHING_REPLY_ID))
     }
 }

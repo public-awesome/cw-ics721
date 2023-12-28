@@ -22,7 +22,7 @@ use crate::{
     utils::get_collection_data,
 };
 use ics721_types::{
-    ibc::NonFungibleTokenPacketData,
+    ibc_types::NonFungibleTokenPacketData,
     token_types::{ClassId, TokenId},
 };
 
