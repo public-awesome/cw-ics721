@@ -72,8 +72,7 @@ impl<'a> Bounder<'a> for ClassId {
     }
 }
 
-// boilerplate for conversion between wrappers and the wrapped.
-
+// Allow ClassId to be inferred into String
 impl From<ClassId> for String {
     fn from(c: ClassId) -> Self {
         c.0
@@ -100,8 +99,7 @@ impl std::fmt::Display for ClassId {
     }
 }
 
-// boilerplate for storing these wrapper types in CosmWasm maps.
-
+// Allow ClassId to be inferred into Key - using String.key()
 impl<'a> PrimaryKey<'a> for ClassId {
     type Prefix = <String as PrimaryKey<'a>>::Prefix;
     type SubPrefix = <String as PrimaryKey<'a>>::SubPrefix;
