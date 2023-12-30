@@ -459,18 +459,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw721"
-version = "0.18.0"
-source = "git+https://github.com/arkprotocol/cw-nfts?branch=withdrawal_address#8691baf71422448b50d98bc5e516b9115dc13336"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-utils 1.0.3",
- "schemars",
- "serde",
-]
-
-[[package]]
 name = "cw721-base"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -849,12 +837,12 @@ dependencies = [
 [[package]]
 name = "ics721-types"
 version = "0.1.0"
-source = "git+https://github.com/arkprotocol/ark-cw-ics721?branch=incoming_proxy#c46edd44c62939a527d3fb9827713056455453d7"
+source = "git+https://github.com/arkprotocol/ark-cw-ics721?branch=incoming_proxy#9ec55edd96e004c4592593c1504a9c1791a810e2"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus 1.2.0",
- "cw721 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=withdrawal_address)",
+ "cw721 0.18.0 (git+https://github.com/CosmWasm/cw-nfts?branch=main)",
  "serde",
  "thiserror",
 ]
