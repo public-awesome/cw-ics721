@@ -559,10 +559,8 @@ fn test_ibc_packet_receive_missmatched_lengths() {
     assert_eq!(
         error,
         Some(
-            ContractError::ValidationError(
-                ics721_types::error::Ics721Error::TokenInfoLenMissmatch {}
-            )
-            .to_string()
+            ContractError::Ics721Error(ics721_types::error::Ics721Error::TokenInfoLenMissmatch {})
+                .to_string()
         )
     );
 
@@ -596,10 +594,8 @@ fn test_ibc_packet_receive_missmatched_lengths() {
     assert_eq!(
         error,
         Some(
-            ContractError::ValidationError(
-                ics721_types::error::Ics721Error::TokenInfoLenMissmatch {}
-            )
-            .to_string()
+            ContractError::Ics721Error(ics721_types::error::Ics721Error::TokenInfoLenMissmatch {})
+                .to_string()
         )
     )
 }

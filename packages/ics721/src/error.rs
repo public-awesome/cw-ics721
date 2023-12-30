@@ -7,7 +7,7 @@ use thiserror::Error;
 #[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
     #[error(transparent)]
-    ValidationError(#[from] Ics721Error),
+    Ics721Error(#[from] Ics721Error),
 
     #[error(transparent)]
     Std(#[from] StdError),
