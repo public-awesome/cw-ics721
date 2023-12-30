@@ -2,7 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Binary, IbcTimeout};
 
 use crate::{
-    error::ValidationError,
+    error::Ics721Error,
     token_types::{ClassId, TokenId},
 };
 
@@ -44,15 +44,15 @@ pub struct NonFungibleTokenPacketData {
 macro_rules! non_empty_optional {
     ($e:expr) => {
         if $e.map_or(false, |data| data.is_empty()) {
-            return Err(ValidationError::EmptyOptional {});
+            return Err(Ics721Error::EmptyOptional {});
         }
     };
 }
 
 impl NonFungibleTokenPacketData {
-    pub fn validate(&self) -> Result<(), ValidationError> {
+    pub fn validate(&self) -> Result<(), Ics721Error> {
         if self.class_id.is_empty() {
-            return Err(ValidationError::EmptyClassId {});
+            return Err(Ics721Error::EmptyClassId {});
         }
 
         non_empty_optional!(self.class_uri.as_ref());
@@ -60,7 +60,7 @@ impl NonFungibleTokenPacketData {
 
         let token_count = self.token_ids.len();
         if token_count == 0 {
-            return Err(ValidationError::NoTokens {});
+            return Err(Ics721Error::NoTokens {});
         }
 
         // Non-empty optionality of tokenData an tokenUris implicitly
@@ -74,7 +74,7 @@ impl NonFungibleTokenPacketData {
                 .as_ref()
                 .map_or(false, |data| data.len() != token_count)
         {
-            return Err(ValidationError::TokenInfoLenMissmatch {});
+            return Err(Ics721Error::TokenInfoLenMissmatch {});
         }
 
         // This contract assumes that the backing cw721 is functional,
@@ -129,55 +129,55 @@ mod tests {
             ..default_token.clone()
         };
         let err = empty_class_id.validate().unwrap_err();
-        assert_eq!(err, ValidationError::EmptyClassId {});
+        assert_eq!(err, Ics721Error::EmptyClassId {});
 
         let empty_class_uri = NonFungibleTokenPacketData {
             class_uri: Some("".to_string()),
             ..default_token.clone()
         };
         let err = empty_class_uri.validate().unwrap_err();
-        assert_eq!(err, ValidationError::EmptyOptional {});
+        assert_eq!(err, Ics721Error::EmptyOptional {});
 
         let empty_class_data = NonFungibleTokenPacketData {
             class_data: Some(Binary::default()),
             ..default_token.clone()
         };
         let err = empty_class_data.validate().unwrap_err();
-        assert_eq!(err, ValidationError::EmptyOptional {});
+        assert_eq!(err, Ics721Error::EmptyOptional {});
 
         let no_tokens = NonFungibleTokenPacketData {
             token_ids: vec![],
             ..default_token.clone()
         };
         let err = no_tokens.validate().unwrap_err();
-        assert_eq!(err, ValidationError::NoTokens {});
+        assert_eq!(err, Ics721Error::NoTokens {});
 
         let uri_imbalance_empty = NonFungibleTokenPacketData {
             token_uris: Some(vec![]),
             ..default_token.clone()
         };
         let err = uri_imbalance_empty.validate().unwrap_err();
-        assert_eq!(err, ValidationError::TokenInfoLenMissmatch {});
+        assert_eq!(err, Ics721Error::TokenInfoLenMissmatch {});
 
         let uri_imbalance = NonFungibleTokenPacketData {
             token_uris: Some(vec!["a".to_string(), "b".to_string()]),
             ..default_token.clone()
         };
         let err = uri_imbalance.validate().unwrap_err();
-        assert_eq!(err, ValidationError::TokenInfoLenMissmatch {});
+        assert_eq!(err, Ics721Error::TokenInfoLenMissmatch {});
 
         let data_imbalance_empty = NonFungibleTokenPacketData {
             token_data: Some(vec![]),
             ..default_token.clone()
         };
         let err = data_imbalance_empty.validate().unwrap_err();
-        assert_eq!(err, ValidationError::TokenInfoLenMissmatch {});
+        assert_eq!(err, Ics721Error::TokenInfoLenMissmatch {});
 
         let data_imbalance = NonFungibleTokenPacketData {
             token_data: Some(vec![Binary::default(), Binary::default()]),
             ..default_token
         };
         let err = data_imbalance.validate().unwrap_err();
-        assert_eq!(err, ValidationError::TokenInfoLenMissmatch {});
+        assert_eq!(err, Ics721Error::TokenInfoLenMissmatch {});
     }
 }

@@ -1,13 +1,13 @@
 use cosmwasm_std::{Binary, Instantiate2AddressError, StdError};
 use cw_pause_once::PauseError;
 use cw_utils::ParseReplyError;
-use ics721_types::error::ValidationError;
+use ics721_types::error::Ics721Error;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
     #[error(transparent)]
-    ValidationError(#[from] ValidationError),
+    ValidationError(#[from] Ics721Error),
 
     #[error(transparent)]
     Std(#[from] StdError),
@@ -36,27 +36,11 @@ pub enum ContractError {
     #[error("ICS 721 channels may not be closed")]
     CantCloseChannel {},
 
-    #[error("unrecognised class ID")]
-    UnrecognisedClassId {},
-
-    #[error("class ID already exists")]
-    ClassIdAlreadyExists {},
-
     #[error("unrecognised reply ID")]
     UnrecognisedReplyId {},
 
     #[error(transparent)]
     ParseReplyError(#[from] ParseReplyError),
-
-    #[error("must provide same number of token IDs and URIs")]
-    ImbalancedTokenInfo {},
-
-    #[error("unexpected uri for classID {class_id} - got ({actual:?}), expected ({expected:?})")]
-    ClassUriClash {
-        class_id: String,
-        expected: Option<String>,
-        actual: Option<String>,
-    },
 
     #[error("Transfer contains both redemption and a creation action")]
     InvalidTransferBothActions,

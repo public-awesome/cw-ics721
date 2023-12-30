@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
-pub enum ValidationError {
+pub enum Ics721Error {
     #[error("empty class ID")]
     EmptyClassId {},
 

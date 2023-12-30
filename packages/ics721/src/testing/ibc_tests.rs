@@ -560,7 +560,7 @@ fn test_ibc_packet_receive_missmatched_lengths() {
         error,
         Some(
             ContractError::ValidationError(
-                ics721_types::error::ValidationError::TokenInfoLenMissmatch {}
+                ics721_types::error::Ics721Error::TokenInfoLenMissmatch {}
             )
             .to_string()
         )
@@ -597,7 +597,7 @@ fn test_ibc_packet_receive_missmatched_lengths() {
         error,
         Some(
             ContractError::ValidationError(
-                ics721_types::error::ValidationError::TokenInfoLenMissmatch {}
+                ics721_types::error::Ics721Error::TokenInfoLenMissmatch {}
             )
             .to_string()
         )
