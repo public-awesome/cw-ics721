@@ -21,6 +21,9 @@ pub enum ContractError {
     #[error("unauthorized")]
     Unauthorized {},
 
+    #[error("NFT not escrowed by ICS721! Owner: {0}")]
+    NotEscrowedByIcs721(String),
+
     #[error("only unordered channels are supported")]
     OrderedChannel {},
 

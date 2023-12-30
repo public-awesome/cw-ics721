@@ -198,7 +198,7 @@ where
             },
         )?;
         if access.owner != env.contract.address {
-            return Err(ContractError::Unauthorized {});
+            return Err(ContractError::NotEscrowedByIcs721(access.owner));
         }
 
         // cw721 doesn't support on-chain metadata yet
@@ -495,6 +495,10 @@ where
                     .add_attribute(
                         "outgoing_proxy",
                         outgoing_proxy.map_or_else(|| "none".to_string(), |or| or),
+                    )
+                    .add_attribute(
+                        "incoming_proxy",
+                        incoming_proxy.map_or_else(|| "none".to_string(), |or| or),
                     )
                     .add_attribute(
                         "cw721_base_code_id",
