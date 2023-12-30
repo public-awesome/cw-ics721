@@ -9,5 +9,6 @@ description = "an implementation of the ICS721 specification for transfering NFT
 cosmwasm-std = { workspace = true, features = ["cosmwasm_1_2"] }
 cosmwasm-schema = { workspace = true }
 cw-storage-plus = { workspace = true }
+cw721 = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }

@@ -5,7 +5,7 @@ use cosmwasm_std::{
     StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
-use ics721_types::ibc_types::NonFungibleTokenPacketData;
+use ics721_types::ibc_types::{IbcOutgoingMsg, NonFungibleTokenPacketData};
 
 use crate::{
     error::ContractError,
@@ -220,7 +220,7 @@ fn execute_send_nft(
         msg: to_json_binary(&cw721::Cw721ExecuteMsg::SendNft {
             contract: ics721,
             token_id,
-            msg: to_json_binary(&ics721::msg::IbcOutgoingMsg {
+            msg: to_json_binary(&IbcOutgoingMsg {
                 receiver: recipient,
                 channel_id,
                 timeout: IbcTimeout::with_timestamp(env.block.time.plus_seconds(1000)),

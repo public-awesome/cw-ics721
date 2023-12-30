@@ -5,7 +5,7 @@ use cosmwasm_std::{
     IbcMsg, MessageInfo, Response, StdResult, SubMsg, WasmMsg,
 };
 use ics721_types::{
-    ibc_types::NonFungibleTokenPacketData,
+    ibc_types::{IbcOutgoingMsg, IbcOutgoingProxyMsg, NonFungibleTokenPacketData},
     token_types::{Class, ClassId, Token, TokenId},
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -17,7 +17,7 @@ use crate::{
         INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_INCOMING_PROXY_REPLY_ID,
         INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
     },
-    msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg},
+    msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg},
     state::{
         CollectionData, UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
         CW721_CODE_ID, INCOMING_PROXY, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
@@ -82,9 +82,6 @@ where
                 token_id,
                 msg,
             }) => self.execute_receive_nft(deps, env, info, token_id, sender, msg),
-            ExecuteMsg::ReceiveProxyNft { eyeball, msg } => {
-                self.execute_receive_proxy_nft(deps, env, info, eyeball, msg)
-            }
             ExecuteMsg::Pause {} => self.execute_pause(deps, info),
             ExecuteMsg::Callback(msg) => self.execute_callback(deps, env, info, msg),
         }
@@ -99,11 +96,31 @@ where
         sender: String,
         msg: Binary,
     ) -> Result<Response<T>, ContractError> {
-        if OUTGOING_PROXY.load(deps.storage)?.is_some() {
-            Err(ContractError::Unauthorized {})
+        let result = if OUTGOING_PROXY.load(deps.storage)?.is_some() {
+            from_json::<IbcOutgoingProxyMsg>(msg).ok().and_then(|msg| {
+                let mut info = info;
+                match deps.api.addr_validate(&msg.collection) {
+                    Ok(validated_addr) => {
+                        info.sender = validated_addr;
+                        Some(self.receive_nft(
+                            deps,
+                            env,
+                            info,
+                            TokenId::new(token_id),
+                            sender,
+                            msg.msg,
+                        ))
+                    }
+                    Err(_) => None,
+                }
+            })
         } else {
-            self.receive_nft(deps, env, info, TokenId::new(token_id), sender, msg)
-        }
+            from_json::<IbcOutgoingMsg>(msg.clone())
+                .ok()
+                .map(|_| self.receive_nft(deps, env, info, TokenId::new(token_id), sender, msg))
+        };
+
+        result.ok_or(ContractError::Unauthorized {})?
     }
 
     fn execute_receive_proxy_nft(

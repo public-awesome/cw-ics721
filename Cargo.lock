@@ -789,7 +789,6 @@ dependencies = [
  "cw721-base 0.16.0",
  "cw721-base 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=withdrawal_address)",
  "cw721-incoming-proxy",
- "cw721-outgoing-proxy-derive",
  "cw721-outgoing-proxy-rate-limit",
  "ics721-types 0.1.0",
  "serde",
@@ -829,6 +828,7 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus 1.2.0",
+ "cw721 0.18.0 (git+https://github.com/arkprotocol/cw-nfts?branch=withdrawal_address)",
  "serde",
  "thiserror",
 ]

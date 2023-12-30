@@ -56,6 +56,12 @@ impl ClassId {
     }
 }
 
+#[cw_serde]
+pub struct ClassToken {
+    pub class_id: ClassId,
+    pub token_id: TokenId,
+}
+
 impl<'a> Bounder<'a> for ClassId {
     fn inclusive_bound(self) -> Option<cw_storage_plus::Bound<'a, Self>> {
         Some(Bound::inclusive(self))

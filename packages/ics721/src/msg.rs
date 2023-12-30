@@ -1,10 +1,9 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, IbcTimeout, WasmMsg};
-use cw721_outgoing_proxy_derive::cw721_outgoing_proxy;
+use cosmwasm_std::{Addr, WasmMsg};
 use cw_cii::ContractInstantiateInfo;
 
 use crate::token_types::{VoucherCreation, VoucherRedemption};
-use ics721_types::token_types::{Class, ClassId, Token, TokenId};
+use ics721_types::token_types::{Class, ClassId, ClassToken, Token, TokenId};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -32,7 +31,6 @@ pub struct InstantiateMsg {
     pub pauser: Option<String>,
 }
 
-#[cw721_outgoing_proxy]
 #[cw_serde]
 pub enum ExecuteMsg {
     /// Receives a NFT to be IBC transfered away. The `msg` field must
@@ -83,20 +81,6 @@ pub enum CallbackMsg {
     /// to respond with a single ACK when a message calls for the
     /// execution of both `CreateVouchers` and `RedeemVouchers`.
     Conjunction { operands: Vec<WasmMsg> },
-}
-
-#[cw_serde]
-pub struct IbcOutgoingMsg {
-    /// The address that should receive the NFT being sent on the
-    /// *receiving chain*.
-    pub receiver: String,
-    /// The *local* channel ID this ought to be sent away on. This
-    /// contract must have a connection on this channel.
-    pub channel_id: String,
-    /// Timeout for the IBC message.
-    pub timeout: IbcTimeout,
-    /// Memo to add custom string to the msg
-    pub memo: Option<String>,
 }
 
 #[cw_serde]
@@ -175,12 +159,6 @@ pub enum QueryMsg {
         start_after: Option<ClassToken>,
         limit: Option<u32>,
     },
-}
-
-#[cw_serde]
-pub struct ClassToken {
-    pub class_id: ClassId,
-    pub token_id: TokenId,
 }
 
 #[cw_serde]

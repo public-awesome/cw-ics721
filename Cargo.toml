@@ -21,7 +21,6 @@ cw721-016 = { version = "0.16.0", package = "cw721" }
 cw721-base = { git = "https://github.com/arkprotocol/cw-nfts", branch = "withdrawal_address"} # TODO switch to official repo, once merged
 cw721-base-016  = { version = "0.16.0", package = "cw721-base" }
 cw721-incoming-proxy = { git = "https://github.com/arkprotocol/cw721-proxy.git" }
-cw721-outgoing-proxy-derive = { git = "https://github.com/arkprotocol/cw721-proxy.git" }
 cw721-outgoing-proxy-rate-limit = { git = "https://github.com/arkprotocol/cw721-proxy.git" }
 cw-multi-test = { version = "^0.20", features = ["cosmwasm_1_2"] }
 cw-utils = "^1.0"

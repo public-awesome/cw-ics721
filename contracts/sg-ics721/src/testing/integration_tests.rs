@@ -17,12 +17,15 @@ use cw_pause_once::PauseError;
 use ics721::{
     execute::Ics721Execute,
     ibc::Ics721Ibc,
-    msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg, QueryMsg},
+    msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
     state::CollectionData,
     token_types::VoucherCreation,
 };
-use ics721_types::token_types::{Class, ClassId, Token, TokenId};
+use ics721_types::{
+    ibc_types::{IbcOutgoingMsg, IbcOutgoingProxyMsg},
+    token_types::{Class, ClassId, Token, TokenId},
+};
 use sg721::InstantiateMsg as Sg721InstantiateMsg;
 use sg721_base::msg::{CollectionInfoResponse, QueryMsg as Sg721QueryMsg};
 use sha2::{digest::Update, Digest, Sha256};
@@ -1997,14 +2000,24 @@ fn test_no_proxy_unauthorized() {
         .execute_contract(
             test.app.api().addr_make("proxy"),
             test.ics721,
-            &ExecuteMsg::ReceiveProxyNft {
-                eyeball: "nft".to_string(),
-                msg: cw721::Cw721ReceiveMsg {
-                    sender: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
-                    token_id: "1".to_string(),
-                    msg: to_json_binary("").unwrap(),
-                },
-            },
+            &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+                sender: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
+                token_id: "1".to_string(),
+                msg: to_json_binary(&IbcOutgoingProxyMsg {
+                    collection: "foo".to_string(),
+                    msg: to_json_binary(&IbcOutgoingMsg {
+                        receiver: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
+                        channel_id: "channel-0".to_string(),
+                        timeout: IbcTimeout::with_block(IbcTimeoutBlock {
+                            revision: 0,
+                            height: 10,
+                        }),
+                        memo: None,
+                    })
+                    .unwrap(),
+                })
+                .unwrap(),
+            }),
             &[],
         )
         .unwrap_err()
@@ -2081,15 +2094,15 @@ fn test_proxy_authorized() {
         .execute_contract(
             proxy_address,
             test.ics721,
-            &ExecuteMsg::ReceiveProxyNft {
-                eyeball: source_cw721.into_string(),
-                msg: cw721::Cw721ReceiveMsg {
-                    sender: test
-                        .app
-                        .api()
-                        .addr_make(COLLECTION_OWNER_SOURCE_CHAIN)
-                        .to_string(),
-                    token_id: "1".to_string(),
+            &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+                sender: test
+                    .app
+                    .api()
+                    .addr_make(COLLECTION_OWNER_SOURCE_CHAIN)
+                    .to_string(),
+                token_id: "1".to_string(),
+                msg: to_json_binary(&IbcOutgoingProxyMsg {
+                    collection: source_cw721.into_string(),
                     msg: to_json_binary(&IbcOutgoingMsg {
                         receiver: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
                         channel_id: "channel-0".to_string(),
@@ -2100,8 +2113,9 @@ fn test_proxy_authorized() {
                         memo: None,
                     })
                     .unwrap(),
-                },
-            },
+                })
+                .unwrap(),
+            }),
             &[],
         )
         .unwrap();

@@ -13,7 +13,7 @@ use cw_ownable::Ownership;
 use crate::{
     execute::Ics721Execute,
     ibc::{Ics721Ibc, INSTANTIATE_INCOMING_PROXY_REPLY_ID, INSTANTIATE_OUTGOING_PROXY_REPLY_ID},
-    msg::{IbcOutgoingMsg, InstantiateMsg},
+    msg::InstantiateMsg,
     query::Ics721Query,
     state::{
         CollectionData, CLASS_ID_TO_CLASS, CW721_CODE_ID, INCOMING_PROXY,
@@ -22,7 +22,7 @@ use crate::{
     utils::get_collection_data,
 };
 use ics721_types::{
-    ibc_types::NonFungibleTokenPacketData,
+    ibc_types::{IbcOutgoingMsg, NonFungibleTokenPacketData},
     token_types::{ClassId, TokenId},
 };
 

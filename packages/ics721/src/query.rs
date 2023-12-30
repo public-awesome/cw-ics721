@@ -2,14 +2,14 @@ use cosmwasm_std::{to_json_binary, Addr, Binary, Deps, Env, Order, StdResult};
 use cw_storage_plus::Map;
 
 use crate::{
-    msg::{ClassToken, QueryMsg},
+    msg::QueryMsg,
     state::{
         UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
         INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY, NFT_CONTRACT_TO_CLASS_ID,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
 };
-use ics721_types::token_types::{Class, ClassId, Token, TokenId};
+use ics721_types::token_types::{Class, ClassId, ClassToken, Token, TokenId};
 
 pub trait Ics721Query {
     fn query(&self, deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
