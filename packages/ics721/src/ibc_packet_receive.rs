@@ -6,12 +6,15 @@ use sha2::{Digest, Sha256};
 use zip_optional::Zippable;
 
 use crate::{
-    helpers::{generate_receive_callback_msg, get_instantiate2_address, get_receive_callback},
+    helpers::{
+        generate_receive_callback_msg, get_incoming_proxy_msg, get_instantiate2_address,
+        get_receive_callback,
+    },
     ibc::ACK_AND_DO_NOTHING_REPLY_ID,
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg},
     state::{
-        CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY,
+        CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO,
     },
     token_types::{VoucherCreation, VoucherRedemption},
@@ -20,7 +23,6 @@ use crate::{
 use ics721_types::{
     ibc_types::NonFungibleTokenPacketData,
     token_types::{Class, ClassId, Token, TokenId},
-    types::ReceiverExecuteMsg,
 };
 
 /// Every incoming token has some associated action.
@@ -59,24 +61,6 @@ pub(crate) fn receive_ibc_packet(
     PO.error_if_paused(deps.storage)?;
     let data: NonFungibleTokenPacketData = from_json(&packet.data)?;
     data.validate()?;
-
-    // If there is an incoming proxy, let proxy validate the packet, in case it fails, we fail the transfer
-    // This proxy for example whitelist channels that can send to this contract:
-    // https://github.com/arkprotocol/cw721-proxy/tree/main/contracts/cw721-incoming-proxy
-    let incoming_proxy_msg = match INCOMING_PROXY.load(deps.storage).ok().flatten() {
-        Some(incoming_proxy) => {
-            let msg = to_json_binary(&ReceiverExecuteMsg::Ics721ReceivePacketMsg {
-                packet: packet.clone(),
-                data: data.clone(),
-            })?;
-            Some(WasmMsg::Execute {
-                contract_addr: incoming_proxy.to_string(),
-                msg,
-                funds: vec![],
-            })
-        }
-        None => None,
-    };
 
     let cloned_data = data.clone();
     let receiver = deps.api.addr_validate(&data.receiver)?;
@@ -195,6 +179,8 @@ pub(crate) fn receive_ibc_packet(
         None
     };
 
+    let incoming_proxy_msg =
+        get_incoming_proxy_msg(deps.storage, packet.clone(), cloned_data.clone())?;
     let submessage = action_aggregator.into_submessage(
         env.contract.address,
         receiver,

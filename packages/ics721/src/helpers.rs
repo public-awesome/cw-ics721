@@ -1,10 +1,10 @@
 use cosmwasm_std::{
-    from_json, instantiate2_address, to_json_binary, Addr, Binary, CodeInfoResponse, Deps, SubMsg,
-    WasmMsg,
+    from_json, instantiate2_address, to_json_binary, Addr, Binary, CodeInfoResponse, Deps,
+    IbcPacket, StdResult, Storage, SubMsg, WasmMsg,
 };
 use serde::Deserialize;
 
-use crate::{ibc::ACK_CALLBACK_REPLY_ID, ContractError};
+use crate::{ibc::ACK_CALLBACK_REPLY_ID, state::INCOMING_PROXY, ContractError};
 use ics721_types::{
     ibc_types::NonFungibleTokenPacketData,
     types::{
@@ -65,6 +65,27 @@ pub(crate) fn ack_callback_msg(
         },
         ACK_CALLBACK_REPLY_ID,
     ))
+}
+
+/// If there is an incoming proxy, let proxy validate the packet, in case it fails, we fail the transfer
+/// This proxy for example whitelist channels that can send to this contract:
+/// https://github.com/arkprotocol/cw721-proxy/tree/main/contracts/cw721-incoming-proxy
+pub(crate) fn get_incoming_proxy_msg(
+    storage: &dyn Storage,
+    packet: IbcPacket,
+    data: NonFungibleTokenPacketData,
+) -> StdResult<Option<WasmMsg>> {
+    match INCOMING_PROXY.load(storage).ok().flatten() {
+        Some(incoming_proxy) => {
+            let msg = to_json_binary(&ReceiverExecuteMsg::Ics721ReceivePacketMsg { packet, data })?;
+            Ok(Some(WasmMsg::Execute {
+                contract_addr: incoming_proxy.to_string(),
+                msg,
+                funds: vec![],
+            }))
+        }
+        None => Ok(None),
+    }
 }
 
 /// Get the msg and address from the memo field
