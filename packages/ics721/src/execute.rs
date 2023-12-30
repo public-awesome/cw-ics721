@@ -100,8 +100,8 @@ where
             from_json::<IbcOutgoingProxyMsg>(msg).ok().and_then(|msg| {
                 let mut info = info;
                 match deps.api.addr_validate(&msg.collection) {
-                    Ok(validated_addr) => {
-                        info.sender = validated_addr;
+                    Ok(collection_addr) => {
+                        info.sender = collection_addr;
                         Some(self.receive_nft(
                             deps,
                             env,

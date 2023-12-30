@@ -16,9 +16,9 @@ cw-ownable      = "^0.5"
 cw-paginate-storage = { version = "^2.4", git = "https://github.com/DA0-DA0/dao-contracts.git" }
 cw-storage-plus = "1.1"
 cw2 = "1.1"
-cw721 = { git = "https://github.com/arkprotocol/cw-nfts", branch = "withdrawal_address"} # TODO switch to official repo, once merged
+cw721 = { git = "https://github.com/CosmWasm/cw-nfts", branch = "main"} # TODO switch to version 0.18.1/0.19.0, once released
 cw721-016 = { version = "0.16.0", package = "cw721" }
-cw721-base = { git = "https://github.com/arkprotocol/cw-nfts", branch = "withdrawal_address"} # TODO switch to official repo, once merged
+cw721-base = { git = "https://github.com/CosmWasm/cw-nfts", branch = "main"} # TODO switch to version 0.18.1/0.19.0, once released
 cw721-base-016  = { version = "0.16.0", package = "cw721-base" }
 cw721-incoming-proxy = { git = "https://github.com/arkprotocol/cw721-proxy.git" }
 cw721-outgoing-proxy-rate-limit = { git = "https://github.com/arkprotocol/cw721-proxy.git" }
