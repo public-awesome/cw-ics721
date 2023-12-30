@@ -15,9 +15,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.77"
+version = "1.0.78"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9d19de80eff169429ac1e9f48fffb163916b448a44e8e046186232046d9e1f9"
+checksum = "ca87830a3e3fb156dc96cfbd31cb620265dd053be734723f22b760d6cc3c3051"
 
 [[package]]
 name = "base16ct"
@@ -234,7 +234,7 @@ dependencies = [
 [[package]]
 name = "cw-incoming-proxy"
 version = "0.0.1"
-source = "git+https://github.com/arkprotocol/cw721-proxy.git#c9d847abcfddaa33b9c339c0a96d2400f4898fcb"
+source = "git+https://github.com/arkprotocol/cw721-proxy.git#4112564d235ee7c8f5bd0ffb33226bd40e9717d3"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -250,7 +250,7 @@ dependencies = [
 [[package]]
 name = "cw-incoming-proxy-derive"
 version = "0.0.1"
-source = "git+https://github.com/arkprotocol/cw721-proxy.git#c9d847abcfddaa33b9c339c0a96d2400f4898fcb"
+source = "git+https://github.com/arkprotocol/cw721-proxy.git#4112564d235ee7c8f5bd0ffb33226bd40e9717d3"
 dependencies = [
  "cosmwasm-std",
  "ics721-types 0.1.0 (git+https://github.com/arkprotocol/ark-cw-ics721?branch=incoming_proxy)",
@@ -330,7 +330,7 @@ dependencies = [
 [[package]]
 name = "cw-rate-limiter"
 version = "0.0.1"
-source = "git+https://github.com/arkprotocol/cw721-proxy.git#c9d847abcfddaa33b9c339c0a96d2400f4898fcb"
+source = "git+https://github.com/arkprotocol/cw721-proxy.git#4112564d235ee7c8f5bd0ffb33226bd40e9717d3"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -515,7 +515,7 @@ dependencies = [
 [[package]]
 name = "cw721-incoming-proxy"
 version = "0.0.1"
-source = "git+https://github.com/arkprotocol/cw721-proxy.git#c9d847abcfddaa33b9c339c0a96d2400f4898fcb"
+source = "git+https://github.com/arkprotocol/cw721-proxy.git#4112564d235ee7c8f5bd0ffb33226bd40e9717d3"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -534,7 +534,7 @@ dependencies = [
 [[package]]
 name = "cw721-outgoing-proxy"
 version = "0.0.1"
-source = "git+https://github.com/arkprotocol/cw721-proxy.git#c9d847abcfddaa33b9c339c0a96d2400f4898fcb"
+source = "git+https://github.com/arkprotocol/cw721-proxy.git#4112564d235ee7c8f5bd0ffb33226bd40e9717d3"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -547,7 +547,7 @@ dependencies = [
 [[package]]
 name = "cw721-outgoing-proxy-derive"
 version = "0.0.1"
-source = "git+https://github.com/arkprotocol/cw721-proxy.git#c9d847abcfddaa33b9c339c0a96d2400f4898fcb"
+source = "git+https://github.com/arkprotocol/cw721-proxy.git#4112564d235ee7c8f5bd0ffb33226bd40e9717d3"
 dependencies = [
  "cw721 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2",
@@ -558,7 +558,7 @@ dependencies = [
 [[package]]
 name = "cw721-outgoing-proxy-rate-limit"
 version = "0.0.1"
-source = "git+https://github.com/arkprotocol/cw721-proxy.git#c9d847abcfddaa33b9c339c0a96d2400f4898fcb"
+source = "git+https://github.com/arkprotocol/cw721-proxy.git#4112564d235ee7c8f5bd0ffb33226bd40e9717d3"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -566,6 +566,7 @@ dependencies = [
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
  "cw721 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cw721-base 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cw721-outgoing-proxy",
  "cw721-outgoing-proxy-derive",
  "ics721-types 0.1.0 (git+https://github.com/arkprotocol/ark-cw-ics721?branch=incoming_proxy)",
@@ -837,7 +838,7 @@ dependencies = [
 [[package]]
 name = "ics721-types"
 version = "0.1.0"
-source = "git+https://github.com/arkprotocol/ark-cw-ics721?branch=incoming_proxy#9ec55edd96e004c4592593c1504a9c1791a810e2"
+source = "git+https://github.com/arkprotocol/ark-cw-ics721?branch=incoming_proxy#88ae912c5defd352c54dfa62b0743843dc2ba8f3"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1252,18 +1253,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.52"
+version = "1.0.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83a48fd946b02c0a526b2e9481c8e2a17755e47039164a86c4070446e3a4614d"
+checksum = "b2cd5904763bad08ad5513ddbb12cf2ae273ca53fa9f68e843e236ec6dfccc09"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.52"
+version = "1.0.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7fbe9b594d6568a6a1443250a7e67d80b74e1e96f6d1715e1e21cc1888291d3"
+checksum = "3dcf4a824cce0aeacd6f38ae6f24234c8e80d68632338ebaa1443b5df9e29e19"
 dependencies = [
  "proc-macro2",
  "quote",
