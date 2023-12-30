@@ -311,16 +311,19 @@ impl ActionAggregator {
         callback_msg: Option<WasmMsg>,
         incoming_proxy_msg: Option<WasmMsg>,
     ) -> StdResult<SubMsg<Empty>> {
-        let mut m = Vec::with_capacity(2);
+        let mut m = Vec::with_capacity(3); // 3 is the max number of submessages we can have
         if let Some(incoming_proxy_msg) = incoming_proxy_msg {
             m.push(incoming_proxy_msg)
         }
+
+        // we can only have redeem or create, not both
         if let Some(redeem) = self.redemption {
             m.push(redeem.into_wasm_msg(contract.clone(), receiver.to_string())?)
         }
         if let Some(create) = self.creation {
             m.push(create.into_wasm_msg(contract.clone(), receiver.into_string())?)
         }
+
         if let Some(callback_msg) = callback_msg {
             m.push(callback_msg)
         }
