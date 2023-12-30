@@ -1,4 +1,4 @@
-use cosmwasm_std::{Instantiate2AddressError, StdError};
+use cosmwasm_std::{Binary, Instantiate2AddressError, StdError};
 use cw_pause_once::PauseError;
 use cw_utils::ParseReplyError;
 use ics721_types::error::ValidationError;
@@ -20,6 +20,9 @@ pub enum ContractError {
 
     #[error("unauthorized")]
     Unauthorized {},
+
+    #[error("unauthorized")]
+    UnknownMsg(Binary),
 
     #[error("NFT not escrowed by ICS721! Owner: {0}")]
     NotEscrowedByIcs721(String),

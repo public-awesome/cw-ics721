@@ -168,15 +168,7 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
   t.log(
     `migrate ${wasmIcs721} contract to use incoming proxy ${wasmCw721IncomingProxy}`
   );
-  let migrateResult = await migrate(
-    wasmClient,
-    wasmIcs721,
-    wasmIcs721Id,
-    wasmCw721IncomingProxy
-  );
-  t.log(
-    `- migrate result: ${JSON.stringify(migrateResult, bigIntReplacer, 2)}`
-  );
+  await migrate(wasmClient, wasmIcs721, wasmIcs721Id, wasmCw721IncomingProxy);
 
   const per_block = 10; // use high rate limit to avoid test failures
   t.log(
@@ -197,15 +189,12 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
   t.log(
     `migrate ${osmoIcs721} contract to use outgoing proxy ${osmoCw721OutgoingProxy}`
   );
-  migrateResult = await migrate(
+  await migrate(
     osmoClient,
     osmoIcs721,
     osmoIcs721Id,
     undefined,
     osmoCw721OutgoingProxy
-  );
-  t.log(
-    `- migrate result: ${JSON.stringify(migrateResult, bigIntReplacer, 2)}`
   );
 
   t.log(
@@ -409,12 +398,13 @@ test.serial("malicious NFT", async (t) => {
 
   const {
     wasmClient,
-    osmoClient,
-    channel,
-    osmoAddr,
     wasmAddr,
     wasmIcs721,
+    osmoClient,
+    osmoAddr,
     osmoIcs721,
+    osmoCw721OutgoingProxy,
+    channel,
   } = t.context;
   const tokenId = "1";
 
@@ -445,7 +435,7 @@ test.serial("malicious NFT", async (t) => {
     },
   };
 
-  t.log("transfering to osmo chain");
+  t.log("transferring to osmo chain");
 
   let transferResponse = await sendNft(
     wasmClient,
@@ -461,6 +451,8 @@ test.serial("malicious NFT", async (t) => {
   let info = await channel.link.relayAll();
 
   assertAckSuccess(info.acksFromB);
+
+  t.log("transferring back to wasm chain");
 
   const osmoClassId = `${t.context.channel.channel.dest.portId}/${t.context.channel.channel.dest.channelId}/${cw721}`;
   const osmoCw721 = await osmoClient.sign.queryContractSmart(osmoIcs721, {
@@ -481,7 +473,7 @@ test.serial("malicious NFT", async (t) => {
   transferResponse = await sendNft(
     osmoClient,
     osmoCw721,
-    osmoIcs721,
+    osmoCw721OutgoingProxy,
     ibcMsg,
     tokenId
   );
@@ -492,7 +484,7 @@ test.serial("malicious NFT", async (t) => {
   const pending = await channel.link.getPendingPackets("B");
   t.is(pending.length, 1);
 
-  // Despite the transfer panicing, a fail ack should be returned.
+  // Despite the transfer panicking, a fail ack should be returned.
   info = await channel.link.relayAll();
   assertAckErrors(info.acksFromA);
 });

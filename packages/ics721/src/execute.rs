@@ -93,60 +93,46 @@ where
         env: Env,
         info: MessageInfo,
         token_id: String,
-        sender: String,
+        nft_owner: String,
         msg: Binary,
     ) -> Result<Response<T>, ContractError> {
-        let result = if OUTGOING_PROXY.load(deps.storage)?.is_some() {
-            from_json::<IbcOutgoingProxyMsg>(msg).ok().and_then(|msg| {
-                let mut info = info;
-                match deps.api.addr_validate(&msg.collection) {
-                    Ok(collection_addr) => {
-                        info.sender = collection_addr;
-                        Some(self.receive_nft(
-                            deps,
-                            env,
-                            info,
-                            TokenId::new(token_id),
-                            sender,
-                            msg.msg,
-                        ))
-                    }
-                    Err(_) => None,
+        let result = match OUTGOING_PROXY.load(deps.storage)? {
+            Some(proxy) => {
+                if proxy != info.sender {
+                    return Err(ContractError::Unauthorized {});
                 }
-            })
-        } else {
-            from_json::<IbcOutgoingMsg>(msg.clone())
-                .ok()
-                .map(|_| self.receive_nft(deps, env, info, TokenId::new(token_id), sender, msg))
+                from_json::<IbcOutgoingProxyMsg>(msg.clone())
+                    .ok()
+                    .and_then(|msg| {
+                        let mut info = info;
+                        match deps.api.addr_validate(&msg.collection) {
+                            Ok(collection_addr) => {
+                                info.sender = collection_addr;
+                                Some(self.receive_nft(
+                                    deps,
+                                    env,
+                                    info,
+                                    TokenId::new(token_id),
+                                    nft_owner,
+                                    msg.msg,
+                                ))
+                            }
+                            Err(_) => None,
+                        }
+                    })
+            }
+            None => from_json::<IbcOutgoingMsg>(msg.clone()).ok().map(|_| {
+                self.receive_nft(
+                    deps,
+                    env,
+                    info,
+                    TokenId::new(token_id),
+                    nft_owner,
+                    msg.clone(),
+                )
+            }),
         };
-
-        result.ok_or(ContractError::Unauthorized {})?
-    }
-
-    fn execute_receive_proxy_nft(
-        &self,
-        deps: DepsMut,
-        env: Env,
-        info: MessageInfo,
-        eyeball: String,
-        msg: cw721::Cw721ReceiveMsg,
-    ) -> Result<Response<T>, ContractError> {
-        if OUTGOING_PROXY
-            .load(deps.storage)?
-            .map_or(true, |proxy| info.sender != proxy)
-        {
-            return Err(ContractError::Unauthorized {});
-        }
-        let mut info = info;
-        info.sender = deps.api.addr_validate(&eyeball)?;
-        let cw721::Cw721ReceiveMsg {
-            token_id,
-            sender,
-            msg,
-        } = msg;
-        let res = self.receive_nft(deps, env, info, TokenId::new(token_id), sender, msg)?;
-        // override method key
-        Ok(res.add_attribute("method", "execute_receive_proxy_nft"))
+        result.ok_or(ContractError::UnknownMsg(msg))?
     }
 
     fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Option<Self::ClassData>>;
@@ -157,10 +143,10 @@ where
         env: Env,
         info: MessageInfo,
         token_id: TokenId,
-        sender: String,
+        nft_owner: String,
         msg: Binary,
     ) -> Result<Response<T>, ContractError> {
-        let sender = deps.api.addr_validate(&sender)?;
+        let nft_owner = deps.api.addr_validate(&nft_owner)?;
         let msg: IbcOutgoingMsg = from_json(msg)?;
 
         let class = match NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, info.sender.clone())? {
@@ -217,7 +203,7 @@ where
             token_uris: info.token_uri.map(|uri| vec![uri]),
             token_data: token_metadata.map(|metadata| vec![metadata]),
 
-            sender: sender.into_string(),
+            sender: nft_owner.into_string(),
             receiver: msg.receiver,
             memo: msg.memo,
         };

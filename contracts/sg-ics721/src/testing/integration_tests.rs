@@ -1991,10 +1991,23 @@ fn test_do_instantiate_and_mint_permissions() {
     assert_eq!(err, ContractError::Unauthorized {});
 }
 
-/// Tests that we can not proxy NFTs if no proxy is configured.
+/// Tests that we can not send IbcOutgoingProxyMsg if no proxy is configured.
 #[test]
-fn test_no_proxy_unauthorized() {
+fn test_no_proxy_unknown_msg() {
     let mut test = Test::new(false, false, None, None, sg721_base_contract());
+    let msg = IbcOutgoingProxyMsg {
+        collection: "foo".to_string(),
+        msg: to_json_binary(&IbcOutgoingMsg {
+            receiver: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
+            channel_id: "channel-0".to_string(),
+            timeout: IbcTimeout::with_block(IbcTimeoutBlock {
+                revision: 0,
+                height: 10,
+            }),
+            memo: None,
+        })
+        .unwrap(),
+    };
     let err: ContractError = test
         .app
         .execute_contract(
@@ -2003,20 +2016,45 @@ fn test_no_proxy_unauthorized() {
             &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
                 sender: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
                 token_id: "1".to_string(),
-                msg: to_json_binary(&IbcOutgoingProxyMsg {
-                    collection: "foo".to_string(),
-                    msg: to_json_binary(&IbcOutgoingMsg {
-                        receiver: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
-                        channel_id: "channel-0".to_string(),
-                        timeout: IbcTimeout::with_block(IbcTimeoutBlock {
-                            revision: 0,
-                            height: 10,
-                        }),
-                        memo: None,
-                    })
-                    .unwrap(),
-                })
-                .unwrap(),
+                msg: to_json_binary(&msg).unwrap(),
+            }),
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        err,
+        ContractError::UnknownMsg(to_json_binary(&msg).unwrap())
+    );
+}
+
+/// Tests that we can non-proxy addresses can send if proxy is configured.
+#[test]
+fn test_no_proxy_unauthorized() {
+    let mut test = Test::new(true, false, None, None, sg721_base_contract());
+    let msg = IbcOutgoingProxyMsg {
+        collection: "foo".to_string(),
+        msg: to_json_binary(&IbcOutgoingMsg {
+            receiver: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
+            channel_id: "channel-0".to_string(),
+            timeout: IbcTimeout::with_block(IbcTimeoutBlock {
+                revision: 0,
+                height: 10,
+            }),
+            memo: None,
+        })
+        .unwrap(),
+    };
+    let err: ContractError = test
+        .app
+        .execute_contract(
+            test.app.api().addr_make("foo"),
+            test.ics721,
+            &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+                sender: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
+                token_id: "1".to_string(),
+                msg: to_json_binary(&msg).unwrap(),
             }),
             &[],
         )
