@@ -87,6 +87,20 @@ where
         }
     }
 
+    /// ICS721 may receive an NFT from 2 sources:
+    /// 1. From a local cw721 contract (e.g. cw721-base)
+    /// 2. From a(n outgoing) proxy contract.
+    ///
+    /// In case of 2. outgoing proxy calls 2 messages:
+    /// a) tranfer NFT to ICS721
+    /// b) call/forwards "ReceiveNFt" message to ICS721.
+    ///
+    /// Unlike 1) proxy passes in b) an IbcOutgoingProxyMsg (and not an IbcOutgoingMsg)
+    /// which also holds the collection address, since info.sender
+    /// is the proxy contract - and not the collection.
+    ///
+    /// NB: outgoing proxy can use `SendNft` on collectio and pass it directly to ICS721,
+    /// since one `OUTGOING_PROXY` is defined in ICS721, it accepts only NFT receives from this proxy.
     fn execute_receive_nft(
         &self,
         deps: DepsMut,
@@ -96,8 +110,10 @@ where
         nft_owner: String,
         msg: Binary,
     ) -> Result<Response<T>, ContractError> {
+        // if there is an outgoing proxy, we need to check if the msg is IbcOutgoingProxyMsg
         let result = match OUTGOING_PROXY.load(deps.storage)? {
             Some(proxy) => {
+                // accept only messages from the proxy
                 if proxy != info.sender {
                     return Err(ContractError::Unauthorized {});
                 }
@@ -107,6 +123,7 @@ where
                         let mut info = info;
                         match deps.api.addr_validate(&msg.collection) {
                             Ok(collection_addr) => {
+                                // set collection address as (initial) sender
                                 info.sender = collection_addr;
                                 Some(self.receive_nft(
                                     deps,
@@ -117,7 +134,7 @@ where
                                     msg.msg,
                                 ))
                             }
-                            Err(_) => None,
+                            Err(err) => Some(Err(ContractError::Std(err))),
                         }
                     })
             }
