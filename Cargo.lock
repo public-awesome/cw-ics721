@@ -840,7 +840,7 @@ dependencies = [
 [[package]]
 name = "ics721-types"
 version = "0.1.0"
-source = "git+https://github.com/arkprotocol/ark-cw-ics721?branch=incoming_proxy#b930ded200d6db49162b6c3b15b37f6705eeaa34"
+source = "git+https://github.com/arkprotocol/ark-cw-ics721?branch=incoming_proxy#f8c42c069446c88eeaa79e56db879862f95bd22e"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
