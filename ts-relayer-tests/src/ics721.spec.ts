@@ -158,7 +158,7 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
     wasmCw721IncomingProxyId,
     {
       origin: wasmIcs721,
-      source_channels: [channelInfo.channel.src.channelId],
+      channels: [channelInfo.channel.src.channelId],
     },
     "label incoming proxy"
   );
