@@ -69,7 +69,7 @@ pub(crate) fn ack_callback_msg(
 
 /// If there is an incoming proxy, let proxy validate the packet, in case it fails, we fail the transfer
 /// This proxy for example whitelist channels that can send to this contract:
-/// https://github.com/arkprotocol/cw721-proxy/tree/main/contracts/cw721-incoming-proxy
+/// https://github.com/arkprotocol/cw-ics721-proxy/tree/main/contracts/cw-ics721-incoming-proxy-base
 pub(crate) fn get_incoming_proxy_msg(
     storage: &dyn Storage,
     packet: IbcPacket,

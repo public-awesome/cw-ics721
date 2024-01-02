@@ -66,7 +66,7 @@ Pause functionality is designed to allow for quick pauses by a trusted group, wi
 
 After a pause, the ICS721 contract will remain paused until governance chooses to unpause it. During the unpause process governance may appoint a new subDAO or reappoint the existing one as pause manager. It is imagined that the admin of this contract will be a chain's community pool, and the pause manager will be a small, active subDAO. This process means that the subDAO may pause the contract in the event of a problem, but may not lock the contract, as in pausing the contract the subDAO burns its ability to do so again.
 
-Filtering is enabled by an optional proxy that the ICS721 contract may be configured to use. If a proxy is configured, the ICS721 contract will only accept NFTs delivered by the proxy address. This proxy interface is very minimal and enables very flexible rate limiting and filtering. Currently, per-collection rate limiting is implemented. Users of this ICS721 contract are encouraged to implement their own filtering regimes and may add them to the [proxy repository](https://github.com/arkprotocol/cw721-proxy) so that others may use them.
+Filtering is enabled by an optional proxy that the ICS721 contract may be configured to use. If a proxy is configured, the ICS721 contract will only accept NFTs delivered by the proxy address. This proxy interface is very minimal and enables very flexible rate limiting and filtering. Currently, per-collection rate limiting is implemented. Users of this ICS721 contract are encouraged to implement their own filtering regimes and may add them to the [proxy repository](https://github.com/arkprotocol/cw-ics721-proxy) so that others may use them.
 
 ## Failure handling errata
 

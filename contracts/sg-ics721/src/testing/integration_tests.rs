@@ -288,7 +288,7 @@ impl Test {
     fn new(
         outgoing_proxy: bool,
         incoming_proxy: bool,
-        source_channels: Option<Vec<String>>,
+        channels: Option<Vec<String>>,
         admin_and_pauser: Option<String>,
         cw721_code: Box<dyn Contract<Empty>>,
     ) -> Self {
@@ -307,10 +307,12 @@ impl Test {
                 let proxy_id = app.store_code(outgoing_proxy_contract());
                 Some(ContractInstantiateInfo {
                     code_id: proxy_id,
-                    msg: to_json_binary(&cw721_outgoing_proxy_rate_limit::msg::InstantiateMsg {
-                        rate_limit: cw721_outgoing_proxy_rate_limit::Rate::PerBlock(10),
-                        origin: None,
-                    })
+                    msg: to_json_binary(
+                        &cw_ics721_outgoing_proxy_rate_limit::msg::InstantiateMsg {
+                            rate_limit: cw_ics721_outgoing_proxy_rate_limit::Rate::PerBlock(10),
+                            origin: None,
+                        },
+                    )
                     .unwrap(),
                     admin: Some(Admin::Instantiator {}),
                     label: "outgoing proxy rate limit".to_string(),
@@ -324,9 +326,9 @@ impl Test {
                 let proxy_id = app.store_code(incoming_proxy_contract());
                 Some(ContractInstantiateInfo {
                     code_id: proxy_id,
-                    msg: to_json_binary(&cw721_incoming_proxy::msg::InstantiateMsg {
+                    msg: to_json_binary(&cw_ics721_incoming_proxy_base::msg::InstantiateMsg {
                         origin: None,
-                        source_channels,
+                        channels,
                     })
                     .unwrap(),
                     admin: Some(Admin::Instantiator {}),
@@ -546,18 +548,18 @@ fn ics721_contract() -> Box<dyn Contract<Empty>> {
 
 fn incoming_proxy_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cw721_incoming_proxy::contract::execute,
-        cw721_incoming_proxy::contract::instantiate,
-        cw721_incoming_proxy::contract::query,
+        cw_ics721_incoming_proxy_base::contract::execute,
+        cw_ics721_incoming_proxy_base::contract::instantiate,
+        cw_ics721_incoming_proxy_base::contract::query,
     );
     Box::new(contract)
 }
 
 fn outgoing_proxy_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cw721_outgoing_proxy_rate_limit::contract::execute,
-        cw721_outgoing_proxy_rate_limit::contract::instantiate,
-        cw721_outgoing_proxy_rate_limit::contract::query,
+        cw_ics721_outgoing_proxy_rate_limit::contract::execute,
+        cw_ics721_outgoing_proxy_rate_limit::contract::instantiate,
+        cw_ics721_outgoing_proxy_rate_limit::contract::query,
     );
     Box::new(contract)
 }

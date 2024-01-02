@@ -119,22 +119,22 @@ where
                 }
                 from_json::<IbcOutgoingProxyMsg>(msg.clone())
                     .ok()
-                    .and_then(|msg| {
+                    .map(|msg| {
                         let mut info = info;
                         match deps.api.addr_validate(&msg.collection) {
                             Ok(collection_addr) => {
                                 // set collection address as (initial) sender
                                 info.sender = collection_addr;
-                                Some(self.receive_nft(
+                                self.receive_nft(
                                     deps,
                                     env,
                                     info,
                                     TokenId::new(token_id),
                                     nft_owner,
                                     msg.msg,
-                                ))
+                                )
                             }
-                            Err(err) => Some(Err(ContractError::Std(err))),
+                            Err(err) => Err(ContractError::Std(err)),
                         }
                     })
             }
