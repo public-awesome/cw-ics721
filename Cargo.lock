@@ -234,7 +234,7 @@ dependencies = [
 [[package]]
 name = "cw-ics721-incoming-proxy"
 version = "0.1.0"
-source = "git+https://github.com/arkprotocol/cw-ics721-proxy.git?tag=v0.1.0#4d6e3b0e168305044db00176494a28b318ae8dfe"
+source = "git+https://github.com/arkprotocol/cw-ics721-proxy.git?tag=v0.1.0#cc1c156b1c0d2941c62b4291444674baf1ec855b"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -250,7 +250,7 @@ dependencies = [
 [[package]]
 name = "cw-ics721-incoming-proxy-base"
 version = "0.1.0"
-source = "git+https://github.com/arkprotocol/cw-ics721-proxy.git?tag=v0.1.0#4d6e3b0e168305044db00176494a28b318ae8dfe"
+source = "git+https://github.com/arkprotocol/cw-ics721-proxy.git?tag=v0.1.0#cc1c156b1c0d2941c62b4291444674baf1ec855b"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -269,7 +269,7 @@ dependencies = [
 [[package]]
 name = "cw-ics721-incoming-proxy-derive"
 version = "0.1.0"
-source = "git+https://github.com/arkprotocol/cw-ics721-proxy.git?tag=v0.1.0#4d6e3b0e168305044db00176494a28b318ae8dfe"
+source = "git+https://github.com/arkprotocol/cw-ics721-proxy.git?tag=v0.1.0#cc1c156b1c0d2941c62b4291444674baf1ec855b"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -282,7 +282,7 @@ dependencies = [
 [[package]]
 name = "cw-ics721-outgoing-proxy"
 version = "0.1.0"
-source = "git+https://github.com/arkprotocol/cw-ics721-proxy.git?tag=v0.1.0#4d6e3b0e168305044db00176494a28b318ae8dfe"
+source = "git+https://github.com/arkprotocol/cw-ics721-proxy.git?tag=v0.1.0#cc1c156b1c0d2941c62b4291444674baf1ec855b"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -297,7 +297,7 @@ dependencies = [
 [[package]]
 name = "cw-ics721-outgoing-proxy-derive"
 version = "0.1.0"
-source = "git+https://github.com/arkprotocol/cw-ics721-proxy.git?tag=v0.1.0#4d6e3b0e168305044db00176494a28b318ae8dfe"
+source = "git+https://github.com/arkprotocol/cw-ics721-proxy.git?tag=v0.1.0#cc1c156b1c0d2941c62b4291444674baf1ec855b"
 dependencies = [
  "cw721 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2",
@@ -308,7 +308,7 @@ dependencies = [
 [[package]]
 name = "cw-ics721-outgoing-proxy-rate-limit"
 version = "0.1.0"
-source = "git+https://github.com/arkprotocol/cw-ics721-proxy.git?tag=v0.1.0#4d6e3b0e168305044db00176494a28b318ae8dfe"
+source = "git+https://github.com/arkprotocol/cw-ics721-proxy.git?tag=v0.1.0#cc1c156b1c0d2941c62b4291444674baf1ec855b"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -395,7 +395,7 @@ dependencies = [
 [[package]]
 name = "cw-rate-limiter"
 version = "0.1.0"
-source = "git+https://github.com/arkprotocol/cw-ics721-proxy.git?tag=v0.1.0#4d6e3b0e168305044db00176494a28b318ae8dfe"
+source = "git+https://github.com/arkprotocol/cw-ics721-proxy.git?tag=v0.1.0#cc1c156b1c0d2941c62b4291444674baf1ec855b"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -841,7 +841,7 @@ dependencies = [
 [[package]]
 name = "ics721-types"
 version = "0.1.0"
-source = "git+https://github.com/arkprotocol/ark-cw-ics721?branch=incoming_proxy#a2d4965572485c1085b4ece2cbb9d55a896b5b74"
+source = "git+https://github.com/arkprotocol/ark-cw-ics721?branch=incoming_proxy#1fadd3b4869b7cdcbc54128d34ad86b2fdfed0b2"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1045,9 +1045,9 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "1.0.20"
+version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "836fa6a3e1e547f9a2c4040802ec865b5d85f4014efe00555d7090a3dcaa1090"
+checksum = "b97ed7a9823b74f99c7742f5336af7be5ecd3eeafcb1507d1fa93347b1d589b0"
 
 [[package]]
 name = "serde"
