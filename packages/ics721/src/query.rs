@@ -2,14 +2,14 @@ use cosmwasm_std::{to_json_binary, Addr, Binary, Deps, Env, Order, StdResult};
 use cw_storage_plus::Map;
 
 use crate::{
-    msg::{ClassToken, QueryMsg},
+    msg::QueryMsg,
     state::{
         UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID,
-        INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
-        PO, PROXY, TOKEN_METADATA,
+        INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY, NFT_CONTRACT_TO_CLASS_ID,
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
-    token_types::{Class, ClassId, Token, TokenId},
 };
+use ics721_types::token_types::{Class, ClassId, ClassToken, Token, TokenId};
 
 pub trait Ics721Query {
     fn query(&self, deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
@@ -31,7 +31,8 @@ pub trait Ics721Query {
             }
             QueryMsg::Pauser {} => to_json_binary(&PO.query_pauser(deps.storage)?),
             QueryMsg::Paused {} => to_json_binary(&PO.query_paused(deps.storage)?),
-            QueryMsg::Proxy {} => to_json_binary(&PROXY.load(deps.storage)?),
+            QueryMsg::OutgoingProxy {} => to_json_binary(&OUTGOING_PROXY.load(deps.storage)?),
+            QueryMsg::IncomingProxy {} => to_json_binary(&INCOMING_PROXY.load(deps.storage)?),
             QueryMsg::Cw721CodeId {} => to_json_binary(&self.query_cw721_code_id(deps)?),
             QueryMsg::NftContracts { start_after, limit } => {
                 to_json_binary(&self.query_nft_contracts(deps, start_after, limit)?)

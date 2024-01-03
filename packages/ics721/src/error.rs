@@ -1,10 +1,14 @@
-use cosmwasm_std::{Instantiate2AddressError, StdError};
+use cosmwasm_std::{Binary, Instantiate2AddressError, StdError};
 use cw_pause_once::PauseError;
 use cw_utils::ParseReplyError;
+use ics721_types::error::Ics721Error;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
+    #[error(transparent)]
+    Ics721Error(#[from] Ics721Error),
+
     #[error(transparent)]
     Std(#[from] StdError),
 
@@ -17,6 +21,12 @@ pub enum ContractError {
     #[error("unauthorized")]
     Unauthorized {},
 
+    #[error("unauthorized")]
+    UnknownMsg(Binary),
+
+    #[error("NFT not escrowed by ICS721! Owner: {0}")]
+    NotEscrowedByIcs721(String),
+
     #[error("only unordered channels are supported")]
     OrderedChannel {},
 
@@ -26,39 +36,11 @@ pub enum ContractError {
     #[error("ICS 721 channels may not be closed")]
     CantCloseChannel {},
 
-    #[error("unrecognised class ID")]
-    UnrecognisedClassId {},
-
-    #[error("class ID already exists")]
-    ClassIdAlreadyExists {},
-
-    #[error("empty class ID")]
-    EmptyClassId {},
-
-    #[error("must transfer at least one token")]
-    NoTokens {},
-
-    #[error("optional fields may not be empty if provided")]
-    EmptyOptional {},
-
     #[error("unrecognised reply ID")]
     UnrecognisedReplyId {},
 
     #[error(transparent)]
     ParseReplyError(#[from] ParseReplyError),
-
-    #[error("must provide same number of token IDs and URIs")]
-    ImbalancedTokenInfo {},
-
-    #[error("unexpected uri for classID {class_id} - got ({actual:?}), expected ({expected:?})")]
-    ClassUriClash {
-        class_id: String,
-        expected: Option<String>,
-        actual: Option<String>,
-    },
-
-    #[error("tokenIds, tokenUris, and tokenData must have the same length")]
-    TokenInfoLenMissmatch {},
 
     #[error("Transfer contains both redemption and a creation action")]
     InvalidTransferBothActions,

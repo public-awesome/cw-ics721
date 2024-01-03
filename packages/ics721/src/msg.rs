@@ -1,9 +1,9 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, IbcTimeout, WasmMsg};
-use cw721_proxy_derive::cw721_proxy;
+use cosmwasm_std::{Addr, WasmMsg};
 use cw_cii::ContractInstantiateInfo;
 
-use crate::token_types::{ClassId, Token, TokenId, VoucherCreation, VoucherRedemption};
+use crate::token_types::{VoucherCreation, VoucherRedemption};
+use ics721_types::token_types::{Class, ClassId, ClassToken, Token, TokenId};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -15,11 +15,15 @@ pub struct InstantiateMsg {
     /// this contract to stop working, and IBCd away NFTs to be
     /// unreturnable as cw721 does not have a mint method in the spec.
     pub cw721_base_code_id: u64,
-    /// An optional proxy contract. If a proxy is set the contract
+    /// An optional proxy contract. If an incoming proxy is set, the contract
+    /// will call it and pass IbcPacket. The proxy is expected
+    /// to implement the Ics721ReceiveIbcPacketMsg for message execution.
+    pub incoming_proxy: Option<ContractInstantiateInfo>,
+    /// An optional proxy contract. If an outging proxy is set, the contract
     /// will only accept NFTs from that proxy. The proxy is expected
     /// to implement the cw721 proxy interface defined in the
-    /// cw721-proxy crate.
-    pub proxy: Option<ContractInstantiateInfo>,
+    /// cw721-outgoing-proxy crate.
+    pub outgoing_proxy: Option<ContractInstantiateInfo>,
     /// Address that may pause the contract. PAUSER may pause the
     /// contract a single time; in pausing the contract they burn the
     /// right to do so again. A new pauser may be later nominated by
@@ -27,7 +31,6 @@ pub struct InstantiateMsg {
     pub pauser: Option<String>,
 }
 
-#[cw721_proxy]
 #[cw_serde]
 pub enum ExecuteMsg {
     /// Receives a NFT to be IBC transfered away. The `msg` field must
@@ -81,26 +84,12 @@ pub enum CallbackMsg {
 }
 
 #[cw_serde]
-pub struct IbcOutgoingMsg {
-    /// The address that should receive the NFT being sent on the
-    /// *receiving chain*.
-    pub receiver: String,
-    /// The *local* channel ID this ought to be sent away on. This
-    /// contract must have a connection on this channel.
-    pub channel_id: String,
-    /// Timeout for the IBC message.
-    pub timeout: IbcTimeout,
-    /// Memo to add custom string to the msg
-    pub memo: Option<String>,
-}
-
-#[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     /// Gets the classID this contract has stored for a given NFT
     /// contract. If there is no class ID for the provided contract,
     /// returns None.
-    #[returns(Option<crate::token_types::ClassId>)]
+    #[returns(Option<ClassId>)]
     ClassId { contract: String },
 
     /// Gets the NFT contract associated wtih the provided class
@@ -112,10 +101,10 @@ pub enum QueryMsg {
     /// Gets the class level metadata URI for the provided
     /// class_id. If there is no metadata, returns None. Returns
     /// `Option<Class>`.
-    #[returns(Option<crate::token_types::Class>)]
+    #[returns(Option<Class>)]
     ClassMetadata { class_id: String },
 
-    #[returns(Option<crate::token_types::Token>)]
+    #[returns(Option<Token>)]
     TokenMetadata { class_id: String, token_id: String },
 
     /// Gets the owner of the NFT identified by CLASS_ID and
@@ -132,9 +121,13 @@ pub enum QueryMsg {
     #[returns(bool)]
     Paused {},
 
-    /// Gets this contract's cw721-proxy if one is set.
+    /// Gets this contract's outgoing cw721-outgoing-proxy if one is set.
     #[returns(Option<::cosmwasm_std::Addr>)]
-    Proxy {},
+    OutgoingProxy {},
+
+    /// Gets this contract's incoming cw721-outgoing-proxy if one is set.
+    #[returns(Option<::cosmwasm_std::Addr>)]
+    IncomingProxy {},
 
     /// Gets the code used for instantiating new cw721s.
     #[returns(u64)]
@@ -169,20 +162,17 @@ pub enum QueryMsg {
 }
 
 #[cw_serde]
-pub struct ClassToken {
-    pub class_id: ClassId,
-    pub token_id: TokenId,
-}
-
-#[cw_serde]
 pub enum MigrateMsg {
     WithUpdate {
         /// The address that may pause the contract. If `None` is
         /// provided the current pauser will be removed.
         pauser: Option<String>,
-        /// The cw721-proxy for this contract. If `None` is provided
+        /// The cw721-outgoing-proxy for this contract. If `None` is provided
         /// the current proxy will be removed.
-        proxy: Option<String>,
+        outgoing_proxy: Option<String>,
+        /// The cw721-outgoing-proxy for this contract. If `None` is provided
+        /// the current proxy will be removed.
+        incoming_proxy: Option<String>,
         /// Code ID of cw721-ics contract. A new cw721-ics will be
         /// instantiated for each new IBCd NFT classID.
         ///

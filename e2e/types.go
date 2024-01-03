@@ -25,7 +25,8 @@ type ModuleInstantiateInfo struct {
 
 type InstantiateICS721Bridge struct {
 	CW721CodeID uint64                 `json:"cw721_base_code_id"`
-	Proxy       *ModuleInstantiateInfo `json:"proxy"`
+	OutgoingProxy       *ModuleInstantiateInfo `json:"outgoing_proxy"`
+	IncomingProxy       *ModuleInstantiateInfo `json:"incoming_proxy"`
 	Pauser      *string                `json:"pauser"`
 }
 
@@ -33,6 +34,7 @@ type InstantiateCw721 struct {
 	Name   string `json:"name"`
 	Symbol string `json:"symbol"`
 	Minter string `json:"minter"`
+	WithdrawAddress *string `json:"withdraw_address"`
 }
 
 type InstantiateBridgeTester struct {

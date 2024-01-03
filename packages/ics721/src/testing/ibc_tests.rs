@@ -10,18 +10,18 @@ use cosmwasm_std::{
 
 use crate::{
     execute::Ics721Execute,
-    ibc::{
-        Ics721Ibc, NonFungibleTokenPacketData, ACK_AND_DO_NOTHING, IBC_VERSION,
-        INSTANTIATE_CW721_REPLY_ID,
-    },
+    ibc::{Ics721Ibc, ACK_AND_DO_NOTHING_REPLY_ID, IBC_VERSION, INSTANTIATE_CW721_REPLY_ID},
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
     query::Ics721Query,
     state::{CollectionData, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, PO},
-    token_types::{ClassId, TokenId},
-    types::Ics721Callbacks,
     utils::get_collection_data,
     ContractError,
+};
+use ics721_types::{
+    ibc_types::NonFungibleTokenPacketData,
+    token_types::{ClassId, TokenId},
+    types::Ics721Callbacks,
 };
 
 const CONTRACT_PORT: &str = "wasm.address1";
@@ -105,7 +105,8 @@ fn add_channel(mut deps: DepsMut, env: Env, channel_id: &str) {
 fn do_instantiate(deps: DepsMut, env: Env, sender: &str) -> StdResult<Response> {
     let msg = InstantiateMsg {
         cw721_base_code_id: CW721_CODE_ID,
-        proxy: None,
+        incoming_proxy: None,
+        outgoing_proxy: None,
         pauser: None,
     };
     Ics721Contract::default().instantiate(deps, env, mock_info(sender, &[]), msg)
@@ -179,7 +180,7 @@ fn test_stateless_reply() {
     let mut deps = mock_dependencies();
 
     let rep = Reply {
-        id: ACK_AND_DO_NOTHING,
+        id: ACK_AND_DO_NOTHING_REPLY_ID,
         result: SubMsgResult::Ok(SubMsgResponse {
             events: vec![],
             data: None,
@@ -191,7 +192,7 @@ fn test_stateless_reply() {
     assert_eq!(res.data, Some(ack_success()));
 
     let rep = Reply {
-        id: ACK_AND_DO_NOTHING,
+        id: ACK_AND_DO_NOTHING_REPLY_ID,
         result: SubMsgResult::Err("some failure".to_string()),
     };
     let res = Ics721Contract::default()
@@ -476,7 +477,7 @@ fn test_ibc_packet_receive() {
 #[test]
 fn test_ibc_packet_receive_invalid_packet_data() {
     // the actual message used here is unimportant. this just
-    // constructs a valud JSON blob that is not a valid ICS-721
+    // constructs a valid JSON blob that is not a valid ICS-721
     // packet.
     let data = to_json_binary(&QueryMsg::ClassMetadata {
         class_id: "foobar".to_string(),
@@ -496,7 +497,7 @@ fn test_ibc_packet_receive_invalid_packet_data() {
 
     assert!(error
         .unwrap()
-        .starts_with("Error parsing into type ics721::ibc::NonFungibleTokenPacketData"))
+        .starts_with("Error parsing into type ics721_types::ibc_types::NonFungibleTokenPacketData"))
 }
 
 #[test]
@@ -557,7 +558,10 @@ fn test_ibc_packet_receive_missmatched_lengths() {
 
     assert_eq!(
         error,
-        Some(ContractError::TokenInfoLenMissmatch {}.to_string())
+        Some(
+            ContractError::Ics721Error(ics721_types::error::Ics721Error::TokenInfoLenMissmatch {})
+                .to_string()
+        )
     );
 
     // More token data are provided than tokens.
@@ -589,7 +593,10 @@ fn test_ibc_packet_receive_missmatched_lengths() {
 
     assert_eq!(
         error,
-        Some(ContractError::TokenInfoLenMissmatch {}.to_string())
+        Some(
+            ContractError::Ics721Error(ics721_types::error::Ics721Error::TokenInfoLenMissmatch {})
+                .to_string()
+        )
     )
 }
 

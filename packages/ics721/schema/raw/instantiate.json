@@ -12,15 +12,8 @@
       "format": "uint64",
       "minimum": 0.0
     },
-    "pauser": {
-      "description": "Address that may pause the contract. PAUSER may pause the contract a single time; in pausing the contract they burn the right to do so again. A new pauser may be later nominated by the CosmWasm level admin via a migration.",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "proxy": {
-      "description": "An optional proxy contract. If a proxy is set the contract will only accept NFTs from that proxy. The proxy is expected to implement the cw721 proxy interface defined in the cw721-proxy crate.",
+    "incoming_proxy": {
+      "description": "An optional proxy contract. If an incoming proxy is set, the contract will call it and pass IbcPacket. The proxy is expected to implement the Ics721ReceiveIbcPacketMsg for message execution.",
       "anyOf": [
         {
           "$ref": "#/definitions/ContractInstantiateInfo"
@@ -28,6 +21,24 @@
         {
           "type": "null"
         }
+      ]
+    },
+    "outgoing_proxy": {
+      "description": "An optional proxy contract. If an outging proxy is set, the contract will only accept NFTs from that proxy. The proxy is expected to implement the cw721 proxy interface defined in the cw721-outgoing-proxy crate.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ContractInstantiateInfo"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pauser": {
+      "description": "Address that may pause the contract. PAUSER may pause the contract a single time; in pausing the contract they burn the right to do so again. A new pauser may be later nominated by the CosmWasm level admin via a migration.",
+      "type": [
+        "string",
+        "null"
       ]
     }
   },

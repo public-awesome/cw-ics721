@@ -13,7 +13,10 @@ export async function instantiateContract(
     codeId,
     msg,
     label,
-    "auto"
+    "auto",
+    {
+      admin: client.senderAddress,
+    }
   );
   assert(result.contractAddress);
   return result;

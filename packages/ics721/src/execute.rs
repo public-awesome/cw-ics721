@@ -1,22 +1,29 @@
 use std::fmt::Debug;
 
 use cosmwasm_std::{
-    from_json, to_json_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcMsg, MessageInfo,
-    Response, StdResult, SubMsg, WasmMsg,
+    from_json, to_json_binary, Addr, Binary, ContractInfoResponse, Deps, DepsMut, Empty, Env,
+    IbcMsg, MessageInfo, Response, StdResult, SubMsg, WasmMsg,
+};
+use ics721_types::{
+    ibc_types::{IbcOutgoingMsg, IbcOutgoingProxyMsg, NonFungibleTokenPacketData},
+    token_types::{Class, ClassId, Token, TokenId},
 };
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::{
     helpers::get_instantiate2_address,
-    ibc::{NonFungibleTokenPacketData, INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_PROXY_REPLY_ID},
-    msg::{CallbackMsg, ExecuteMsg, IbcOutgoingMsg, InstantiateMsg, MigrateMsg},
+    ibc::{
+        INSTANTIATE_CW721_REPLY_ID, INSTANTIATE_INCOMING_PROXY_REPLY_ID,
+        INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
+    },
+    msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg},
     state::{
         CollectionData, UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
-        CW721_CODE_ID, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO, PROXY,
-        TOKEN_METADATA,
+        CW721_CODE_ID, INCOMING_PROXY, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+        OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
-    token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
+    token_types::{VoucherCreation, VoucherRedemption},
     ContractError,
 };
 
@@ -34,17 +41,29 @@ where
         msg: InstantiateMsg,
     ) -> StdResult<Response<T>> {
         CW721_CODE_ID.save(deps.storage, &msg.cw721_base_code_id)?;
-        PROXY.save(deps.storage, &None)?;
+        // proxy contracts are optional
+        INCOMING_PROXY.save(deps.storage, &None)?;
+        OUTGOING_PROXY.save(deps.storage, &None)?;
         PO.set_pauser(deps.storage, deps.api, msg.pauser.as_deref())?;
 
-        let proxy_instantiate = msg
-            .proxy
-            .map(|m| m.into_wasm_msg(env.contract.address))
-            .map(|wasm| SubMsg::reply_on_success(wasm, INSTANTIATE_PROXY_REPLY_ID))
-            .map_or(vec![], |s| vec![s]);
+        let mut proxies_instantiate: Vec<SubMsg<T>> = Vec::new();
+        if let Some(cii) = msg.incoming_proxy {
+            proxies_instantiate.push(SubMsg::reply_on_success(
+                cii.into_wasm_msg(env.clone().contract.address),
+                // on reply proxy contract is set in INCOMING_PROXY
+                INSTANTIATE_INCOMING_PROXY_REPLY_ID,
+            ));
+        }
+        if let Some(cii) = msg.outgoing_proxy {
+            proxies_instantiate.push(SubMsg::reply_on_success(
+                cii.into_wasm_msg(env.contract.address),
+                // on reply proxy contract is set in OUTGOING_PROXY
+                INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
+            ));
+        }
 
         Ok(Response::default()
-            .add_submessages(proxy_instantiate)
+            .add_submessages(proxies_instantiate)
             .add_attribute("method", "instantiate")
             .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string()))
     }
@@ -63,54 +82,74 @@ where
                 token_id,
                 msg,
             }) => self.execute_receive_nft(deps, env, info, token_id, sender, msg),
-            ExecuteMsg::ReceiveProxyNft { eyeball, msg } => {
-                self.execute_receive_proxy_nft(deps, env, info, eyeball, msg)
-            }
             ExecuteMsg::Pause {} => self.execute_pause(deps, info),
             ExecuteMsg::Callback(msg) => self.execute_callback(deps, env, info, msg),
         }
     }
 
+    /// ICS721 may receive an NFT from 2 sources:
+    /// 1. From a local cw721 contract (e.g. cw721-base)
+    /// 2. From a(n outgoing) proxy contract.
+    ///
+    /// In case of 2. outgoing proxy calls 2 messages:
+    /// a) tranfer NFT to ICS721
+    /// b) call/forwards "ReceiveNFt" message to ICS721.
+    ///
+    /// Unlike 1) proxy passes in b) an IbcOutgoingProxyMsg (and not an IbcOutgoingMsg)
+    /// which also holds the collection address, since info.sender
+    /// is the proxy contract - and not the collection.
+    ///
+    /// NB: outgoing proxy can use `SendNft` on collectio and pass it directly to ICS721,
+    /// since one `OUTGOING_PROXY` is defined in ICS721, it accepts only NFT receives from this proxy.
     fn execute_receive_nft(
         &self,
         deps: DepsMut,
         env: Env,
         info: MessageInfo,
         token_id: String,
-        sender: String,
+        nft_owner: String,
         msg: Binary,
     ) -> Result<Response<T>, ContractError> {
-        if PROXY.load(deps.storage)?.is_some() {
-            Err(ContractError::Unauthorized {})
-        } else {
-            self.receive_nft(deps, env, info, TokenId::new(token_id), sender, msg)
-        }
-    }
-
-    fn execute_receive_proxy_nft(
-        &self,
-        deps: DepsMut,
-        env: Env,
-        info: MessageInfo,
-        eyeball: String,
-        msg: cw721::Cw721ReceiveMsg,
-    ) -> Result<Response<T>, ContractError> {
-        if PROXY
-            .load(deps.storage)?
-            .map_or(true, |proxy| info.sender != proxy)
-        {
-            return Err(ContractError::Unauthorized {});
-        }
-        let mut info = info;
-        info.sender = deps.api.addr_validate(&eyeball)?;
-        let cw721::Cw721ReceiveMsg {
-            token_id,
-            sender,
-            msg,
-        } = msg;
-        let res = self.receive_nft(deps, env, info, TokenId::new(token_id), sender, msg)?;
-        // override method key
-        Ok(res.add_attribute("method", "execute_receive_proxy_nft"))
+        // if there is an outgoing proxy, we need to check if the msg is IbcOutgoingProxyMsg
+        let result = match OUTGOING_PROXY.load(deps.storage)? {
+            Some(proxy) => {
+                // accept only messages from the proxy
+                if proxy != info.sender {
+                    return Err(ContractError::Unauthorized {});
+                }
+                from_json::<IbcOutgoingProxyMsg>(msg.clone())
+                    .ok()
+                    .map(|msg| {
+                        let mut info = info;
+                        match deps.api.addr_validate(&msg.collection) {
+                            Ok(collection_addr) => {
+                                // set collection address as (initial) sender
+                                info.sender = collection_addr;
+                                self.receive_nft(
+                                    deps,
+                                    env,
+                                    info,
+                                    TokenId::new(token_id),
+                                    nft_owner,
+                                    msg.msg,
+                                )
+                            }
+                            Err(err) => Err(ContractError::Std(err)),
+                        }
+                    })
+            }
+            None => from_json::<IbcOutgoingMsg>(msg.clone()).ok().map(|_| {
+                self.receive_nft(
+                    deps,
+                    env,
+                    info,
+                    TokenId::new(token_id),
+                    nft_owner,
+                    msg.clone(),
+                )
+            }),
+        };
+        result.ok_or(ContractError::UnknownMsg(msg))?
     }
 
     fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Option<Self::ClassData>>;
@@ -121,10 +160,10 @@ where
         env: Env,
         info: MessageInfo,
         token_id: TokenId,
-        sender: String,
+        nft_owner: String,
         msg: Binary,
     ) -> Result<Response<T>, ContractError> {
-        let sender = deps.api.addr_validate(&sender)?;
+        let nft_owner = deps.api.addr_validate(&nft_owner)?;
         let msg: IbcOutgoingMsg = from_json(msg)?;
 
         let class = match NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, info.sender.clone())? {
@@ -162,7 +201,7 @@ where
             },
         )?;
         if access.owner != env.contract.address {
-            return Err(ContractError::Unauthorized {});
+            return Err(ContractError::NotEscrowedByIcs721(access.owner));
         }
 
         // cw721 doesn't support on-chain metadata yet
@@ -181,7 +220,7 @@ where
             token_uris: info.token_uri.map(|uri| vec![uri]),
             token_data: token_metadata.map(|metadata| vec![metadata]),
 
-            sender: sender.into_string(),
+            sender: nft_owner.into_string(),
             receiver: msg.receiver,
             memo: msg.memo,
         };
@@ -325,12 +364,18 @@ where
     }
 
     /// Default implementation using `cw721_base::msg::InstantiateMsg`
-    fn init_msg(&self, _deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
+    fn init_msg(&self, deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
+        // use ics721 creator for withdraw address
+        let ContractInfoResponse { creator, .. } = deps
+            .querier
+            .query_wasm_contract_info(env.contract.address.to_string())?;
+
         // use by default ClassId, in case there's no class data with name and symbol
         let mut instantiate_msg = cw721_base::msg::InstantiateMsg {
             name: class.id.clone().into(),
             symbol: class.id.clone().into(),
             minter: env.contract.address.to_string(),
+            withdraw_address: Some(creator),
         };
 
         // use collection data for setting name and symbol
@@ -423,12 +468,22 @@ where
         match msg {
             MigrateMsg::WithUpdate {
                 pauser,
-                proxy,
+                incoming_proxy,
+                outgoing_proxy,
                 cw721_base_code_id,
             } => {
-                PROXY.save(
+                // disables incoming proxy if none is provided!
+                INCOMING_PROXY.save(
                     deps.storage,
-                    &proxy
+                    &incoming_proxy
+                        .as_ref()
+                        .map(|h| deps.api.addr_validate(h))
+                        .transpose()?,
+                )?;
+                // disables outgoing proxy if none is provided!
+                OUTGOING_PROXY.save(
+                    deps.storage,
+                    &outgoing_proxy
                         .as_ref()
                         .map(|h| deps.api.addr_validate(h))
                         .transpose()?,
@@ -440,7 +495,14 @@ where
                 Ok(Response::default()
                     .add_attribute("method", "migrate")
                     .add_attribute("pauser", pauser.map_or_else(|| "none".to_string(), |or| or))
-                    .add_attribute("proxy", proxy.map_or_else(|| "none".to_string(), |or| or))
+                    .add_attribute(
+                        "outgoing_proxy",
+                        outgoing_proxy.map_or_else(|| "none".to_string(), |or| or),
+                    )
+                    .add_attribute(
+                        "incoming_proxy",
+                        incoming_proxy.map_or_else(|| "none".to_string(), |or| or),
+                    )
                     .add_attribute(
                         "cw721_base_code_id",
                         cw721_base_code_id.map_or_else(|| "none".to_string(), |or| or.to_string()),

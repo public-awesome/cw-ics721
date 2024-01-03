@@ -6,16 +6,23 @@ use sha2::{Digest, Sha256};
 use zip_optional::Zippable;
 
 use crate::{
-    helpers::{generate_receive_callback_msg, get_instantiate2_address, get_receive_callback},
-    ibc::{NonFungibleTokenPacketData, ACK_AND_DO_NOTHING},
+    helpers::{
+        generate_receive_callback_msg, get_incoming_proxy_msg, get_instantiate2_address,
+        get_receive_callback,
+    },
+    ibc::ACK_AND_DO_NOTHING_REPLY_ID,
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg},
     state::{
         CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO,
     },
-    token_types::{Class, ClassId, Token, TokenId, VoucherCreation, VoucherRedemption},
+    token_types::{VoucherCreation, VoucherRedemption},
     ContractError,
+};
+use ics721_types::{
+    ibc_types::NonFungibleTokenPacketData,
+    token_types::{Class, ClassId, Token, TokenId},
 };
 
 /// Every incoming token has some associated action.
@@ -52,7 +59,6 @@ pub(crate) fn receive_ibc_packet(
     packet: IbcPacket,
 ) -> Result<IbcReceiveResponse, ContractError> {
     PO.error_if_paused(deps.storage)?;
-
     let data: NonFungibleTokenPacketData = from_json(&packet.data)?;
     data.validate()?;
 
@@ -173,8 +179,14 @@ pub(crate) fn receive_ibc_packet(
         None
     };
 
-    let submessage =
-        action_aggregator.into_submessage(env.contract.address, receiver, callback_msg)?;
+    let incoming_proxy_msg =
+        get_incoming_proxy_msg(deps.storage, packet.clone(), cloned_data.clone())?;
+    let submessage = action_aggregator.into_submessage(
+        env.contract.address,
+        receiver,
+        callback_msg,
+        incoming_proxy_msg,
+    )?;
 
     let response = if let Some(memo) = data.memo {
         IbcReceiveResponse::default().add_attribute("ics721_memo", memo)
@@ -297,14 +309,21 @@ impl ActionAggregator {
         contract: Addr,
         receiver: Addr,
         callback_msg: Option<WasmMsg>,
+        incoming_proxy_msg: Option<WasmMsg>,
     ) -> StdResult<SubMsg<Empty>> {
-        let mut m = Vec::with_capacity(2);
+        let mut m = Vec::with_capacity(3); // 3 is the max number of submessages we can have
+        if let Some(incoming_proxy_msg) = incoming_proxy_msg {
+            m.push(incoming_proxy_msg)
+        }
+
+        // we can only have redeem or create, not both
         if let Some(redeem) = self.redemption {
             m.push(redeem.into_wasm_msg(contract.clone(), receiver.to_string())?)
         }
         if let Some(create) = self.creation {
             m.push(create.into_wasm_msg(contract.clone(), receiver.into_string())?)
         }
+
         if let Some(callback_msg) = callback_msg {
             m.push(callback_msg)
         }
@@ -319,6 +338,6 @@ impl ActionAggregator {
                 funds: vec![],
             }
         };
-        Ok(SubMsg::reply_always(message, ACK_AND_DO_NOTHING))
+        Ok(SubMsg::reply_always(message, ACK_AND_DO_NOTHING_REPLY_ID))
     }
 }

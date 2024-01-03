@@ -4,12 +4,16 @@ use cw_pause_once::PauseOrchestrator;
 use cw_storage_plus::{Item, Map};
 use serde::{Deserialize, Serialize};
 
-use crate::token_types::{Class, ClassId, TokenId};
+use ics721_types::token_types::{Class, ClassId, TokenId};
 
 /// The code ID we will use for instantiating new cw721s.
 pub const CW721_CODE_ID: Item<u64> = Item::new("a");
-/// The proxy that this contract is receiving NFTs from, if any.
-pub const PROXY: Item<Option<Addr>> = Item::new("b");
+
+/// The incoming proxy that this contract is handling incoming IbcPackets from, if any.
+pub const INCOMING_PROXY: Item<Option<Addr>> = Item::new("k");
+/// The outgoing proxy that this contract is receiving NFTs from, if any.
+pub const OUTGOING_PROXY: Item<Option<Addr>> = Item::new("b");
+
 /// Manages contract pauses.
 pub const PO: PauseOrchestrator = PauseOrchestrator::new("c", "d");
 

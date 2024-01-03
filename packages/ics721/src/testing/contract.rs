@@ -3,24 +3,33 @@ use cosmwasm_std::{
     from_json,
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier, MOCK_CONTRACT_ADDR},
     to_json_binary, Addr, ContractResult, CosmosMsg, DepsMut, Empty, IbcMsg, IbcTimeout, Order,
-    QuerierResult, StdResult, SubMsg, Timestamp, WasmQuery,
+    QuerierResult, Response, StdResult, SubMsg, Timestamp, WasmQuery,
 };
 use cw721::{AllNftInfoResponse, NftInfoResponse, NumTokensResponse};
 use cw721_base::QueryMsg;
+use cw_cii::ContractInstantiateInfo;
 use cw_ownable::Ownership;
 
 use crate::{
     execute::Ics721Execute,
-    ibc::{Ics721Ibc, NonFungibleTokenPacketData},
-    msg::IbcOutgoingMsg,
+    ibc::{Ics721Ibc, INSTANTIATE_INCOMING_PROXY_REPLY_ID, INSTANTIATE_OUTGOING_PROXY_REPLY_ID},
+    msg::InstantiateMsg,
     query::Ics721Query,
-    state::{CollectionData, CLASS_ID_TO_CLASS, OUTGOING_CLASS_TOKEN_TO_CHANNEL},
-    token_types::{ClassId, TokenId},
+    state::{
+        CollectionData, CLASS_ID_TO_CLASS, CW721_CODE_ID, INCOMING_PROXY,
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
+    },
     utils::get_collection_data,
+};
+use ics721_types::{
+    ibc_types::{IbcOutgoingMsg, NonFungibleTokenPacketData},
+    token_types::{ClassId, TokenId},
 };
 
 const NFT_ADDR: &str = "nft";
-const OWNER: &str = "owner";
+const OWNER_ADDR: &str = "owner";
+const ADMIN_ADDR: &str = "admin";
+const PAUSER_ADDR: &str = "pauser";
 
 #[derive(Default)]
 pub struct Ics721Contract {}
@@ -72,7 +81,7 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
         } => match from_json::<cw721_base::msg::QueryMsg<Empty>>(&msg).unwrap() {
             QueryMsg::Ownership {} => QuerierResult::Ok(ContractResult::Ok(
                 to_json_binary(&Ownership::<Addr> {
-                    owner: Some(Addr::unchecked(OWNER)),
+                    owner: Some(Addr::unchecked(OWNER_ADDR)),
                     pending_owner: None,
                     pending_expiry: None,
                 })
@@ -128,7 +137,7 @@ fn mock_querier_v016(query: &WasmQuery) -> QuerierResult {
                 to_json_binary(
                     // return v016 response
                     &cw721_base_016::msg::MinterResponse {
-                        minter: OWNER.to_string(),
+                        minter: OWNER_ADDR.to_string(),
                     },
                 )
                 .unwrap(),
@@ -231,7 +240,7 @@ fn test_receive_nft() {
                     class_uri: None,
                     class_data: Some(
                         to_json_binary(&CollectionData {
-                            owner: Some(OWNER.to_string()),
+                            owner: Some(OWNER_ADDR.to_string()),
                             contract_info: Some(expected_contract_info.clone()),
                             name: "name".to_string(),
                             symbol: "symbol".to_string(),
@@ -312,7 +321,7 @@ fn test_receive_nft() {
                     class_uri: None,
                     class_data: Some(
                         to_json_binary(&CollectionData {
-                            owner: Some(OWNER.to_string()),
+                            owner: Some(OWNER_ADDR.to_string()),
                             contract_info: Some(expected_contract_info),
                             name: "name".to_string(),
                             symbol: "symbol".to_string(),
@@ -467,7 +476,7 @@ fn test_receive_sets_uri() {
         class.data,
         Some(
             to_json_binary(&CollectionData {
-                owner: Some(OWNER.to_string()),
+                owner: Some(OWNER_ADDR.to_string()),
                 contract_info: Some(expected_contract_info),
                 name: "name".to_string(),
                 symbol: "symbol".to_string(),
@@ -476,4 +485,61 @@ fn test_receive_sets_uri() {
             .unwrap()
         ),
     );
+}
+
+#[test]
+fn test_instantiate() {
+    let mut deps = mock_dependencies();
+    let env = mock_env();
+    let info = mock_info(OWNER_ADDR, &[]);
+    let incoming_proxy_init_msg = ContractInstantiateInfo {
+        code_id: 0,
+        msg: to_json_binary("incoming").unwrap(),
+        admin: Some(cw_cii::Admin::Address {
+            addr: ADMIN_ADDR.to_string(),
+        }),
+        label: "incoming".to_string(),
+    };
+    let outgoing_proxy_init_msg = ContractInstantiateInfo {
+        code_id: 0,
+        msg: to_json_binary("outgoing").unwrap(),
+        admin: Some(cw_cii::Admin::Address {
+            addr: ADMIN_ADDR.to_string(),
+        }),
+        label: "outgoing".to_string(),
+    };
+    let msg = InstantiateMsg {
+        cw721_base_code_id: 0,
+        incoming_proxy: Some(incoming_proxy_init_msg.clone()),
+        outgoing_proxy: Some(outgoing_proxy_init_msg.clone()),
+        pauser: Some(PAUSER_ADDR.to_string()),
+    };
+    let response = Ics721Contract {}
+        .instantiate(deps.as_mut(), env.clone(), info, msg.clone())
+        .unwrap();
+
+    let expected_incoming_proxy_msg =
+        incoming_proxy_init_msg.into_wasm_msg(env.clone().contract.address);
+    let expected_outgoing_proxy_msg = outgoing_proxy_init_msg.into_wasm_msg(env.contract.address);
+    let expected_response = Response::<Empty>::default()
+        .add_submessage(SubMsg::reply_on_success(
+            expected_incoming_proxy_msg,
+            INSTANTIATE_INCOMING_PROXY_REPLY_ID,
+        ))
+        .add_submessage(SubMsg::reply_on_success(
+            expected_outgoing_proxy_msg,
+            INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
+        ))
+        .add_attribute("method", "instantiate")
+        .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string());
+    assert_eq!(response, expected_response);
+    assert_eq!(CW721_CODE_ID.load(&deps.storage).unwrap(), 0);
+    // incoming and outgoing proxy initially set to None and set later in sub msg
+    assert_eq!(OUTGOING_PROXY.load(&deps.storage).unwrap(), None);
+    assert_eq!(INCOMING_PROXY.load(&deps.storage).unwrap(), None);
+    assert_eq!(
+        PO.pauser.load(&deps.storage).unwrap(),
+        Some(Addr::unchecked(PAUSER_ADDR))
+    );
+    assert!(!PO.paused.load(&deps.storage).unwrap());
 }

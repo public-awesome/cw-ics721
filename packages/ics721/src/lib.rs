@@ -8,10 +8,12 @@ pub mod msg;
 pub mod query;
 pub mod state;
 pub mod token_types;
-pub mod types;
 pub mod utils;
-
 pub use crate::error::ContractError;
+pub use ics721_types::{
+    ibc_types::NonFungibleTokenPacketData,
+    token_types::{Class, ClassId, Token, TokenId},
+};
 
 #[cfg(test)]
 pub mod testing;
