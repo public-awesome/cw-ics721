@@ -190,6 +190,20 @@
       "additionalProperties": false
     },
     {
+      "description": "Gets the admin address for instantiating new cw721 contracts. In case of None, contract is immutable.",
+      "type": "object",
+      "required": [
+        "cw721_admin"
+      ],
+      "properties": {
+        "cw721_admin": {
+          "type": "object",
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
       "description": "Gets a list of classID as key (from NonFungibleTokenPacketData) and cw721 contract as value (instantiated for that classID).",
       "type": "object",
       "required": [

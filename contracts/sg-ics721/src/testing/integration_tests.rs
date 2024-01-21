@@ -338,6 +338,9 @@ impl Test {
             false => None,
         };
 
+        let admin = admin_and_pauser
+            .clone()
+            .map(|p| app.api().addr_make(&p).to_string());
         let ics721 = app
             .instantiate_contract(
                 ics721_id,
@@ -346,9 +349,8 @@ impl Test {
                     cw721_base_code_id: source_cw721_id,
                     incoming_proxy,
                     outgoing_proxy,
-                    pauser: admin_and_pauser
-                        .clone()
-                        .map(|p| app.api().addr_make(&p).to_string()),
+                    pauser: admin.clone(),
+                    cw721_admin: admin,
                 },
                 &[],
                 "sg-ics721",
@@ -449,6 +451,13 @@ impl Test {
         self.app
             .wrap()
             .query_wasm_smart(self.ics721.clone(), &QueryMsg::Cw721CodeId {})
+            .unwrap()
+    }
+
+    fn query_cw721_admin(&mut self) -> Option<Addr> {
+        self.app
+            .wrap()
+            .query_wasm_smart(self.ics721.clone(), &QueryMsg::Cw721Admin {})
             .unwrap()
     }
 
@@ -2337,6 +2346,7 @@ fn test_pause() {
                     incoming_proxy: None,
                     outgoing_proxy: None,
                     cw721_base_code_id: None,
+                    cw721_admin: None,
                 })
                 .unwrap(),
             }
@@ -2378,9 +2388,10 @@ fn test_migration() {
     assert_eq!(cw721_code_id, test.source_cw721_id);
 
     // migrate changes
+    let admin = test.app.api().addr_make(ICS721_ADMIN_AND_PAUSER);
     test.app
         .execute(
-            test.app.api().addr_make(ICS721_ADMIN_AND_PAUSER),
+            admin.clone(),
             WasmMsg::Migrate {
                 contract_addr: test.ics721.to_string(),
                 new_code_id: test.ics721_id,
@@ -2389,6 +2400,7 @@ fn test_migration() {
                     incoming_proxy: None,
                     outgoing_proxy: None,
                     cw721_base_code_id: Some(12345678),
+                    cw721_admin: Some(admin.to_string()),
                 })
                 .unwrap(),
             }
@@ -2402,6 +2414,7 @@ fn test_migration() {
     assert!(proxy.is_none());
     let cw721_code_id = test.query_cw721_id();
     assert_eq!(cw721_code_id, 12345678);
+    assert_eq!(test.query_cw721_admin(), Some(admin),);
 
     // migrate without changing code id
     test.app
@@ -2415,6 +2428,7 @@ fn test_migration() {
                     incoming_proxy: None,
                     outgoing_proxy: None,
                     cw721_base_code_id: None,
+                    cw721_admin: Some("".to_string()),
                 })
                 .unwrap(),
             }
@@ -2428,4 +2442,5 @@ fn test_migration() {
     assert!(proxy.is_none());
     let cw721_code_id = test.query_cw721_id();
     assert_eq!(cw721_code_id, 12345678);
+    assert_eq!(test.query_cw721_admin(), None,);
 }

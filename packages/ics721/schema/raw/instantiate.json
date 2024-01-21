@@ -6,6 +6,13 @@
     "cw721_base_code_id"
   ],
   "properties": {
+    "cw721_admin": {
+      "description": "The admin address for instantiating new cw721 contracts. In case of None, contract is immutable.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "cw721_base_code_id": {
       "description": "Code ID of cw721-ics contract. A new cw721-ics will be instantiated for each new IBCd NFT classID.\n\nNOTE: this _must_ correspond to the cw721-base contract. Using a regular cw721 may cause the ICS 721 interface implemented by this contract to stop working, and IBCd away NFTs to be unreturnable as cw721 does not have a mint method in the spec.",
       "type": "integer",

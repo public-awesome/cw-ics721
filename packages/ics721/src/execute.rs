@@ -20,8 +20,8 @@ use crate::{
     msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg},
     state::{
         CollectionData, UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
-        CW721_CODE_ID, INCOMING_PROXY, NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
-        OUTGOING_PROXY, PO, TOKEN_METADATA,
+        CW721_ADMIN, CW721_CODE_ID, INCOMING_PROXY, NFT_CONTRACT_TO_CLASS_ID,
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
     token_types::{VoucherCreation, VoucherRedemption},
     ContractError,
@@ -62,10 +62,23 @@ where
             ));
         }
 
+        CW721_ADMIN.save(
+            deps.storage,
+            &msg.cw721_admin
+                .as_ref()
+                .map(|h| deps.api.addr_validate(h))
+                .transpose()?,
+        )?;
+
         Ok(Response::default()
             .add_submessages(proxies_instantiate)
             .add_attribute("method", "instantiate")
-            .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string()))
+            .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string())
+            .add_attribute(
+                "cw721_admin",
+                msg.cw721_admin
+                    .map_or_else(|| "immutable".to_string(), |or| or),
+            ))
     }
 
     fn execute(
@@ -323,9 +336,10 @@ where
             CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class_id.clone(), &cw721_addr)?;
             NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, cw721_addr, &class_id)?;
 
+            let admin = CW721_ADMIN.load(deps.storage)?.map(|a| a.to_string());
             let message = SubMsg::<T>::reply_on_success(
                 WasmMsg::Instantiate2 {
-                    admin: None,
+                    admin,
                     code_id: cw721_code_id,
                     msg: self.init_msg(deps.as_ref(), &env, &class)?,
                     funds: vec![],
@@ -471,6 +485,7 @@ where
                 incoming_proxy,
                 outgoing_proxy,
                 cw721_base_code_id,
+                cw721_admin,
             } => {
                 // disables incoming proxy if none is provided!
                 INCOMING_PROXY.save(
@@ -492,6 +507,14 @@ where
                 if let Some(cw721_base_code_id) = cw721_base_code_id {
                     CW721_CODE_ID.save(deps.storage, &cw721_base_code_id)?;
                 }
+                if let Some(cw721_admin) = cw721_admin.clone() {
+                    if cw721_admin.is_empty() {
+                        CW721_ADMIN.save(deps.storage, &None)?;
+                    } else {
+                        CW721_ADMIN
+                            .save(deps.storage, &Some(deps.api.addr_validate(&cw721_admin)?))?;
+                    }
+                }
                 Ok(Response::default()
                     .add_attribute("method", "migrate")
                     .add_attribute("pauser", pauser.map_or_else(|| "none".to_string(), |or| or))
@@ -506,6 +529,19 @@ where
                     .add_attribute(
                         "cw721_base_code_id",
                         cw721_base_code_id.map_or_else(|| "none".to_string(), |or| or.to_string()),
+                    )
+                    .add_attribute(
+                        "cw721_admin",
+                        cw721_admin.map_or_else(
+                            || "none".to_string(),
+                            |or| {
+                                if or.is_empty() {
+                                    "immutable".to_string()
+                                } else {
+                                    or
+                                }
+                            },
+                        ),
                     ))
             }
         }

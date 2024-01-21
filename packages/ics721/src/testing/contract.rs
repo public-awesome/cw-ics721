@@ -16,7 +16,7 @@ use crate::{
     msg::InstantiateMsg,
     query::Ics721Query,
     state::{
-        CollectionData, CLASS_ID_TO_CLASS, CW721_CODE_ID, INCOMING_PROXY,
+        CollectionData, CLASS_ID_TO_CLASS, CW721_ADMIN, CW721_CODE_ID, INCOMING_PROXY,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
     },
     utils::get_collection_data,
@@ -513,6 +513,7 @@ fn test_instantiate() {
         incoming_proxy: Some(incoming_proxy_init_msg.clone()),
         outgoing_proxy: Some(outgoing_proxy_init_msg.clone()),
         pauser: Some(PAUSER_ADDR.to_string()),
+        cw721_admin: Some(ADMIN_ADDR.to_string()),
     };
     let response = Ics721Contract {}
         .instantiate(deps.as_mut(), env.clone(), info, msg.clone())
@@ -531,7 +532,8 @@ fn test_instantiate() {
             INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
         ))
         .add_attribute("method", "instantiate")
-        .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string());
+        .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string())
+        .add_attribute("cw721_admin", ADMIN_ADDR);
     assert_eq!(response, expected_response);
     assert_eq!(CW721_CODE_ID.load(&deps.storage).unwrap(), 0);
     // incoming and outgoing proxy initially set to None and set later in sub msg
@@ -542,4 +544,8 @@ fn test_instantiate() {
         Some(Addr::unchecked(PAUSER_ADDR))
     );
     assert!(!PO.paused.load(&deps.storage).unwrap());
+    assert_eq!(
+        CW721_ADMIN.load(&deps.storage).unwrap(),
+        Some(Addr::unchecked(ADMIN_ADDR.to_string()))
+    );
 }
