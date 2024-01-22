@@ -19,8 +19,8 @@ use crate::{
     },
     msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg},
     state::{
-        CollectionData, UniversalAllNftInfoResponse, CLASS_ID_TO_CLASS, CLASS_ID_TO_NFT_CONTRACT,
-        CW721_ADMIN, CW721_CODE_ID, INCOMING_PROXY, NFT_CONTRACT_TO_CLASS_ID,
+        CollectionData, UniversalAllNftInfoResponse, ADMIN_USED_FOR_CW721, CLASS_ID_TO_CLASS,
+        CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID, INCOMING_PROXY, NFT_CONTRACT_TO_CLASS_ID,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
     token_types::{VoucherCreation, VoucherRedemption},
@@ -62,7 +62,7 @@ where
             ));
         }
 
-        CW721_ADMIN.save(
+        ADMIN_USED_FOR_CW721.save(
             deps.storage,
             &msg.cw721_admin
                 .as_ref()
@@ -336,7 +336,9 @@ where
             CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class_id.clone(), &cw721_addr)?;
             NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, cw721_addr, &class_id)?;
 
-            let admin = CW721_ADMIN.load(deps.storage)?.map(|a| a.to_string());
+            let admin = ADMIN_USED_FOR_CW721
+                .load(deps.storage)?
+                .map(|a| a.to_string());
             let message = SubMsg::<T>::reply_on_success(
                 WasmMsg::Instantiate2 {
                     admin,
@@ -509,9 +511,9 @@ where
                 }
                 if let Some(cw721_admin) = cw721_admin.clone() {
                     if cw721_admin.is_empty() {
-                        CW721_ADMIN.save(deps.storage, &None)?;
+                        ADMIN_USED_FOR_CW721.save(deps.storage, &None)?;
                     } else {
-                        CW721_ADMIN
+                        ADMIN_USED_FOR_CW721
                             .save(deps.storage, &Some(deps.api.addr_validate(&cw721_admin)?))?;
                     }
                 }

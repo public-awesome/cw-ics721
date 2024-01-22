@@ -39,7 +39,7 @@ pub const INCOMING_CLASS_TOKEN_TO_CHANNEL: Map<(ClassId, TokenId), String> = Map
 /// it's source chain, the metadata is removed from the map.
 pub const TOKEN_METADATA: Map<(ClassId, TokenId), Option<Binary>> = Map::new("j");
 /// The admin address for instantiating new cw721 contracts. In case of None, contract is immutable.
-pub const CW721_ADMIN: Item<Option<Addr>> = Item::new("l");
+pub const ADMIN_USED_FOR_CW721: Item<Option<Addr>> = Item::new("l");
 
 #[derive(Deserialize)]
 pub struct UniversalAllNftInfoResponse {

@@ -16,7 +16,7 @@ use crate::{
     msg::InstantiateMsg,
     query::Ics721Query,
     state::{
-        CollectionData, CLASS_ID_TO_CLASS, CW721_ADMIN, CW721_CODE_ID, INCOMING_PROXY,
+        CollectionData, ADMIN_USED_FOR_CW721, CLASS_ID_TO_CLASS, CW721_CODE_ID, INCOMING_PROXY,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
     },
     utils::get_collection_data,
@@ -545,7 +545,7 @@ fn test_instantiate() {
     );
     assert!(!PO.paused.load(&deps.storage).unwrap());
     assert_eq!(
-        CW721_ADMIN.load(&deps.storage).unwrap(),
+        ADMIN_USED_FOR_CW721.load(&deps.storage).unwrap(),
         Some(Addr::unchecked(ADMIN_ADDR.to_string()))
     );
 }
