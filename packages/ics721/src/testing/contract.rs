@@ -221,7 +221,7 @@ fn test_receive_nft() {
             .receive_nft(
                 deps.as_mut(),
                 env,
-                info,
+                &info.sender,
                 TokenId::new(token_id),
                 sender.clone(),
                 msg,
@@ -302,7 +302,7 @@ fn test_receive_nft() {
             .receive_nft(
                 deps.as_mut(),
                 env,
-                info,
+                &info.sender,
                 TokenId::new(token_id),
                 sender.clone(),
                 msg,
@@ -383,7 +383,7 @@ fn test_receive_nft() {
             .receive_nft(
                 deps.as_mut(),
                 env,
-                info,
+                &info.sender,
                 TokenId::new(token_id),
                 sender.clone(),
                 msg,
@@ -454,7 +454,7 @@ fn test_receive_sets_uri() {
     .unwrap();
 
     Ics721Contract {}
-        .receive_nft(deps.as_mut(), env, info, token_id, sender, msg)
+        .receive_nft(deps.as_mut(), env, &info.sender, token_id, sender, msg)
         .unwrap();
 
     let class = CLASS_ID_TO_CLASS
