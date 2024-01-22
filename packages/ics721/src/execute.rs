@@ -132,30 +132,23 @@ where
                 }
                 from_json::<IbcOutgoingProxyMsg>(msg.clone())
                     .ok()
-                    .map(|msg| {
-                        let mut info = info;
-                        match deps.api.addr_validate(&msg.collection) {
-                            Ok(collection_addr) => {
-                                // set collection address as (initial) sender
-                                info.sender = collection_addr;
-                                self.receive_nft(
-                                    deps,
-                                    env,
-                                    info,
-                                    TokenId::new(token_id),
-                                    nft_owner,
-                                    msg.msg,
-                                )
-                            }
-                            Err(err) => Err(ContractError::Std(err)),
-                        }
+                    .map(|msg| match deps.api.addr_validate(&msg.collection) {
+                        Ok(nft_contract) => self.receive_nft(
+                            deps,
+                            env,
+                            &nft_contract,
+                            TokenId::new(token_id),
+                            nft_owner,
+                            msg.msg,
+                        ),
+                        Err(err) => Err(ContractError::Std(err)),
                     })
             }
             None => from_json::<IbcOutgoingMsg>(msg.clone()).ok().map(|_| {
                 self.receive_nft(
                     deps,
                     env,
-                    info,
+                    &info.sender,
                     TokenId::new(token_id),
                     nft_owner,
                     msg.clone(),
@@ -171,7 +164,7 @@ where
         &self,
         deps: DepsMut,
         env: Env,
-        info: MessageInfo,
+        nft_contract: &Addr,
         token_id: TokenId,
         nft_owner: String,
         msg: Binary,
@@ -179,15 +172,15 @@ where
         let nft_owner = deps.api.addr_validate(&nft_owner)?;
         let msg: IbcOutgoingMsg = from_json(msg)?;
 
-        let class = match NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, info.sender.clone())? {
+        let class = match NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, nft_contract.clone())? {
             Some(class_id) => CLASS_ID_TO_CLASS.load(deps.storage, class_id)?,
             // No class ID being present means that this is a local NFT
             // that has never been sent out of this contract.
             None => {
-                let class_data = self.get_class_data(&deps, &info.sender)?;
+                let class_data = self.get_class_data(&deps, nft_contract)?;
                 let data = class_data.as_ref().map(to_json_binary).transpose()?;
                 let class = Class {
-                    id: ClassId::new(info.sender.to_string()),
+                    id: ClassId::new(nft_contract.to_string()),
                     // There is no collection-level uri nor data in the
                     // cw721 specification so we set those values to
                     // `None` for local, cw721 NFTs.
@@ -195,8 +188,8 @@ where
                     data,
                 };
 
-                NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, info.sender.clone(), &class.id)?;
-                CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class.id.clone(), &info.sender)?;
+                NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, nft_contract.clone(), &class.id)?;
+                CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class.id.clone(), nft_contract)?;
 
                 // Merging and usage of this PR may change that:
                 // <https://github.com/CosmWasm/cw-nfts/pull/75>
@@ -207,7 +200,7 @@ where
 
         // make sure NFT is escrowed by ics721
         let UniversalAllNftInfoResponse { access, info } = deps.querier.query_wasm_smart(
-            info.sender,
+            nft_contract,
             &cw721::Cw721QueryMsg::AllNftInfo {
                 token_id: token_id.clone().into(),
                 include_expired: None,
