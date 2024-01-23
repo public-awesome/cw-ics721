@@ -2,8 +2,9 @@ use std::fmt::Debug;
 
 use cosmwasm_std::{
     from_json, to_json_binary, Addr, Binary, ContractInfoResponse, Deps, DepsMut, Empty, Env,
-    IbcMsg, MessageInfo, Response, StdResult, SubMsg, WasmMsg,
+    IbcMsg, MessageInfo, Order, Response, StdResult, SubMsg, WasmMsg,
 };
+use cw_storage_plus::Map;
 use ics721_types::{
     ibc_types::{IbcOutgoingMsg, IbcOutgoingProxyMsg, NonFungibleTokenPacketData},
     token_types::{Class, ClassId, Token, TokenId},
@@ -18,11 +19,15 @@ use crate::{
         INSTANTIATE_OUTGOING_PROXY_REPLY_ID,
     },
     msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg},
+    query::{
+        load_class_id_for_nft_contract, load_nft_contract_for_class_id,
+        query_nft_contract_for_class_id,
+    },
     state::{
-        CollectionData, UniversalAllNftInfoResponse, ADMIN_USED_FOR_CW721, CLASS_ID_TO_CLASS,
-        CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY,
-        NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
-        TOKEN_METADATA,
+        ClassIdInfo, CollectionData, UniversalAllNftInfoResponse, ADMIN_USED_FOR_CW721,
+        CLASS_ID_AND_NFT_CONTRACT_INFO, CLASS_ID_TO_CLASS, CW721_CODE_ID,
+        INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+        OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
     token_types::{VoucherCreation, VoucherRedemption},
     ContractError,
@@ -141,14 +146,22 @@ where
         let token_id = TokenId::new(token_id);
         let child_class_id = ClassId::new(child_class_id);
         let child_collection = deps.api.addr_validate(&child_collection)?;
-        let cw721_addr = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, child_class_id.clone())?;
-        if cw721_addr != child_collection {
-            return Err(ContractError::NoNftContractMatch {
-                child_collection: child_collection.to_string(),
-                class_id: child_class_id.to_string(),
-                token_id: token_id.into(),
-                cw721_addr: cw721_addr.to_string(),
-            });
+        match query_nft_contract_for_class_id(deps.storage, child_class_id.to_string())? {
+            Some(cw721_addr) => {
+                if cw721_addr != child_collection {
+                    return Err(ContractError::NoNftContractMatch {
+                        child_collection: child_collection.to_string(),
+                        class_id: child_class_id.to_string(),
+                        token_id: token_id.into(),
+                        cw721_addr: cw721_addr.to_string(),
+                    });
+                }
+            }
+            None => {
+                return Err(ContractError::NoNftContractForClassId(
+                    child_class_id.to_string(),
+                ))
+            }
         }
 
         // remove incoming channel entry and metadata
@@ -216,14 +229,22 @@ where
         // check given home class id and home collection is the same as stored in the contract
         let home_class_id = ClassId::new(home_class_id);
         let home_collection = deps.api.addr_validate(&home_collection)?;
-        let cw721_addr = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, home_class_id.clone())?;
-        if cw721_addr != home_collection {
-            return Err(ContractError::NoNftContractMatch {
-                child_collection: home_collection.to_string(),
-                class_id: home_class_id.to_string(),
-                token_id,
-                cw721_addr: cw721_addr.to_string(),
-            });
+        match query_nft_contract_for_class_id(deps.storage, home_class_id.to_string())? {
+            Some(cw721_addr) => {
+                if cw721_addr != home_collection {
+                    return Err(ContractError::NoNftContractMatch {
+                        child_collection: home_collection.to_string(),
+                        class_id: home_class_id.to_string(),
+                        token_id,
+                        cw721_addr: cw721_addr.to_string(),
+                    });
+                }
+            }
+            None => {
+                return Err(ContractError::NoNftContractForClassId(
+                    home_class_id.to_string(),
+                ))
+            }
         }
 
         // remove outgoing channel entry
@@ -337,7 +358,7 @@ where
         let nft_owner = deps.api.addr_validate(&nft_owner)?;
         let msg: IbcOutgoingMsg = from_json(msg)?;
 
-        let class = match NFT_CONTRACT_TO_CLASS_ID.may_load(deps.storage, nft_contract.clone())? {
+        let class = match load_class_id_for_nft_contract(deps.as_ref().storage, nft_contract)? {
             Some(class_id) => CLASS_ID_TO_CLASS.load(deps.storage, class_id)?,
             // No class ID being present means that this is a local NFT
             // that has never been sent out of this contract.
@@ -353,8 +374,11 @@ where
                     data,
                 };
 
-                NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, nft_contract.clone(), &class.id)?;
-                CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class.id.clone(), nft_contract)?;
+                let class_id_info = ClassIdInfo {
+                    class_id: class.id.clone(),
+                    address: nft_contract.clone(),
+                };
+                CLASS_ID_AND_NFT_CONTRACT_INFO.save(deps.storage, &class.id, &class_id_info)?;
 
                 // Merging and usage of this PR may change that:
                 // <https://github.com/CosmWasm/cw-nfts/pull/75>
@@ -476,48 +500,52 @@ where
         create: VoucherCreation,
     ) -> Result<Response<T>, ContractError> {
         let VoucherCreation { class, tokens } = create;
-        let instantiate = if CLASS_ID_TO_NFT_CONTRACT.has(deps.storage, class.id.clone()) {
-            vec![]
-        } else {
-            let class_id = ClassId::new(class.id.clone());
-            let cw721_code_id = CW721_CODE_ID.load(deps.storage)?;
-            // for creating a predictable nft contract using, using instantiate2, we need: checksum, creator, and salt:
-            // - using class id as salt for instantiating nft contract guarantees a) predictable address and b) uniqueness
-            // for this salt must be of length 32 bytes, so we use sha256 to hash class id
-            let mut hasher = Sha256::new();
-            hasher.update(class_id.as_bytes());
-            let salt = hasher.finalize().to_vec();
+        let instantiate =
+            if CLASS_ID_AND_NFT_CONTRACT_INFO.has(deps.storage, class.id.to_string().as_str()) {
+                vec![]
+            } else {
+                let class_id = ClassId::new(class.id.clone());
+                let cw721_code_id = CW721_CODE_ID.load(deps.storage)?;
+                // for creating a predictable nft contract using, using instantiate2, we need: checksum, creator, and salt:
+                // - using class id as salt for instantiating nft contract guarantees a) predictable address and b) uniqueness
+                // for this salt must be of length 32 bytes, so we use sha256 to hash class id
+                let mut hasher = Sha256::new();
+                hasher.update(class_id.as_bytes());
+                let salt = hasher.finalize().to_vec();
 
-            let cw721_addr = get_instantiate2_address(
-                deps.as_ref(),
-                env.contract.address.as_str(),
-                &salt,
-                cw721_code_id,
-            )?;
+                let nft_contract = get_instantiate2_address(
+                    deps.as_ref(),
+                    env.contract.address.as_str(),
+                    &salt,
+                    cw721_code_id,
+                )?;
 
-            // Save classId <-> contract mappings.
-            CLASS_ID_TO_NFT_CONTRACT.save(deps.storage, class_id.clone(), &cw721_addr)?;
-            NFT_CONTRACT_TO_CLASS_ID.save(deps.storage, cw721_addr, &class_id)?;
+                // Save classId <-> contract mappings.
+                let class_id_info = ClassIdInfo {
+                    class_id: class_id.clone(),
+                    address: nft_contract.clone(),
+                };
+                CLASS_ID_AND_NFT_CONTRACT_INFO.save(deps.storage, &class.id, &class_id_info)?;
 
-            let admin = ADMIN_USED_FOR_CW721
-                .load(deps.storage)?
-                .map(|a| a.to_string());
-            let message = SubMsg::<T>::reply_on_success(
-                WasmMsg::Instantiate2 {
-                    admin,
-                    code_id: cw721_code_id,
-                    msg: self.init_msg(deps.as_ref(), &env, &class)?,
-                    funds: vec![],
-                    // Attempting to fit the class ID in the label field
-                    // can make this field too long which causes data
-                    // errors in the SDK.
-                    label: "ics-721 debt-voucher cw-721".to_string(),
-                    salt: salt.into(),
-                },
-                INSTANTIATE_CW721_REPLY_ID,
-            );
-            vec![message]
-        };
+                let admin = ADMIN_USED_FOR_CW721
+                    .load(deps.storage)?
+                    .map(|a| a.to_string());
+                let message = SubMsg::<T>::reply_on_success(
+                    WasmMsg::Instantiate2 {
+                        admin,
+                        code_id: cw721_code_id,
+                        msg: self.init_msg(deps.as_ref(), &env, &class)?,
+                        funds: vec![],
+                        // Attempting to fit the class ID in the label field
+                        // can make this field too long which causes data
+                        // errors in the SDK.
+                        label: "ics-721 debt-voucher cw-721".to_string(),
+                        salt: salt.into(),
+                    },
+                    INSTANTIATE_CW721_REPLY_ID,
+                );
+                vec![message]
+            };
 
         // Store mapping from classID to classURI. Notably, we don't check
         // if this has already been set. If a new NFT belonging to a class
@@ -579,7 +607,7 @@ where
         redeem: VoucherRedemption,
     ) -> Result<Response<T>, ContractError> {
         let VoucherRedemption { class, token_ids } = redeem;
-        let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class.id)?;
+        let nft_contract = load_nft_contract_for_class_id(deps.storage, class.id.to_string())?;
         let receiver = deps.api.addr_validate(&receiver)?;
         Ok(Response::default()
             .add_attribute("method", "callback_redeem_vouchers")
@@ -608,7 +636,8 @@ where
         receiver: String,
     ) -> Result<Response<T>, ContractError> {
         let receiver = deps.api.addr_validate(&receiver)?;
-        let cw721_addr = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, class_id.clone())?;
+        let nft_contract =
+            load_nft_contract_for_class_id(deps.as_ref().storage, class_id.to_string())?;
 
         let mint = tokens
             .into_iter()
@@ -626,7 +655,7 @@ where
                     extension: Empty::default(),
                 };
                 Ok(WasmMsg::Execute {
-                    contract_addr: cw721_addr.to_string(),
+                    contract_addr: nft_contract.to_string(),
                     msg: to_json_binary(&msg)?,
                     funds: vec![],
                 })
@@ -702,7 +731,8 @@ where
                             .save(deps.storage, &Some(deps.api.addr_validate(&cw721_admin)?))?;
                     }
                 }
-                Ok(Response::default()
+
+                let response = Response::default()
                     .add_attribute("method", "migrate")
                     .add_attribute("pauser", pauser.map_or_else(|| "none".to_string(), |or| or))
                     .add_attribute(
@@ -729,7 +759,38 @@ where
                                 }
                             },
                         ),
-                    ))
+                    );
+
+                // TODO: once migrated, this complete block can be deleted
+                // - get legacy map and migrate it to new indexed map
+                let nft_contract_to_class_id: Map<Addr, ClassId> = Map::new("f");
+                match cw_paginate_storage::paginate_map(
+                    deps.as_ref(),
+                    &nft_contract_to_class_id,
+                    None,
+                    None,
+                    Order::Ascending,
+                ) {
+                    Ok(nft_contract_to_class_id) => {
+                        let response = response.add_attribute(
+                            "migrated nft contracts",
+                            nft_contract_to_class_id.len().to_string(),
+                        );
+                        for (nft_contract, class_id) in nft_contract_to_class_id {
+                            let class_id_info = ClassIdInfo {
+                                class_id: class_id.clone(),
+                                address: nft_contract.clone(),
+                            };
+                            CLASS_ID_AND_NFT_CONTRACT_INFO.save(
+                                deps.storage,
+                                &class_id,
+                                &class_id_info,
+                            )?;
+                        }
+                        Ok(response)
+                    }
+                    Err(err) => Err(ContractError::Std(err)),
+                }
             }
         }
     }

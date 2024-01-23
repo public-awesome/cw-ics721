@@ -13,7 +13,8 @@ use crate::{
     ibc::ACK_AND_DO_NOTHING_REPLY_ID,
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg},
-    state::{CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO},
+    query::load_nft_contract_for_class_id,
+    state::{CW721_CODE_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO},
     token_types::{VoucherCreation, VoucherRedemption},
     ContractError,
 };
@@ -228,8 +229,7 @@ fn create_callback_msg(
         let nft_contract = if is_redemption {
             // If its a redemption, it means we already have the contract address in storage
 
-            CLASS_ID_TO_NFT_CONTRACT
-                .load(deps.storage, local_class_id.clone())
+            load_nft_contract_for_class_id(deps.storage, local_class_id.to_string())
                 .map_err(|_| ContractError::NoNftContractForClassId(local_class_id.to_string()))
         } else {
             // If its a creation action, we can use the instantiate2 function to get the nft contract
