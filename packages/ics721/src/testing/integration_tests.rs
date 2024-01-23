@@ -33,6 +33,7 @@ use ics721_types::{
 use super::contract::Ics721Contract;
 
 const ICS721_CREATOR: &str = "ics721-creator";
+const ICS721_ADMIN: &str = "ics721-admin";
 const CONTRACT_NAME: &str = "crates.io:ics721-base";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -340,6 +341,9 @@ impl Test {
             false => None,
         };
 
+        let admin = admin_and_pauser
+            .clone()
+            .map(|p| app.api().addr_make(&p).to_string());
         let ics721 = app
             .instantiate_contract(
                 ics721_id,
@@ -348,9 +352,8 @@ impl Test {
                     cw721_base_code_id: source_cw721_id,
                     incoming_proxy,
                     outgoing_proxy,
-                    pauser: admin_and_pauser
-                        .clone()
-                        .map(|p| app.api().addr_make(&p).to_string()),
+                    pauser: admin.clone(),
+                    cw721_admin: admin,
                 },
                 &[],
                 "ics721-base",
@@ -458,6 +461,13 @@ impl Test {
         self.app
             .wrap()
             .query_wasm_smart(self.ics721.clone(), &QueryMsg::Cw721CodeId {})
+            .unwrap()
+    }
+
+    fn query_cw721_admin(&mut self) -> Option<Addr> {
+        self.app
+            .wrap()
+            .query_wasm_smart(self.ics721.clone(), &QueryMsg::Cw721Admin {})
             .unwrap()
     }
 
@@ -570,7 +580,14 @@ fn outgoing_proxy_contract() -> Box<dyn Contract<Empty>> {
 
 #[test]
 fn test_instantiate() {
-    let mut test = Test::new(true, true, None, None, cw721_base_contract(), true);
+    let mut test = Test::new(
+        true,
+        true,
+        None,
+        Some(ICS721_ADMIN.to_string()),
+        cw721_base_contract(),
+        true,
+    );
 
     // check stores are properly initialized
     let cw721_id = test.query_cw721_id();
@@ -585,6 +602,8 @@ fn test_instantiate() {
     assert!(outgoing_proxy.is_some());
     let incoming_proxy = test.query_incoming_proxy();
     assert!(incoming_proxy.is_some());
+    let cw721_admin = test.query_cw721_admin();
+    assert_eq!(cw721_admin, Some(test.app.api().addr_make(ICS721_ADMIN)));
 }
 
 #[test]
@@ -2072,6 +2091,7 @@ fn test_pause() {
                     incoming_proxy: None,
                     outgoing_proxy: None,
                     cw721_base_code_id: None,
+                    cw721_admin: None,
                 })
                 .unwrap(),
             }
@@ -2114,9 +2134,10 @@ fn test_migration() {
     assert_eq!(cw721_code_id, test.source_cw721_id);
 
     // migrate changes
+    let admin = test.app.api().addr_make(ICS721_ADMIN_AND_PAUSER);
     test.app
         .execute(
-            test.app.api().addr_make(ICS721_ADMIN_AND_PAUSER),
+            admin.clone(),
             WasmMsg::Migrate {
                 contract_addr: test.ics721.to_string(),
                 new_code_id: test.ics721_id,
@@ -2125,6 +2146,7 @@ fn test_migration() {
                     incoming_proxy: None,
                     outgoing_proxy: None,
                     cw721_base_code_id: Some(12345678),
+                    cw721_admin: Some(admin.to_string()),
                 })
                 .unwrap(),
             }
@@ -2138,8 +2160,10 @@ fn test_migration() {
     assert!(proxy.is_none());
     let cw721_code_id = test.query_cw721_id();
     assert_eq!(cw721_code_id, 12345678);
+    assert_eq!(test.query_cw721_admin(), Some(admin),);
 
     // migrate without changing code id
+    println!(">>>>>>> migrate without changing code id");
     test.app
         .execute(
             test.app.api().addr_make(ICS721_ADMIN_AND_PAUSER),
@@ -2151,6 +2175,7 @@ fn test_migration() {
                     incoming_proxy: None,
                     outgoing_proxy: None,
                     cw721_base_code_id: None,
+                    cw721_admin: Some("".to_string()),
                 })
                 .unwrap(),
             }
@@ -2164,4 +2189,5 @@ fn test_migration() {
     assert!(proxy.is_none());
     let cw721_code_id = test.query_cw721_id();
     assert_eq!(cw721_code_id, 12345678);
+    assert_eq!(test.query_cw721_admin(), None,);
 }

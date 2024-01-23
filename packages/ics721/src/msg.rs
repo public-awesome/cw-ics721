@@ -29,6 +29,8 @@ pub struct InstantiateMsg {
     /// right to do so again. A new pauser may be later nominated by
     /// the CosmWasm level admin via a migration.
     pub pauser: Option<String>,
+    /// The admin address for instantiating new cw721 contracts. In case of None, contract is immutable.
+    pub cw721_admin: Option<String>,
 }
 
 #[cw_serde]
@@ -133,6 +135,10 @@ pub enum QueryMsg {
     #[returns(u64)]
     Cw721CodeId {},
 
+    /// Gets the admin address for instantiating new cw721 contracts. In case of None, contract is immutable.
+    #[returns(Option<Option<::cosmwasm_std::Addr>>)]
+    Cw721Admin {},
+
     /// Gets a list of classID as key (from
     /// NonFungibleTokenPacketData) and cw721 contract as value
     /// (instantiated for that classID).
@@ -181,5 +187,7 @@ pub enum MigrateMsg {
         /// this contract to stop working, and IBCd away NFTs to be
         /// unreturnable as cw721 does not have a mint method in the spec.
         cw721_base_code_id: Option<u64>,
+        /// The admin address for instantiating new cw721 contracts. In case of "", contract is immutable.
+        cw721_admin: Option<String>,
     },
 }

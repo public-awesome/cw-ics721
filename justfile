@@ -1,7 +1,7 @@
 set dotenv-load
 
 platform := if arch() =~ "aarch64" {"linux/arm64"} else {"linux/amd64"}
-image := if arch() =~ "aarch64" {"cosmwasm/workspace-optimizer-arm64:0.14.0"} else {"cosmwasm/workspace-optimizer:0.14.0"}
+image := if arch() =~ "aarch64" {"cosmwasm/workspace-optimizer-arm64:0.15.0"} else {"cosmwasm/workspace-optimizer:0.15.0"}
 
 alias log := optimize-watch
 

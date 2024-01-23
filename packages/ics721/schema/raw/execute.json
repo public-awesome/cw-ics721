@@ -41,31 +41,6 @@
         }
       },
       "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "receive_proxy_nft"
-      ],
-      "properties": {
-        "receive_proxy_nft": {
-          "type": "object",
-          "required": [
-            "eyeball",
-            "msg"
-          ],
-          "properties": {
-            "eyeball": {
-              "type": "string"
-            },
-            "msg": {
-              "$ref": "#/definitions/Cw721ReceiveMsg"
-            }
-          },
-          "additionalProperties": false
-        }
-      },
-      "additionalProperties": false
     }
   ],
   "definitions": {

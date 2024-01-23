@@ -10,6 +10,13 @@
       "cw721_base_code_id"
     ],
     "properties": {
+      "cw721_admin": {
+        "description": "The admin address for instantiating new cw721 contracts. In case of None, contract is immutable.",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
       "cw721_base_code_id": {
         "description": "Code ID of cw721-ics contract. A new cw721-ics will be instantiated for each new IBCd NFT classID.\n\nNOTE: this _must_ correspond to the cw721-base contract. Using a regular cw721 may cause the ICS 721 interface implemented by this contract to stop working, and IBCd away NFTs to be unreturnable as cw721 does not have a mint method in the spec.",
         "type": "integer",
@@ -164,31 +171,6 @@
         "properties": {
           "callback": {
             "$ref": "#/definitions/CallbackMsg"
-          }
-        },
-        "additionalProperties": false
-      },
-      {
-        "type": "object",
-        "required": [
-          "receive_proxy_nft"
-        ],
-        "properties": {
-          "receive_proxy_nft": {
-            "type": "object",
-            "required": [
-              "eyeball",
-              "msg"
-            ],
-            "properties": {
-              "eyeball": {
-                "type": "string"
-              },
-              "msg": {
-                "$ref": "#/definitions/Cw721ReceiveMsg"
-              }
-            },
-            "additionalProperties": false
           }
         },
         "additionalProperties": false
@@ -922,6 +904,20 @@
         "additionalProperties": false
       },
       {
+        "description": "Gets the admin address for instantiating new cw721 contracts. In case of None, contract is immutable.",
+        "type": "object",
+        "required": [
+          "cw721_admin"
+        ],
+        "properties": {
+          "cw721_admin": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
         "description": "Gets a list of classID as key (from NonFungibleTokenPacketData) and cw721 contract as value (instantiated for that classID).",
         "type": "object",
         "required": [
@@ -1125,6 +1121,31 @@
         },
         "ClassId": {
           "description": "A class ID according to the ICS-721 spec. The newtype pattern is used here to provide some distinction between token and class IDs in the type system.",
+          "type": "string"
+        }
+      }
+    },
+    "cw721_admin": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Nullable_Nullable_Addr",
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Addr"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "definitions": {
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
           "type": "string"
         }
       }
