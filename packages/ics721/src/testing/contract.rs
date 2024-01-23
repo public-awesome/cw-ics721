@@ -9,12 +9,16 @@ use cw721::{AllNftInfoResponse, NftInfoResponse, NumTokensResponse};
 use cw721_base::QueryMsg;
 use cw_cii::ContractInstantiateInfo;
 use cw_ownable::Ownership;
+use cw_storage_plus::Map;
 
 use crate::{
     execute::Ics721Execute,
     ibc::{Ics721Ibc, INSTANTIATE_INCOMING_PROXY_REPLY_ID, INSTANTIATE_OUTGOING_PROXY_REPLY_ID},
-    msg::InstantiateMsg,
-    query::Ics721Query,
+    msg::{InstantiateMsg, MigrateMsg},
+    query::{
+        query_class_id_for_nft_contract, query_nft_contract_for_class_id, query_nft_contracts,
+        Ics721Query,
+    },
     state::{
         CollectionData, ADMIN_USED_FOR_CW721, CLASS_ID_TO_CLASS, CW721_CODE_ID, INCOMING_PROXY,
         OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
@@ -26,7 +30,10 @@ use ics721_types::{
     token_types::{ClassId, TokenId},
 };
 
-const NFT_ADDR: &str = "nft";
+const NFT_CONTRACT_1: &str = "nft1";
+const NFT_CONTRACT_2: &str = "nft2";
+const CLASS_ID_1: &str = "some/class/id1";
+const CLASS_ID_2: &str = "some/class/id2";
 const OWNER_ADDR: &str = "owner";
 const ADMIN_ADDR: &str = "admin";
 const PAUSER_ADDR: &str = "pauser";
@@ -206,7 +213,7 @@ fn test_receive_nft() {
         deps.querier = querier;
         let env = mock_env();
 
-        let info = mock_info(NFT_ADDR, &[]);
+        let info = mock_info(NFT_CONTRACT_1, &[]);
         let token_id = "1";
         let sender = "ekez".to_string();
         let msg = to_json_binary(&IbcOutgoingMsg {
@@ -236,7 +243,7 @@ fn test_receive_nft() {
                 channel_id: channel_id.clone(),
                 timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
                 data: to_json_binary(&NonFungibleTokenPacketData {
-                    class_id: ClassId::new(NFT_ADDR),
+                    class_id: ClassId::new(NFT_CONTRACT_1),
                     class_uri: None,
                     class_data: Some(
                         to_json_binary(&CollectionData {
@@ -264,7 +271,7 @@ fn test_receive_nft() {
             .keys(deps.as_mut().storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<(String, String)>>>()
             .unwrap();
-        assert_eq!(keys, [(NFT_ADDR.to_string(), token_id.to_string())]);
+        assert_eq!(keys, [(NFT_CONTRACT_1.to_string(), token_id.to_string())]);
 
         // check channel
         let key = (
@@ -287,7 +294,7 @@ fn test_receive_nft() {
         deps.querier = querier;
         let env = mock_env();
 
-        let info = mock_info(NFT_ADDR, &[]);
+        let info = mock_info(NFT_CONTRACT_1, &[]);
         let token_id = "1";
         let sender = "ekez".to_string();
         let msg = to_json_binary(&IbcOutgoingMsg {
@@ -317,7 +324,7 @@ fn test_receive_nft() {
                 channel_id: channel_id.clone(),
                 timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
                 data: to_json_binary(&NonFungibleTokenPacketData {
-                    class_id: ClassId::new(NFT_ADDR),
+                    class_id: ClassId::new(NFT_CONTRACT_1),
                     class_uri: None,
                     class_data: Some(
                         to_json_binary(&CollectionData {
@@ -345,7 +352,7 @@ fn test_receive_nft() {
             .keys(deps.as_mut().storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<(String, String)>>>()
             .unwrap();
-        assert_eq!(keys, [(NFT_ADDR.to_string(), token_id.to_string())]);
+        assert_eq!(keys, [(NFT_CONTRACT_1.to_string(), token_id.to_string())]);
 
         // check channel
         let key = (
@@ -368,7 +375,7 @@ fn test_receive_nft() {
         deps.querier = querier;
         let env = mock_env();
 
-        let info = mock_info(NFT_ADDR, &[]);
+        let info = mock_info(NFT_CONTRACT_1, &[]);
         let token_id = "1";
         let sender = "ekez".to_string();
         let msg = to_json_binary(&IbcOutgoingMsg {
@@ -398,7 +405,7 @@ fn test_receive_nft() {
                 channel_id: channel_id.clone(),
                 timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
                 data: to_json_binary(&NonFungibleTokenPacketData {
-                    class_id: ClassId::new(NFT_ADDR),
+                    class_id: ClassId::new(NFT_CONTRACT_1),
                     class_uri: None,
                     class_data: None,
                     token_data: None,
@@ -417,7 +424,7 @@ fn test_receive_nft() {
             .keys(deps.as_mut().storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<(String, String)>>>()
             .unwrap();
-        assert_eq!(keys, [(NFT_ADDR.to_string(), token_id.to_string())]);
+        assert_eq!(keys, [(NFT_CONTRACT_1.to_string(), token_id.to_string())]);
 
         // check channel
         let key = (
@@ -442,7 +449,7 @@ fn test_receive_sets_uri() {
     deps.querier = querier;
     let env = mock_env();
 
-    let info = mock_info(NFT_ADDR, &[]);
+    let info = mock_info(NFT_CONTRACT_1, &[]);
     let token_id = TokenId::new("1");
     let sender = "ekez".to_string();
     let msg = to_json_binary(&IbcOutgoingMsg {
@@ -458,7 +465,7 @@ fn test_receive_sets_uri() {
         .unwrap();
 
     let class = CLASS_ID_TO_CLASS
-        .load(deps.as_ref().storage, ClassId::new(NFT_ADDR))
+        .load(deps.as_ref().storage, ClassId::new(NFT_CONTRACT_1))
         .unwrap();
     assert_eq!(class.uri, None);
     let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_json(
@@ -487,6 +494,19 @@ fn test_receive_sets_uri() {
     );
 }
 
+fn instantiate_msg(
+    incoming_proxy: Option<ContractInstantiateInfo>,
+    outgoing_proxy: Option<ContractInstantiateInfo>,
+) -> InstantiateMsg {
+    InstantiateMsg {
+        cw721_base_code_id: 0,
+        incoming_proxy,
+        outgoing_proxy,
+        pauser: Some(PAUSER_ADDR.to_string()),
+        cw721_admin: Some(ADMIN_ADDR.to_string()),
+    }
+}
+
 #[test]
 fn test_instantiate() {
     let mut deps = mock_dependencies();
@@ -508,13 +528,10 @@ fn test_instantiate() {
         }),
         label: "outgoing".to_string(),
     };
-    let msg = InstantiateMsg {
-        cw721_base_code_id: 0,
-        incoming_proxy: Some(incoming_proxy_init_msg.clone()),
-        outgoing_proxy: Some(outgoing_proxy_init_msg.clone()),
-        pauser: Some(PAUSER_ADDR.to_string()),
-        cw721_admin: Some(ADMIN_ADDR.to_string()),
-    };
+    let msg = instantiate_msg(
+        Some(incoming_proxy_init_msg.clone()),
+        Some(outgoing_proxy_init_msg.clone()),
+    );
     let response = Ics721Contract {}
         .instantiate(deps.as_mut(), env.clone(), info, msg.clone())
         .unwrap();
@@ -548,4 +565,104 @@ fn test_instantiate() {
         ADMIN_USED_FOR_CW721.load(&deps.storage).unwrap(),
         Some(Addr::unchecked(ADMIN_ADDR.to_string()))
     );
+}
+
+#[test]
+fn test_migrate() {
+    let mut deps = mock_dependencies();
+    let env = mock_env();
+    let info = mock_info(OWNER_ADDR, &[]);
+    let msg = instantiate_msg(None, None);
+    Ics721Contract {}
+        .instantiate(deps.as_mut(), env.clone(), info, msg.clone())
+        .unwrap();
+    let msg = MigrateMsg::WithUpdate {
+        pauser: Some("some_other_pauser".to_string()),
+        outgoing_proxy: Some("outgoing".to_string()),
+        incoming_proxy: Some("incoming".to_string()),
+        cw721_base_code_id: Some(1),
+        cw721_admin: Some("some_other_admin".to_string()),
+    };
+
+    // before migrate, populate legacy
+    let class_id_to_nft_contract: Map<ClassId, Addr> = Map::new("e");
+    class_id_to_nft_contract
+        .save(
+            deps.as_mut().storage,
+            ClassId::new(CLASS_ID_1),
+            &Addr::unchecked(NFT_CONTRACT_1),
+        )
+        .unwrap();
+    class_id_to_nft_contract
+        .save(
+            deps.as_mut().storage,
+            ClassId::new(CLASS_ID_2),
+            &Addr::unchecked(NFT_CONTRACT_2),
+        )
+        .unwrap();
+    let nft_contract_to_class_id: Map<Addr, ClassId> = Map::new("f");
+    nft_contract_to_class_id
+        .save(
+            deps.as_mut().storage,
+            Addr::unchecked(NFT_CONTRACT_1),
+            &ClassId::new(CLASS_ID_1),
+        )
+        .unwrap();
+    nft_contract_to_class_id
+        .save(
+            deps.as_mut().storage,
+            Addr::unchecked(NFT_CONTRACT_2),
+            &ClassId::new(CLASS_ID_2),
+        )
+        .unwrap();
+
+    // migrate
+    Ics721Contract {}
+        .migrate(deps.as_mut(), env.clone(), msg)
+        .unwrap();
+
+    assert_eq!(
+        PO.pauser.load(&deps.storage).unwrap(),
+        Some(Addr::unchecked("some_other_pauser"))
+    );
+    assert_eq!(
+        OUTGOING_PROXY.load(&deps.storage).unwrap(),
+        Some(Addr::unchecked("outgoing"))
+    );
+    assert_eq!(
+        INCOMING_PROXY.load(&deps.storage).unwrap(),
+        Some(Addr::unchecked("incoming"))
+    );
+    assert_eq!(CW721_CODE_ID.load(&deps.storage).unwrap(), 1);
+    assert_eq!(
+        ADMIN_USED_FOR_CW721.load(&deps.storage).unwrap(),
+        Some(Addr::unchecked("some_other_admin"))
+    );
+    let nft_contract_and_class_id_list = query_nft_contracts(deps.as_ref(), None, None).unwrap();
+    assert_eq!(nft_contract_and_class_id_list.len(), 2);
+    assert_eq!(
+        nft_contract_to_class_id
+            .keys(&deps.storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<Addr>>>()
+            .unwrap()
+            .len(),
+        0 // after migration legacy data is cleared
+    );
+    assert_eq!(nft_contract_and_class_id_list[0].0, CLASS_ID_1);
+    assert_eq!(nft_contract_and_class_id_list[0].1, NFT_CONTRACT_1);
+    assert_eq!(nft_contract_and_class_id_list[1].0, CLASS_ID_2);
+    assert_eq!(nft_contract_and_class_id_list[1].1, NFT_CONTRACT_2);
+    // test query and indexers for class id and addr are working
+    let nft_contract_1 =
+        query_nft_contract_for_class_id(&deps.storage, CLASS_ID_1.to_string()).unwrap();
+    assert_eq!(nft_contract_1, Some(Addr::unchecked(NFT_CONTRACT_1)));
+    let nft_contract_2 =
+        query_nft_contract_for_class_id(&deps.storage, CLASS_ID_2.to_string()).unwrap();
+    assert_eq!(nft_contract_2, Some(Addr::unchecked(NFT_CONTRACT_2)));
+    let class_id_1 =
+        query_class_id_for_nft_contract(deps.as_ref(), NFT_CONTRACT_1.to_string()).unwrap();
+    assert_eq!(class_id_1, Some(ClassId::new(CLASS_ID_1)));
+    let class_id_2 =
+        query_class_id_for_nft_contract(deps.as_ref(), NFT_CONTRACT_2.to_string()).unwrap();
+    assert_eq!(class_id_2, Some(ClassId::new(CLASS_ID_2)));
 }

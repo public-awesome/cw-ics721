@@ -771,12 +771,15 @@ where
                     None,
                     Order::Ascending,
                 ) {
-                    Ok(nft_contract_to_class_id) => {
+                    Ok(nft_contract_and_class_id) => {
+                        // legacy map needs to be cleared, before migrating to indexed map
+                        let class_id_to_nft_contract: Map<ClassId, Addr> = Map::new("e");
+                        class_id_to_nft_contract.clear(deps.storage);
                         let response = response.add_attribute(
                             "migrated nft contracts",
-                            nft_contract_to_class_id.len().to_string(),
+                            nft_contract_and_class_id.len().to_string(),
                         );
-                        for (nft_contract, class_id) in nft_contract_to_class_id {
+                        for (nft_contract, class_id) in nft_contract_and_class_id {
                             let class_id_info = ClassIdInfo {
                                 class_id: class_id.clone(),
                                 address: nft_contract.clone(),
@@ -787,6 +790,8 @@ where
                                 &class_id_info,
                             )?;
                         }
+                        // let's clear legacy map, so it wont get migrated again
+                        nft_contract_to_class_id.clear(deps.storage);
                         Ok(response)
                     }
                     Err(err) => Err(ContractError::Std(err)),
