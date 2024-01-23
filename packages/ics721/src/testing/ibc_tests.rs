@@ -14,7 +14,10 @@ use crate::{
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
     query::Ics721Query,
-    state::{CollectionData, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, PO},
+    state::{
+        ClassIdInfo, CollectionData, CLASS_ID_AND_NFT_CONTRACT_INFO,
+        INCOMING_CLASS_TOKEN_TO_CHANNEL, PO,
+    },
     utils::get_collection_data,
     ContractError,
 };
@@ -158,8 +161,12 @@ fn test_reply_cw721() {
     // save the class_id and cw721_addr, since reply assumes it has been stored before
     let cw721_addr = Addr::unchecked("cosmos2contract");
     let class_id = ClassId::new("wasm.address1/channel-10/address2");
-    NFT_CONTRACT_TO_CLASS_ID
-        .save(deps.as_mut().storage, cw721_addr, &class_id)
+    let class_id_info = ClassIdInfo {
+        class_id: class_id.clone(),
+        address: cw721_addr.clone(),
+    };
+    CLASS_ID_AND_NFT_CONTRACT_INFO
+        .save(deps.as_mut().storage, &class_id, &class_id_info)
         .unwrap();
 
     let res = Ics721Contract::default()

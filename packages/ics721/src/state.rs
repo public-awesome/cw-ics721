@@ -1,7 +1,7 @@
-use cosmwasm_schema::schemars::JsonSchema;
+use cosmwasm_schema::{cw_serde, schemars::JsonSchema};
 use cosmwasm_std::{Addr, Binary, ContractInfoResponse, Empty};
 use cw_pause_once::PauseOrchestrator;
-use cw_storage_plus::{Item, Map};
+use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
 use serde::{Deserialize, Serialize};
 
 use ics721_types::token_types::{Class, ClassId, TokenId};
@@ -19,9 +19,14 @@ pub const PO: PauseOrchestrator = PauseOrchestrator::new("c", "d");
 
 /// Maps classID (from NonFungibleTokenPacketData) to the cw721
 /// contract we have instantiated for that classID.
-pub const CLASS_ID_TO_NFT_CONTRACT: Map<ClassId, Addr> = Map::new("e");
-/// Maps cw721 contracts to the classID they were instantiated for.
-pub const NFT_CONTRACT_TO_CLASS_ID: Map<Addr, ClassId> = Map::new("f");
+pub const CLASS_ID_AND_NFT_CONTRACT_INFO: IndexedMap<&str, ClassIdInfo, ClassIdInfoIndexes> =
+    IndexedMap::new(
+        "e",
+        ClassIdInfoIndexes {
+            class_id: UniqueIndex::new(|d| d.class_id.clone(), "class_id_info__class_id"),
+            address: UniqueIndex::new(|d| d.address.clone(), "class_id_info__address"),
+        },
+    );
 
 /// Maps between classIDs and classs. We need to keep this state
 /// ourselves as cw721 contracts do not have class-level metadata.
@@ -80,6 +85,24 @@ pub struct UniversalOwnerOfResponse {
     #[serde(skip_deserializing)]
     #[allow(dead_code)]
     pub approvals: Vec<Empty>,
+}
+
+#[cw_serde]
+pub struct ClassIdInfo {
+    pub class_id: ClassId,
+    pub address: Addr,
+}
+
+pub struct ClassIdInfoIndexes<'a> {
+    pub class_id: UniqueIndex<'a, ClassId, ClassIdInfo>,
+    pub address: UniqueIndex<'a, Addr, ClassIdInfo>,
+}
+
+impl<'a> IndexList<ClassIdInfo> for ClassIdInfoIndexes<'a> {
+    fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<ClassIdInfo>> + '_> {
+        let v: Vec<&dyn Index<ClassIdInfo>> = vec![&self.class_id, &self.address];
+        Box::new(v.into_iter())
+    }
 }
 
 #[cfg(test)]
