@@ -213,7 +213,7 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
   t.pass();
 };
 
-test.serial("transfer NFT: wasmd -> osmo", async (t) => {
+test.serial("transfer NFT: wasmd -> osmo and back", async (t) => {
   await standardSetup(t);
 
   const {
@@ -224,6 +224,7 @@ test.serial("transfer NFT: wasmd -> osmo", async (t) => {
     osmoClient,
     osmoAddr,
     osmoIcs721,
+    osmoCw721OutgoingProxy,
     channel,
   } = t.context;
 
@@ -234,7 +235,7 @@ test.serial("transfer NFT: wasmd -> osmo", async (t) => {
   let tokenOwner = await ownerOf(wasmClient, wasmCw721, tokenId);
   t.is(wasmAddr, tokenOwner.owner);
 
-  const ibcMsg = {
+  let ibcMsg = {
     receiver: osmoAddr,
     channel_id: channel.channel.src.channelId,
     timeout: {
@@ -247,7 +248,7 @@ test.serial("transfer NFT: wasmd -> osmo", async (t) => {
 
   t.log(`transfering to osmo chain via ${channel.channel.src.channelId}`);
 
-  const transferResponse = await sendNft(
+  let transferResponse = await sendNft(
     wasmClient,
     wasmCw721,
     wasmIcs721,
@@ -258,7 +259,7 @@ test.serial("transfer NFT: wasmd -> osmo", async (t) => {
 
   t.log("relaying packets");
 
-  const info = await channel.link.relayAll();
+  let info = await channel.link.relayAll();
 
   // Verify we got a success
   assertAckSuccess(info.acksFromB);
@@ -274,6 +275,38 @@ test.serial("transfer NFT: wasmd -> osmo", async (t) => {
 
   tokenOwner = await ownerOf(osmoClient, osmoCw721, tokenId);
   t.is(osmoAddr, tokenOwner.owner);
+
+  t.log("transferring back to wasm chain");
+
+  ibcMsg = {
+    receiver: wasmAddr,
+    channel_id: channel.channel.dest.channelId,
+    timeout: {
+      block: {
+        revision: 1,
+        height: 90000,
+      },
+    },
+  };
+
+  transferResponse = await sendNft(
+    osmoClient,
+    osmoCw721,
+    osmoCw721OutgoingProxy,
+    ibcMsg,
+    tokenId
+  );
+  t.truthy(transferResponse);
+
+  t.log("relaying packets");
+
+  // Relay and verify we got a success
+  info = await channel.link.relayAll();
+  assertAckSuccess(info.acksFromA);
+
+  // assert NFT is returned to initial owner
+  tokenOwner = await ownerOf(wasmClient, wasmCw721, tokenId);
+  t.is(wasmAddr, tokenOwner.owner);
 });
 
 test.serial(
@@ -487,4 +520,8 @@ test.serial("malicious NFT", async (t) => {
   // Despite the transfer panicking, a fail ack should be returned.
   info = await channel.link.relayAll();
   assertAckErrors(info.acksFromA);
+
+  // assert token is returned to owner
+  const tokenOwner = await ownerOf(osmoClient, osmoCw721, tokenId);
+  t.is(osmoAddr, tokenOwner.owner);
 });
