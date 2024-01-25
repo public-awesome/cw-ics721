@@ -386,9 +386,9 @@ test.serial(
     // Verify we got an error
     assertAckErrors(info.acksFromA);
 
-    // assert NFT on chain A is returned to owner
+    // assert NFT on chain B is returned to owner
     tokenOwner = await ownerOf(osmoClient, osmoCw721, tokenId);
-    t.is(osmoClient.senderAddress, tokenOwner.owner);
+    t.is(osmoAddr, tokenOwner.owner);
     t.log(`NFT #${tokenId} returned to owner`);
   }
 );
@@ -415,7 +415,7 @@ test.serial("malicious NFT", async (t) => {
         name: "evil",
         symbol: "evil",
         minter: wasmClient.senderAddress,
-        target: wasmIcs721, // panic every time the ICS721 contract tries to return a NFT.
+        banned_recipient: "banned_recipient", // panic every time the ICS721 contract tries to transfer NFT to this address
       },
     },
   });
@@ -452,12 +452,47 @@ test.serial("malicious NFT", async (t) => {
 
   assertAckSuccess(info.acksFromB);
 
-  t.log("transferring back to wasm chain");
+  t.log("transferring back to wasm chain to banned recipient");
 
   const osmoClassId = `${t.context.channel.channel.dest.portId}/${t.context.channel.channel.dest.channelId}/${cw721}`;
   const osmoCw721 = await osmoClient.sign.queryContractSmart(osmoIcs721, {
     nft_contract: { class_id: osmoClassId },
   });
+
+  ibcMsg = {
+    receiver: "banned_recipient",
+    channel_id: channel.channel.dest.channelId,
+    timeout: {
+      block: {
+        revision: 1,
+        height: 90000,
+      },
+    },
+  };
+
+  transferResponse = await sendNft(
+    osmoClient,
+    osmoCw721,
+    osmoCw721OutgoingProxy,
+    ibcMsg,
+    tokenId
+  );
+  t.truthy(transferResponse);
+
+  t.log("relaying packets");
+
+  let pending = await channel.link.getPendingPackets("B");
+  t.is(pending.length, 1);
+
+  // Despite the transfer panicking, a fail ack should be returned.
+  info = await channel.link.relayAll();
+  assertAckErrors(info.acksFromA);
+  // assert NFT on chain B is returned to owner
+  let tokenOwner = await ownerOf(osmoClient, osmoCw721, tokenId);
+  t.is(osmoAddr, tokenOwner.owner);
+  t.log(`NFT #${tokenId} returned to owner`);
+
+  t.log("transferring back to wasm chain to recipient", wasmAddr);
 
   ibcMsg = {
     receiver: wasmAddr,
@@ -481,10 +516,14 @@ test.serial("malicious NFT", async (t) => {
 
   t.log("relaying packets");
 
-  const pending = await channel.link.getPendingPackets("B");
+  pending = await channel.link.getPendingPackets("B");
   t.is(pending.length, 1);
 
-  // Despite the transfer panicking, a fail ack should be returned.
+  // Verify we got a success
   info = await channel.link.relayAll();
-  assertAckErrors(info.acksFromA);
+  assertAckSuccess(info.acksFromB);
+
+  // assert NFT on chain A is returned to owner
+  tokenOwner = await ownerOf(wasmClient, cw721, tokenId);
+  t.is(wasmAddr, tokenOwner.owner);
 });

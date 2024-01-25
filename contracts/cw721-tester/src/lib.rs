@@ -1,7 +1,7 @@
 use cosmwasm_schema::cw_serde;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Addr, Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use cw721_base::{msg, ContractError, Extension};
 use cw_storage_plus::Item;
@@ -14,13 +14,13 @@ pub struct InstantiateMsg {
     pub name: String,
     pub symbol: String,
     pub minter: String,
-    /// An address which will be unable to transfer NFTs away from
-    /// themselves (they are a black hole). If this address attempts a
-    /// `TransferNft` message it will fail with an out-of-gas error.
-    pub target: String,
+    /// An address which will be unable receive NFT on `TransferNft` message
+    /// If `TransferNft` message attempts sending to banned recipient
+    /// it will fail with an out-of-gas error.
+    pub banned_recipient: String,
 }
 
-const TARGET: Item<Addr> = Item::new("target");
+const BANNED_RECIPIENT: Item<String> = Item::new("banned_recipient");
 
 const CONTRACT_NAME: &str = "crates.io:cw721-gas-tester";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -43,7 +43,7 @@ pub fn instantiate(
             withdraw_address: None,
         },
     )?;
-    TARGET.save(deps.storage, &deps.api.addr_validate(&msg.target)?)?;
+    BANNED_RECIPIENT.save(deps.storage, &msg.banned_recipient)?;
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(response)
@@ -56,13 +56,17 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    if matches!(msg, ExecuteMsg::TransferNft { .. }) && info.sender == TARGET.load(deps.storage)? {
-        // loop here causes the relayer to hang while it tries to
-        // simulate the TX.
-        panic!("gotem")
-        // loop {}
-    } else {
-        cw721_base::entry::execute(deps, env, info, msg)
+    match msg.clone() {
+        ExecuteMsg::TransferNft { recipient, .. } => {
+            if recipient == BANNED_RECIPIENT.load(deps.storage)? {
+                // loop here causes the relayer to hang while it tries to
+                // simulate the TX.
+                panic!("gotem")
+                // loop {}
+            }
+            cw721_base::entry::execute(deps, env, info, msg)
+        }
+        _ => cw721_base::entry::execute(deps, env, info, msg),
     }
 }
 
