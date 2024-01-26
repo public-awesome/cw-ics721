@@ -294,6 +294,9 @@ where
                     tokens,
                     receiver,
                 } => self.callback_mint(deps, class_id, tokens, receiver),
+                CallbackMsg::RedeemOutgoingChannelEntries(entries) => {
+                    self.callback_redeem_outgoing_channel_entries(deps, entries)
+                }
 
                 CallbackMsg::Conjunction { operands } => {
                     Ok(Response::default().add_messages(operands))
@@ -473,6 +476,17 @@ where
         Ok(Response::default()
             .add_attribute("method", "callback_mint")
             .add_messages(mint))
+    }
+
+    fn callback_redeem_outgoing_channel_entries(
+        &self,
+        deps: DepsMut,
+        entries: Vec<(ClassId, TokenId)>,
+    ) -> Result<Response<T>, ContractError> {
+        for (class_id, token_id) in entries {
+            OUTGOING_CLASS_TOKEN_TO_CHANNEL.remove(deps.storage, (class_id, token_id));
+        }
+        Ok(Response::default().add_attribute("method", "callback_redeem_outgoing_channel_entries"))
     }
 
     fn migrate(

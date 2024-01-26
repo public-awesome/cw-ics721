@@ -113,6 +113,31 @@
           "additionalProperties": false
         },
         {
+          "type": "object",
+          "required": [
+            "redeem_outgoing_channel_entries"
+          ],
+          "properties": {
+            "redeem_outgoing_channel_entries": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": [
+                  {
+                    "$ref": "#/definitions/ClassId"
+                  },
+                  {
+                    "$ref": "#/definitions/TokenId"
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
           "description": "Mints a NFT of collection class_id for receiver with the provided id and metadata. Only callable by this contract.",
           "type": "object",
           "required": [

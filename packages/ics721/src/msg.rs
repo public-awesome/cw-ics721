@@ -63,6 +63,8 @@ pub enum CallbackMsg {
         /// Information about the vouchers been redeemed.
         redeem: VoucherRedemption,
     },
+    /// Redeem all entries in outgoing channel.
+    RedeemOutgoingChannelEntries(Vec<(ClassId, TokenId)>),
     /// Mints a NFT of collection class_id for receiver with the
     /// provided id and metadata. Only callable by this contract.
     Mint {

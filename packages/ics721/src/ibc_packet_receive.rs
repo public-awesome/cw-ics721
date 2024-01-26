@@ -94,7 +94,6 @@ pub(crate) fn receive_ibc_packet(
                         // We previously sent this NFT out on this
                         // channel. Unlock the local version for the
                         // receiver.
-                        OUTGOING_CLASS_TOKEN_TO_CHANNEL.remove(deps.storage, key);
                         messages.push(Action::Redemption {
                             token_id,
                             class_id: local_class_id,
@@ -317,15 +316,40 @@ impl ActionAggregator {
         }
 
         // we can only have redeem or create, not both
-        if let Some(redeem) = self.redemption {
-            m.push(redeem.into_wasm_msg(contract.clone(), receiver.to_string())?)
-        }
+        let outgoing_class_tokens: Option<Vec<(ClassId, TokenId)>> =
+            if let Some(redeem) = self.redemption {
+                m.push(
+                    redeem
+                        .clone()
+                        .into_wasm_msg(contract.clone(), receiver.to_string())?,
+                );
+                let (class_id, token_ids) = (redeem.class.id, redeem.token_ids);
+                Some(
+                    token_ids
+                        .into_iter()
+                        .map(|token_id| (class_id.clone(), token_id))
+                        .collect(),
+                )
+            } else {
+                None
+            };
         if let Some(create) = self.creation {
             m.push(create.into_wasm_msg(contract.clone(), receiver.into_string())?)
         }
 
         if let Some(callback_msg) = callback_msg {
             m.push(callback_msg)
+        }
+
+        // once all other submessages are done, we can redeem entries in the outgoing channel
+        if let Some(outgoing_class_tokens) = outgoing_class_tokens {
+            m.push(WasmMsg::Execute {
+                contract_addr: contract.to_string(),
+                msg: to_json_binary(&ExecuteMsg::Callback(
+                    CallbackMsg::RedeemOutgoingChannelEntries(outgoing_class_tokens),
+                ))?,
+                funds: vec![],
+            });
         }
         let message = if m.len() == 1 {
             m[0].clone()
