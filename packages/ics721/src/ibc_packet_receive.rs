@@ -316,7 +316,7 @@ impl ActionAggregator {
         }
 
         // we can only have redeem or create, not both
-        let outgoing_class_tokens: Option<Vec<(ClassId, TokenId)>> =
+        let redeem_outgoing_class_tokens: Option<Vec<(ClassId, TokenId)>> =
             if let Some(redeem) = self.redemption {
                 m.push(
                     redeem
@@ -342,7 +342,7 @@ impl ActionAggregator {
         }
 
         // once all other submessages are done, we can redeem entries in the outgoing channel
-        if let Some(outgoing_class_tokens) = outgoing_class_tokens {
+        if let Some(outgoing_class_tokens) = redeem_outgoing_class_tokens {
             m.push(WasmMsg::Execute {
                 contract_addr: contract.to_string(),
                 msg: to_json_binary(&ExecuteMsg::Callback(
