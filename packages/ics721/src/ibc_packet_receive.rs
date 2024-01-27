@@ -13,10 +13,7 @@ use crate::{
     ibc::ACK_AND_DO_NOTHING_REPLY_ID,
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg},
-    state::{
-        CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL,
-        OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO,
-    },
+    state::{CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO},
     token_types::{VoucherCreation, VoucherRedemption},
     ContractError,
 };
@@ -81,14 +78,6 @@ pub(crate) fn receive_ibc_packet(
                 }
                 // It's not something we've sent out before => make a
                 // new NFT.
-                let local_prefix = get_endpoint_prefix(&packet.dest);
-                let local_class_id = ClassId::new(format!("{}{}", local_prefix, data.class_id));
-
-                INCOMING_CLASS_TOKEN_TO_CHANNEL.save(
-                    deps.storage,
-                    (local_class_id.clone(), token_id.clone()),
-                    &packet.dest.channel_id,
-                )?;
                 redemption_or_create.1.push(Token {
                     id: token_id,
                     uri: token_uri,
@@ -155,7 +144,7 @@ pub(crate) fn receive_ibc_packet(
 
     let incoming_proxy_msg =
         get_incoming_proxy_msg(deps.storage, packet.clone(), cloned_data.clone())?;
-    let voucher_message = match is_redemption {
+    let voucher_and_channel_messages = match is_redemption {
         true => {
             let redemption = VoucherRedemption {
                 class: Class {
@@ -165,17 +154,22 @@ pub(crate) fn receive_ibc_packet(
                 },
                 token_ids: redemption_or_create.0,
             };
-            let redeem_outgoing_class_tokens: Option<Vec<(ClassId, TokenId)>> = Some(
-                redemption
-                    .token_ids
-                    .clone()
-                    .into_iter()
-                    .map(|token_id| (local_class_id.clone(), token_id))
-                    .collect(),
-            );
+            let redeem_outgoing_channels: Vec<(ClassId, TokenId)> = redemption
+                .token_ids
+                .clone()
+                .into_iter()
+                .map(|token_id| (local_class_id.clone(), token_id))
+                .collect();
+            let redeem_outgoing_channels_msg = WasmMsg::Execute {
+                contract_addr: env.contract.address.to_string(),
+                msg: to_json_binary(&ExecuteMsg::Callback(
+                    CallbackMsg::RedeemOutgoingChannelEntries(redeem_outgoing_channels),
+                ))?,
+                funds: vec![],
+            };
             (
                 redemption.into_wasm_msg(env.contract.address.clone(), receiver.to_string())?,
-                redeem_outgoing_class_tokens,
+                redeem_outgoing_channels_msg,
             )
         }
         false => {
@@ -187,18 +181,36 @@ pub(crate) fn receive_ibc_packet(
                 },
                 tokens: redemption_or_create.1,
             };
+            let add_incoming_channels: Vec<((ClassId, TokenId), String)> = creation
+                .tokens
+                .clone()
+                .into_iter()
+                .map(|token| {
+                    (
+                        (local_class_id.clone(), token.id),
+                        packet.dest.channel_id.clone(),
+                    )
+                })
+                .collect();
+            let add_incoming_channels_msg = WasmMsg::Execute {
+                contract_addr: env.contract.address.to_string(),
+                msg: to_json_binary(&ExecuteMsg::Callback(
+                    CallbackMsg::AddIncomingChannelEntries(add_incoming_channels),
+                ))?,
+                funds: vec![],
+            };
             (
                 creation.into_wasm_msg(env.contract.address.clone(), receiver.to_string())?,
-                None,
+                add_incoming_channels_msg,
             )
         }
     };
 
     let submessage = into_submessage(
         env.contract.address,
-        voucher_message.0,
+        voucher_and_channel_messages.0,
+        voucher_and_channel_messages.1,
         callback_msg,
-        voucher_message.1,
         incoming_proxy_msg,
     )?;
 
@@ -219,41 +231,28 @@ pub(crate) fn receive_ibc_packet(
 pub fn into_submessage(
     contract: Addr,
     voucher_message: WasmMsg,
+    channel_message: WasmMsg,
     callback_msg: Option<WasmMsg>,
-    redeem_outgoing_class_tokens: Option<Vec<(ClassId, TokenId)>>,
     incoming_proxy_msg: Option<WasmMsg>,
 ) -> StdResult<SubMsg<Empty>> {
-    let mut m = Vec::with_capacity(3); // 3 is the max number of submessages we can have
+    let mut operands = Vec::with_capacity(3); // 3 is the max number of submessages we can have
     if let Some(incoming_proxy_msg) = incoming_proxy_msg {
-        m.push(incoming_proxy_msg)
+        operands.push(incoming_proxy_msg)
     }
 
-    m.push(voucher_message);
+    operands.push(voucher_message);
 
     if let Some(callback_msg) = callback_msg {
-        m.push(callback_msg)
+        operands.push(callback_msg)
     }
 
-    // once all other submessages are done, we can redeem entries in the outgoing channel
-    if let Some(outgoing_class_tokens) = redeem_outgoing_class_tokens {
-        m.push(WasmMsg::Execute {
-            contract_addr: contract.to_string(),
-            msg: to_json_binary(&ExecuteMsg::Callback(
-                CallbackMsg::RedeemOutgoingChannelEntries(outgoing_class_tokens),
-            ))?,
-            funds: vec![],
-        });
-    }
-    let message = if m.len() == 1 {
-        m[0].clone()
-    } else {
-        WasmMsg::Execute {
-            contract_addr: contract.into_string(),
-            msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::Conjunction {
-                operands: m,
-            }))?,
-            funds: vec![],
-        }
+    // once all other submessages are done, we can update incoming or outgoing channel
+    operands.push(channel_message);
+
+    let message = WasmMsg::Execute {
+        contract_addr: contract.into_string(),
+        msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::Conjunction { operands }))?,
+        funds: vec![],
     };
     Ok(SubMsg::reply_always(message, ACK_AND_DO_NOTHING_REPLY_ID))
 }

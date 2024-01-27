@@ -6,6 +6,7 @@ import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 import { instantiateContract } from "./controller";
 import { allTokens, mint, ownerOf, sendNft } from "./cw721-utils";
 import {
+  incomingChannels,
   migrate,
   migrateIncomingProxy,
   nftContracts,
@@ -418,6 +419,31 @@ test.serial("transfer NFT: wasmd -> osmo", async (t) => {
   t.log(
     `transfering to osmo chain via unknown ${otherChannel.channel.src.channelId}`
   );
+  const beforeWasmOutgoingClassTokenToChannelList = await outgoingChannels(
+    wasmClient,
+    wasmIcs721
+  );
+  const beforeWasmIncomingClassTokenToChannelList = await incomingChannels(
+    wasmClient,
+    wasmIcs721
+  );
+  const beforeWasmNftContractsToClassIdList = await nftContracts(
+    wasmClient,
+    wasmIcs721
+  );
+  const beforeOsmoOutgoingClassTokenToChannelList = await outgoingChannels(
+    osmoClient,
+    osmoIcs721
+  );
+  const beforeOsmoIncomingClassTokenToChannelList = await incomingChannels(
+    osmoClient,
+    osmoIcs721
+  );
+  const beforeOsmoNftContractsToClassIdList = await nftContracts(
+    osmoClient,
+    osmoIcs721
+  );
+
   ibcMsg = {
     receiver: osmoAddr,
     channel_id: otherChannel.channel.src.channelId,
@@ -441,6 +467,73 @@ test.serial("transfer NFT: wasmd -> osmo", async (t) => {
   t.log("relaying packets");
   info = await otherChannel.link.relayAll();
   assertAckErrors(info.acksFromA);
+  // assert no change before and after relay
+  const afterWasmOutgoingClassTokenToChannelList = await outgoingChannels(
+    wasmClient,
+    wasmIcs721
+  );
+  const afterWasmIncomingClassTokenToChannelList = await incomingChannels(
+    wasmClient,
+    wasmIcs721
+  );
+  const afterWasmNftContractsToClassIdList = await nftContracts(
+    wasmClient,
+    wasmIcs721
+  );
+  t.deepEqual(
+    beforeWasmOutgoingClassTokenToChannelList,
+    afterWasmOutgoingClassTokenToChannelList,
+    `outgoing channels must be unchanged:
+- wasm before: ${JSON.stringify(beforeWasmOutgoingClassTokenToChannelList)}
+- wasm after: ${JSON.stringify(afterWasmOutgoingClassTokenToChannelList)}`
+  );
+  t.deepEqual(
+    beforeWasmIncomingClassTokenToChannelList,
+    afterWasmIncomingClassTokenToChannelList,
+    `incoming channels must be unchanged:
+- wasm before: ${JSON.stringify(beforeWasmIncomingClassTokenToChannelList)}
+- wasm after: ${JSON.stringify(afterWasmIncomingClassTokenToChannelList)}`
+  );
+  t.deepEqual(
+    beforeWasmNftContractsToClassIdList,
+    afterWasmNftContractsToClassIdList,
+    `nft contracts must be unchanged:
+- wasm before: ${JSON.stringify(beforeWasmNftContractsToClassIdList)}
+- wasm after: ${JSON.stringify(afterWasmNftContractsToClassIdList)}`
+  );
+  const afterOsmoOutgoingClassTokenToChannelList = await outgoingChannels(
+    osmoClient,
+    osmoIcs721
+  );
+  const afterOsmoIncomingClassTokenToChannelList = await incomingChannels(
+    osmoClient,
+    osmoIcs721
+  );
+  const afterOsmoNftContractsToClassIdList = await nftContracts(
+    osmoClient,
+    osmoIcs721
+  );
+  t.deepEqual(
+    beforeOsmoOutgoingClassTokenToChannelList,
+    afterOsmoOutgoingClassTokenToChannelList,
+    `outgoing channels must be unchanged:
+- osmo before: ${JSON.stringify(beforeOsmoOutgoingClassTokenToChannelList)}
+- osmo after: ${JSON.stringify(afterOsmoOutgoingClassTokenToChannelList)}`
+  );
+  t.deepEqual(
+    beforeOsmoIncomingClassTokenToChannelList,
+    afterOsmoIncomingClassTokenToChannelList,
+    `incoming channels must be unchanged:
+- osmo before: ${JSON.stringify(beforeOsmoIncomingClassTokenToChannelList)}
+- osmo after: ${JSON.stringify(afterOsmoIncomingClassTokenToChannelList)}`
+  );
+  t.deepEqual(
+    beforeOsmoNftContractsToClassIdList,
+    afterOsmoNftContractsToClassIdList,
+    `nft contracts must be unchanged:
+- osmo before: ${JSON.stringify(beforeOsmoNftContractsToClassIdList)}
+- osmo after: ${JSON.stringify(afterOsmoNftContractsToClassIdList)}`
+  );
 
   // assert NFT on chain A is returned to owner
   tokenOwner = await ownerOf(wasmClient, wasmCw721, tokenId);

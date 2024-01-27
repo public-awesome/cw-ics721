@@ -65,6 +65,8 @@ pub enum CallbackMsg {
     },
     /// Redeem all entries in outgoing channel.
     RedeemOutgoingChannelEntries(Vec<(ClassId, TokenId)>),
+    /// Save all entries in incoming channel.
+    AddIncomingChannelEntries(Vec<((ClassId, TokenId), String)>),
     /// Mints a NFT of collection class_id for receiver with the
     /// provided id and metadata. Only callable by this contract.
     Mint {

@@ -20,8 +20,9 @@ use crate::{
     msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg},
     state::{
         CollectionData, UniversalAllNftInfoResponse, ADMIN_USED_FOR_CW721, CLASS_ID_TO_CLASS,
-        CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID, INCOMING_PROXY, NFT_CONTRACT_TO_CLASS_ID,
-        OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO, TOKEN_METADATA,
+        CLASS_ID_TO_NFT_CONTRACT, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY,
+        NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
+        TOKEN_METADATA,
     },
     token_types::{VoucherCreation, VoucherRedemption},
     ContractError,
@@ -297,7 +298,9 @@ where
                 CallbackMsg::RedeemOutgoingChannelEntries(entries) => {
                     self.callback_redeem_outgoing_channel_entries(deps, entries)
                 }
-
+                CallbackMsg::AddIncomingChannelEntries(entries) => {
+                    self.callback_save_incoming_channel_entries(deps, entries)
+                }
                 CallbackMsg::Conjunction { operands } => {
                     Ok(Response::default().add_messages(operands))
                 }
@@ -485,6 +488,17 @@ where
     ) -> Result<Response<T>, ContractError> {
         for (class_id, token_id) in entries {
             OUTGOING_CLASS_TOKEN_TO_CHANNEL.remove(deps.storage, (class_id, token_id));
+        }
+        Ok(Response::default().add_attribute("method", "callback_redeem_outgoing_channel_entries"))
+    }
+
+    fn callback_save_incoming_channel_entries(
+        &self,
+        deps: DepsMut,
+        entries: Vec<((ClassId, TokenId), String)>,
+    ) -> Result<Response<T>, ContractError> {
+        for (key, channel) in entries {
+            INCOMING_CLASS_TOKEN_TO_CHANNEL.save(deps.storage, key, &channel)?;
         }
         Ok(Response::default().add_attribute("method", "callback_redeem_outgoing_channel_entries"))
     }

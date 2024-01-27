@@ -2163,7 +2163,6 @@ fn test_migration() {
     assert_eq!(test.query_cw721_admin(), Some(admin),);
 
     // migrate without changing code id
-    println!(">>>>>>> migrate without changing code id");
     test.app
         .execute(
             test.app.api().addr_make(ICS721_ADMIN_AND_PAUSER),

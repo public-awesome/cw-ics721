@@ -62,3 +62,13 @@ export function outgoingChannels(
   };
   return client.sign.queryContractSmart(contractAddress, msg);
 }
+
+export function incomingChannels(
+  client: CosmWasmSigner,
+  contractAddress: string
+): Promise<[[string, string], string][]> {
+  const msg = {
+    incoming_channels: {},
+  };
+  return client.sign.queryContractSmart(contractAddress, msg);
+}
