@@ -34,7 +34,6 @@ pub(crate) fn receive_ibc_packet(
     // Check if NFT is local if not get the local class id
     let maybe_local_class_id = try_pop_source_prefix(&packet.src, &data.class_id);
     let callback = get_receive_callback(&data);
-    // If class is not local, its something new
     let local_class_id = if let Some(local_class_id) = maybe_local_class_id {
         ClassId::new(local_class_id)
     } else {
@@ -42,9 +41,8 @@ pub(crate) fn receive_ibc_packet(
         ClassId::new(format!("{}{}", local_prefix, data.class_id))
     };
 
-    let incoming_proxy_msg =
-        get_incoming_proxy_msg(deps.as_ref().storage, packet.clone(), data.clone())?;
-
+    // sub message holds 2 to 4 messages:
+    // - one message for voucher creation or redemption, another message for updating incoming or outgoing channel
     let (is_redemption, voucher_and_channel_messages) = create_voucher_and_channel_messages(
         deps.as_ref(),
         env.clone(),
@@ -53,8 +51,10 @@ pub(crate) fn receive_ibc_packet(
         local_class_id.clone(),
         packet.clone(),
     )?;
-
-    // if there is a callback, generate the callback message
+    // - one optional incoming proxy message
+    let incoming_proxy_msg =
+        get_incoming_proxy_msg(deps.as_ref().storage, packet.clone(), data.clone())?;
+    // - one optional callback message
     let callback_msg = create_callback_msg(
         deps.as_ref(),
         &env,
@@ -266,7 +266,7 @@ pub fn into_submessage(
     callback_msg: Option<WasmMsg>,
     incoming_proxy_msg: Option<WasmMsg>,
 ) -> StdResult<SubMsg<Empty>> {
-    let mut operands = Vec::with_capacity(3); // 3 is the max number of submessages we can have
+    let mut operands = Vec::with_capacity(4); // 4 is the max number of submessages we can have
     if let Some(incoming_proxy_msg) = incoming_proxy_msg {
         operands.push(incoming_proxy_msg)
     }
