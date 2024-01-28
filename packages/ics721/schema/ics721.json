@@ -246,6 +246,7 @@
             "additionalProperties": false
           },
           {
+            "description": "Redeem all entries in outgoing channel.",
             "type": "object",
             "required": [
               "redeem_outgoing_channel_entries"
@@ -261,6 +262,42 @@
                     },
                     {
                       "$ref": "#/definitions/TokenId"
+                    }
+                  ],
+                  "maxItems": 2,
+                  "minItems": 2
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "description": "Save all entries in incoming channel.",
+            "type": "object",
+            "required": [
+              "add_incoming_channel_entries"
+            ],
+            "properties": {
+              "add_incoming_channel_entries": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": [
+                    {
+                      "type": "array",
+                      "items": [
+                        {
+                          "$ref": "#/definitions/ClassId"
+                        },
+                        {
+                          "$ref": "#/definitions/TokenId"
+                        }
+                      ],
+                      "maxItems": 2,
+                      "minItems": 2
+                    },
+                    {
+                      "type": "string"
                     }
                   ],
                   "maxItems": 2,
