@@ -41,6 +41,74 @@
         }
       },
       "additionalProperties": false
+    },
+    {
+      "description": "Admin msg in case something goes wrong. As a minimum it clean up states (incoming channel and token metadata), and burn NFT if exists.",
+      "type": "object",
+      "required": [
+        "admin_clean_and_burn_nft"
+      ],
+      "properties": {
+        "admin_clean_and_burn_nft": {
+          "type": "object",
+          "required": [
+            "class_id",
+            "collection",
+            "owner",
+            "token_id"
+          ],
+          "properties": {
+            "class_id": {
+              "type": "string"
+            },
+            "collection": {
+              "type": "string"
+            },
+            "owner": {
+              "type": "string"
+            },
+            "token_id": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "description": "Admin msg in case something goes wrong. As a minimum it clean up state (outgoing channel), and transfer NFT if exists. - transfer NFT if exists",
+      "type": "object",
+      "required": [
+        "admin_clean_and_unescrow_nft"
+      ],
+      "properties": {
+        "admin_clean_and_unescrow_nft": {
+          "type": "object",
+          "required": [
+            "class_id",
+            "collection",
+            "recipient",
+            "token_id"
+          ],
+          "properties": {
+            "class_id": {
+              "type": "string"
+            },
+            "collection": {
+              "type": "string"
+            },
+            "recipient": {
+              "type": "string"
+            },
+            "token_id": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {
