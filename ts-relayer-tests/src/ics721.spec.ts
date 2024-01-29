@@ -4,8 +4,10 @@ import anyTest, { ExecutionContext, TestFn } from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
 import { instantiateContract } from "./controller";
-import { allTokens, mint, ownerOf, sendNft } from "./cw721-utils";
+import { allTokens, approve, mint, ownerOf, sendNft } from "./cw721-utils";
 import {
+  adminCleanAndBurnNft,
+  adminCleanAndUnescrowNft,
   incomingChannels,
   migrate,
   migrateIncomingProxy,
@@ -742,6 +744,191 @@ test.serial("transfer NFT: wasmd -> osmo", async (t) => {
   // assert NFT is returned to sender on wasm chain
   tokenOwner = await ownerOf(wasmClient, wasmCw721, tokenId);
   t.is(wasmAddr, tokenOwner.owner);
+});
+
+test.serial("admin unescrow and burn NFT: wasmd -> osmo", async (t) => {
+  await standardSetup(t);
+
+  const {
+    wasmClient,
+    wasmAddr,
+    wasmCw721,
+    wasmIcs721,
+    wasmCw721OutgoingProxy,
+    osmoClient,
+    osmoAddr,
+    osmoIcs721,
+    channel,
+  } = t.context;
+
+  const tokenId = "1";
+  await mint(wasmClient, wasmCw721, tokenId, wasmAddr, undefined);
+  // assert token is minted
+  let tokenOwner = await ownerOf(wasmClient, wasmCw721, tokenId);
+  t.is(wasmAddr, tokenOwner.owner);
+
+  // ==== happy path: transfer NFT to osmo chain ====
+  // test transfer NFT to osmo chain
+  t.log(`transfering to osmo chain via ${channel.channel.src.channelId}`);
+  const ibcMsg = {
+    receiver: osmoAddr,
+    channel_id: channel.channel.src.channelId,
+    timeout: {
+      block: {
+        revision: 1,
+        height: 90000,
+      },
+    },
+  };
+  const transferResponse = await sendNft(
+    wasmClient,
+    wasmCw721,
+    wasmCw721OutgoingProxy,
+    ibcMsg,
+    tokenId
+  );
+  t.truthy(transferResponse);
+
+  // Relay and verify we got a success
+  t.log("relaying packets");
+  const info = await channel.link.relayAll();
+  assertAckSuccess(info.acksFromA);
+
+  // assert NFT on chain A is locked/owned by ICS contract
+  tokenOwner = await ownerOf(wasmClient, wasmCw721, tokenId);
+  t.is(wasmIcs721, tokenOwner.owner);
+  // assert NFT minted on chain B
+  const osmoClassId = `${channel.channel.dest.portId}/${channel.channel.dest.channelId}/${t.context.wasmCw721}`;
+  const osmoCw721 = await osmoClient.sign.queryContractSmart(osmoIcs721, {
+    nft_contract: { class_id: osmoClassId },
+  });
+  let allNFTs = await allTokens(osmoClient, osmoCw721);
+  t.is(allNFTs.tokens.length, 1, `all tokens: ${JSON.stringify(allNFTs)}`);
+  // assert NFT on chain B is owned by osmoAddr
+  tokenOwner = await ownerOf(osmoClient, osmoCw721, tokenId);
+  t.is(osmoAddr, tokenOwner.owner);
+
+  const beforeWasmOutgoingClassTokenToChannelList = await outgoingChannels(
+    wasmClient,
+    wasmIcs721
+  );
+  // there should be one outgoing channel entry
+  t.deepEqual(
+    beforeWasmOutgoingClassTokenToChannelList,
+    [[[wasmCw721, tokenId], channel.channel.src.channelId]],
+    `wasm outgoing channels before:
+- before: ${JSON.stringify(beforeWasmOutgoingClassTokenToChannelList)}`
+  );
+  // no incoming channel entry
+  const beforeWasmIncomingClassTokenToChannelList = await incomingChannels(
+    wasmClient,
+    wasmIcs721
+  );
+  t.deepEqual(
+    beforeWasmIncomingClassTokenToChannelList,
+    [],
+    `wasm incoming channels before:
+- before: ${JSON.stringify(beforeWasmIncomingClassTokenToChannelList)}`
+  );
+  // one nft contract entry
+  const beforeWasmNftContractsToClassIdList = await nftContracts(
+    wasmClient,
+    wasmIcs721
+  );
+  t.deepEqual(
+    beforeWasmNftContractsToClassIdList,
+    [[wasmCw721, wasmCw721]],
+    `wasm nft contracts before:
+- before: ${JSON.stringify(beforeWasmNftContractsToClassIdList)}`
+  );
+
+  // no outgoing channel entry
+  const beforeOsmoOutgoingClassTokenToChannelList = await outgoingChannels(
+    osmoClient,
+    osmoIcs721
+  );
+  t.deepEqual(
+    beforeOsmoOutgoingClassTokenToChannelList,
+    [],
+    `osmo outgoing channels before:
+- before: ${JSON.stringify(beforeOsmoOutgoingClassTokenToChannelList)}`
+  );
+  // there should be one incoming channel entry
+  const beforeOsmoIncomingClassTokenToChannelList = await incomingChannels(
+    osmoClient,
+    osmoIcs721
+  );
+  t.deepEqual(
+    beforeOsmoIncomingClassTokenToChannelList,
+    [[[osmoClassId, tokenId], channel.channel.dest.channelId]],
+    `osmo incoming channels before:
+- before: ${JSON.stringify(beforeOsmoIncomingClassTokenToChannelList)}`
+  );
+  // one nft contract entry
+  const beforeOsmoNftContractsToClassIdList = await nftContracts(
+    osmoClient,
+    osmoIcs721
+  );
+  t.deepEqual(
+    beforeOsmoNftContractsToClassIdList,
+    [[osmoClassId, osmoCw721]],
+    `osmo incoming channels before:
+- before: ${JSON.stringify(beforeOsmoNftContractsToClassIdList)}`
+  );
+
+  // ==== test unescrow NFT on wasm chain ====
+  t.log(`unescrow NFT on wasm chain`);
+  await adminCleanAndUnescrowNft(
+    wasmClient,
+    wasmIcs721,
+    wasmAddr,
+    tokenId,
+    wasmCw721,
+    wasmCw721
+  );
+  // there should be no outgoing channel entry
+  const afterWasmOutgoingClassTokenToChannelList = await outgoingChannels(
+    wasmClient,
+    wasmIcs721
+  );
+  t.deepEqual(
+    afterWasmOutgoingClassTokenToChannelList,
+    [],
+    `wasm outgoing channels after:
+- after: ${JSON.stringify(afterWasmOutgoingClassTokenToChannelList)}`
+  );
+  // assert NFT on chain A is owned by wasmAddr
+  tokenOwner = await ownerOf(wasmClient, wasmCw721, tokenId);
+  t.is(wasmAddr, tokenOwner.owner);
+
+  // ==== test burn NFT on osmo chain ====
+  // we need to approve the contract to burn the NFT
+  t.log(`approve NFT on osmo chain`);
+  const response = await approve(osmoClient, osmoCw721, osmoIcs721, tokenId);
+  t.log(`- response: ${JSON.stringify(response, bigIntReplacer, 2)}`);
+  t.log(`burn NFT on osmo chain`);
+  await adminCleanAndBurnNft(
+    osmoClient,
+    osmoIcs721,
+    osmoAddr,
+    tokenId,
+    osmoClassId,
+    osmoCw721
+  );
+  t.log(`- response: ${JSON.stringify(response, bigIntReplacer, 2)}`);
+  allNFTs = await allTokens(osmoClient, osmoCw721);
+  t.is(allNFTs.tokens.length, 0);
+  // there should be no incoming channel entry
+  const afterOsmoIncomingClassTokenToChannelList = await incomingChannels(
+    osmoClient,
+    osmoIcs721
+  );
+  t.deepEqual(
+    afterOsmoIncomingClassTokenToChannelList,
+    [],
+    `osmo incoming channels after:
+- after: ${JSON.stringify(afterOsmoIncomingClassTokenToChannelList)}`
+  );
 });
 
 test.serial("malicious NFT", async (t) => {

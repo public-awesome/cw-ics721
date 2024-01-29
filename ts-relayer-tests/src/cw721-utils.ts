@@ -48,6 +48,29 @@ export function sendNft(
   );
 }
 
+export function approve(
+  client: CosmWasmSigner,
+  cw721Contract: string,
+  spender: string,
+  token_id: string
+) {
+  // msg to be executed on cw721 contract
+  const msg = {
+    approve: {
+      token_id,
+      spender,
+    },
+  };
+  return client.sign.execute(
+    client.senderAddress,
+    cw721Contract,
+    msg,
+    "auto", // fee
+    undefined, // no memo
+    undefined // no funds
+  );
+}
+
 // ######### query
 export function allTokens(
   client: CosmWasmSigner,
@@ -101,6 +124,16 @@ export function ownerOf(
       token_id,
       include_expired,
     },
+  };
+  return client.sign.queryContractSmart(cw721Contract, msg);
+}
+
+export function numTokens(
+  client: CosmWasmSigner,
+  cw721Contract: string
+): Promise<{ count: number }> {
+  const msg = {
+    num_tokens: {},
   };
   return client.sign.queryContractSmart(cw721Contract, msg);
 }

@@ -99,12 +99,12 @@ where
             ExecuteMsg::Pause {} => self.execute_pause(deps, info),
             ExecuteMsg::Callback(msg) => self.execute_callback(deps, env, info, msg),
             ExecuteMsg::AdminCleanAndBurnNft {
-                recipient,
+                owner,
                 token_id,
                 class_id,
                 collection,
             } => self.execute_admin_clean_and_burn_nft(
-                deps, env, info, recipient, token_id, class_id, collection,
+                deps, env, info, owner, token_id, class_id, collection,
             ),
             ExecuteMsg::AdminCleanAndUnescrowNft {
                 recipient,
@@ -123,12 +123,12 @@ where
         deps: DepsMut,
         env: Env,
         info: MessageInfo,
-        recipient: String,
+        owner: String,
         token_id: String,
         child_class_id: String,
         child_collection: String,
     ) -> Result<Response<T>, ContractError> {
-        deps.api.addr_validate(&recipient)?;
+        deps.api.addr_validate(&owner)?;
         // only admin can call this method
         let ContractInfoResponse { admin, .. } = deps
             .querier
@@ -171,9 +171,9 @@ where
         let mut response =
             Response::default().add_attribute("method", "execute_admin_clean_and_burn_nft");
         if let Some(UniversalAllNftInfoResponse { access, .. }) = maybe_nft_info {
-            if access.owner != recipient {
+            if access.owner != owner {
                 return Err(ContractError::NotOwnerOfNft {
-                    recipient: recipient.to_string(),
+                    recipient: owner.to_string(),
                     token_id: token_id.clone().into(),
                     owner: access.owner.to_string(),
                 });

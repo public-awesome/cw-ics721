@@ -2063,7 +2063,7 @@ fn test_admin_clean_and_unescrow_nft() {
         let non_admin = test.app.api().addr_make("not_admin");
         let admin = test.app.api().addr_make(ICS721_ADMIN_AND_PAUSER);
         let clean_and_burn_msg = ExecuteMsg::AdminCleanAndBurnNft {
-            recipient: recipient.to_string(),
+            owner: recipient.to_string(),
             token_id: token_id_escrowed_by_ics721.clone(),
             class_id: class_id.to_string(),
             collection: test.source_cw721.to_string(),

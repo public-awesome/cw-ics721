@@ -42,6 +42,56 @@ export function migrateIncomingProxy(
   );
 }
 
+export function adminCleanAndUnescrowNft(
+  client: CosmWasmSigner,
+  contractAddress: string,
+  recipient: string,
+  token_id: string,
+  class_id: string,
+  collection: string
+) {
+  const msg = {
+    admin_clean_and_unescrow_nft: {
+      recipient,
+      token_id,
+      class_id,
+      collection,
+    },
+  };
+  return client.sign.execute(
+    client.senderAddress,
+    contractAddress,
+    msg,
+    "auto",
+    undefined
+  );
+}
+
+export function adminCleanAndBurnNft(
+  client: CosmWasmSigner,
+  contractAddress: string,
+  owner: string,
+  token_id: string,
+  class_id: string,
+  collection: string
+) {
+  const msg = {
+    admin_clean_and_burn_nft: {
+      owner,
+      token_id,
+      class_id,
+      collection,
+    },
+  };
+  return client.sign.execute(
+    client.senderAddress,
+    contractAddress,
+    msg,
+    "auto",
+    undefined
+  );
+}
+
 // ######### query
 export function nftContracts(
   client: CosmWasmSigner,

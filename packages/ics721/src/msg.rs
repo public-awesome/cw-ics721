@@ -50,7 +50,7 @@ pub enum ExecuteMsg {
     /// Admin msg in case something goes wrong.
     /// As a minimum it clean up states (incoming channel and token metadata), and burn NFT if exists.
     AdminCleanAndBurnNft {
-        recipient: String,
+        owner: String,
         token_id: String,
         class_id: String,
         collection: String,
