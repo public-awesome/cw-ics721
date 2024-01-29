@@ -46,6 +46,25 @@ pub enum ExecuteMsg {
     /// Mesages used internally by the contract. These may only be
     /// called by the contract itself.
     Callback(CallbackMsg),
+
+    /// Admin msg in case something goes wrong.
+    /// As a minimum it clean up states (incoming channel and token metadata), and burn NFT if exists.
+    AdminCleanAndBurnNft {
+        recipient: String,
+        token_id: String,
+        class_id: String,
+        collection: String,
+    },
+
+    /// Admin msg in case something goes wrong.
+    /// As a minimum it clean up state (outgoing channel), and transfer NFT if exists.
+    /// - transfer NFT if exists
+    AdminCleanAndUnescrowNft {
+        recipient: String,
+        token_id: String,
+        class_id: String,
+        collection: String,
+    },
 }
 
 #[cw_serde]

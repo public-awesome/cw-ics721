@@ -98,7 +98,170 @@ where
             }) => self.execute_receive_nft(deps, env, info, token_id, sender, msg),
             ExecuteMsg::Pause {} => self.execute_pause(deps, info),
             ExecuteMsg::Callback(msg) => self.execute_callback(deps, env, info, msg),
+            ExecuteMsg::AdminCleanAndBurnNft {
+                recipient,
+                token_id,
+                class_id,
+                collection,
+            } => self.execute_admin_clean_and_burn_nft(
+                deps, env, info, recipient, token_id, class_id, collection,
+            ),
+            ExecuteMsg::AdminCleanAndUnescrowNft {
+                recipient,
+                token_id,
+                class_id,
+                collection,
+            } => self.execute_admin_clean_and_unescrow_nft(
+                deps, env, info, recipient, token_id, class_id, collection,
+            ),
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn execute_admin_clean_and_burn_nft(
+        &self,
+        deps: DepsMut,
+        env: Env,
+        info: MessageInfo,
+        recipient: String,
+        token_id: String,
+        child_class_id: String,
+        child_collection: String,
+    ) -> Result<Response<T>, ContractError> {
+        deps.api.addr_validate(&recipient)?;
+        // only admin can call this method
+        let ContractInfoResponse { admin, .. } = deps
+            .querier
+            .query_wasm_contract_info(env.contract.address.to_string())?;
+        if admin.is_some() && info.sender != admin.unwrap() {
+            return Err(ContractError::Unauthorized {});
+        }
+
+        // check given child class id and child collection is the same as stored in the contract
+        let token_id = TokenId::new(token_id);
+        let child_class_id = ClassId::new(child_class_id);
+        let child_collection = deps.api.addr_validate(&child_collection)?;
+        let cw721_addr = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, child_class_id.clone())?;
+        if cw721_addr != child_collection {
+            return Err(ContractError::NoClassIdForNftContract {
+                child_collection: child_collection.to_string(),
+                class_id: child_class_id.to_string(),
+                token_id: token_id.into(),
+                cw721_addr: cw721_addr.to_string(),
+            });
+        }
+
+        // remove incoming channel entry and metadata
+        INCOMING_CLASS_TOKEN_TO_CHANNEL
+            .remove(deps.storage, (child_class_id.clone(), token_id.clone()));
+        TOKEN_METADATA.remove(deps.storage, (child_class_id.clone(), token_id.clone()));
+
+        // check NFT on child collection owned by recipient
+        let maybe_nft_info: Option<UniversalAllNftInfoResponse> = deps
+            .querier
+            .query_wasm_smart(
+                child_collection.clone(),
+                &cw721::Cw721QueryMsg::AllNftInfo {
+                    token_id: token_id.clone().into(),
+                    include_expired: None,
+                },
+            )
+            .ok();
+
+        let mut response =
+            Response::default().add_attribute("method", "execute_admin_clean_and_burn_nft");
+        if let Some(UniversalAllNftInfoResponse { access, .. }) = maybe_nft_info {
+            if access.owner != recipient {
+                return Err(ContractError::NotOwnerOfNft {
+                    recipient: recipient.to_string(),
+                    token_id: token_id.clone().into(),
+                    owner: access.owner.to_string(),
+                });
+            }
+            // burn child NFT
+            let burn_msg = WasmMsg::Execute {
+                contract_addr: child_collection.to_string(),
+                msg: to_json_binary(&cw721::Cw721ExecuteMsg::Burn {
+                    token_id: token_id.clone().into(),
+                })?,
+                funds: vec![],
+            };
+            response = response.add_message(burn_msg);
+        }
+
+        Ok(response)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn execute_admin_clean_and_unescrow_nft(
+        &self,
+        deps: DepsMut,
+        env: Env,
+        info: MessageInfo,
+        recipient: String,
+        token_id: String,
+        home_class_id: String,
+        home_collection: String,
+    ) -> Result<Response<T>, ContractError> {
+        deps.api.addr_validate(&recipient)?;
+        // only admin can call this method
+        let ContractInfoResponse { admin, .. } = deps
+            .querier
+            .query_wasm_contract_info(env.contract.address.to_string())?;
+        if admin.is_some() && info.sender != admin.unwrap() {
+            return Err(ContractError::Unauthorized {});
+        }
+
+        // check given home class id and home collection is the same as stored in the contract
+        let home_class_id = ClassId::new(home_class_id);
+        let home_collection = deps.api.addr_validate(&home_collection)?;
+        let cw721_addr = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, home_class_id.clone())?;
+        if cw721_addr != home_collection {
+            return Err(ContractError::NoClassIdForNftContract {
+                child_collection: home_collection.to_string(),
+                class_id: home_class_id.to_string(),
+                token_id,
+                cw721_addr: cw721_addr.to_string(),
+            });
+        }
+
+        // remove outgoing channel entry
+        let token_id = TokenId::new(token_id);
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL
+            .remove(deps.storage, (home_class_id.clone(), token_id.clone()));
+
+        // check NFT on home collection owned by ics721 contract
+        let maybe_nft_info: Option<UniversalAllNftInfoResponse> = deps
+            .querier
+            .query_wasm_smart(
+                home_collection.clone(),
+                &cw721::Cw721QueryMsg::AllNftInfo {
+                    token_id: token_id.clone().into(),
+                    include_expired: None,
+                },
+            )
+            .ok();
+
+        let mut response =
+            Response::default().add_attribute("method", "execute_admin_clean_and_unescrow_nft");
+        if let Some(UniversalAllNftInfoResponse { access, .. }) = maybe_nft_info {
+            if access.owner != env.contract.address {
+                return Err(ContractError::NotEscrowedByIcs721(access.owner.to_string()));
+            }
+            // transfer NFT
+            let transfer_msg = WasmMsg::Execute {
+                contract_addr: home_collection.to_string(),
+                msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                    recipient: recipient.to_string(),
+                    token_id: token_id.clone().into(),
+                })?,
+                funds: vec![],
+            };
+
+            response = response.add_message(transfer_msg);
+        }
+
+        Ok(response)
     }
 
     /// ICS721 may receive an NFT from 2 sources:
