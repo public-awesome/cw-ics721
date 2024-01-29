@@ -179,6 +179,7 @@ where
                 });
             }
             // burn child NFT
+            // note: this requires approval from recipient, or recipient burns it himself
             let burn_msg = WasmMsg::Execute {
                 contract_addr: child_collection.to_string(),
                 msg: to_json_binary(&cw721::Cw721ExecuteMsg::Burn {
