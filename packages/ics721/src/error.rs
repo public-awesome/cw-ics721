@@ -27,6 +27,13 @@ pub enum ContractError {
     #[error("NFT not escrowed by ICS721! Owner: {0}")]
     NotEscrowedByIcs721(String),
 
+    #[error("{recipient} not owner of NFT {token_id}! Owner: {owner}")]
+    NotOwnerOfNft {
+        recipient: String,
+        owner: String,
+        token_id: String,
+    },
+
     #[error("only unordered channels are supported")]
     OrderedChannel {},
 
@@ -50,4 +57,12 @@ pub enum ContractError {
 
     #[error("Couldn't find nft contract for this class id: {0}")]
     NoNftContractForClassId(String),
+
+    #[error("Unknown nft contract: {child_collection}, Class Id: {class_id}, Token ID: {token_id} => NFT contract: {cw721_addr}")]
+    NoClassIdForNftContract {
+        child_collection: String,
+        class_id: String,
+        token_id: String,
+        cw721_addr: String,
+    },
 }

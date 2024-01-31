@@ -46,6 +46,25 @@ pub enum ExecuteMsg {
     /// Mesages used internally by the contract. These may only be
     /// called by the contract itself.
     Callback(CallbackMsg),
+
+    /// Admin msg in case something goes wrong.
+    /// As a minimum it clean up states (incoming channel and token metadata), and burn NFT if exists.
+    AdminCleanAndBurnNft {
+        owner: String,
+        token_id: String,
+        class_id: String,
+        collection: String,
+    },
+
+    /// Admin msg in case something goes wrong.
+    /// As a minimum it clean up state (outgoing channel), and transfer NFT if exists.
+    /// - transfer NFT if exists
+    AdminCleanAndUnescrowNft {
+        recipient: String,
+        token_id: String,
+        class_id: String,
+        collection: String,
+    },
 }
 
 #[cw_serde]
@@ -63,6 +82,10 @@ pub enum CallbackMsg {
         /// Information about the vouchers been redeemed.
         redeem: VoucherRedemption,
     },
+    /// Redeem all entries in outgoing channel.
+    RedeemOutgoingChannelEntries(Vec<(ClassId, TokenId)>),
+    /// Save all entries in incoming channel.
+    AddIncomingChannelEntries(Vec<((ClassId, TokenId), String)>),
     /// Mints a NFT of collection class_id for receiver with the
     /// provided id and metadata. Only callable by this contract.
     Mint {

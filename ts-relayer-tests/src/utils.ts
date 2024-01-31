@@ -232,10 +232,12 @@ export function assertAckErrors(acks: AckWithMetadata[]) {
   for (const ack of acks) {
     const parsed = JSON.parse(fromUtf8(ack.acknowledgement));
     if (parsed.result) {
-      throw new Error(`Ack result unexpectedly set`);
+      throw new Error(`Ack result unexpectedly set: ${JSON.stringify(parsed)}`);
     }
     if (!parsed.error) {
-      throw new Error(`Ack error unexpectedly empty`);
+      throw new Error(
+        `Ack error unexpectedly empty: ${JSON.stringify(parsed)}`
+      );
     }
   }
 }

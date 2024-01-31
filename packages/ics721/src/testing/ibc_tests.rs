@@ -1,11 +1,13 @@
+use core::panic;
+
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, from_json,
     testing::{mock_dependencies, mock_env, mock_info},
     to_json_binary, to_json_vec, Addr, Attribute, Binary, DepsMut, Empty, Env, IbcAcknowledgement,
     IbcChannel, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcEndpoint, IbcOrder, IbcPacket,
-    IbcPacketReceiveMsg, IbcTimeout, Order, Reply, Response, StdResult, SubMsgResponse,
-    SubMsgResult, Timestamp, WasmMsg,
+    IbcPacketReceiveMsg, IbcTimeout, Reply, Response, StdResult, SubMsgResponse, SubMsgResult,
+    Timestamp, WasmMsg,
 };
 
 use crate::{
@@ -14,14 +16,14 @@ use crate::{
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
     query::Ics721Query,
-    state::{CollectionData, INCOMING_CLASS_TOKEN_TO_CHANNEL, NFT_CONTRACT_TO_CLASS_ID, PO},
+    state::{CollectionData, NFT_CONTRACT_TO_CLASS_ID, PO},
     utils::get_collection_data,
     ContractError,
 };
 use ics721_types::{
     ibc_types::NonFungibleTokenPacketData,
     token_types::{ClassId, TokenId},
-    types::Ics721Callbacks,
+    types::{Ics721Callbacks, ReceiverExecuteMsg},
 };
 
 const CONTRACT_PORT: &str = "wasm.address1";
@@ -447,32 +449,61 @@ fn test_ibc_packet_receive() {
     let mut deps = mock_dependencies();
     let env = mock_env();
     PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
-    Ics721Contract::default()
+    let response = Ics721Contract::default()
         .ibc_packet_receive(deps.as_mut(), env, packet)
         .unwrap();
+    // assert there is only one message
+    assert_eq!(response.messages.len(), 1);
 
-    // check incoming classID and tokenID
-    let keys = INCOMING_CLASS_TOKEN_TO_CHANNEL
-        .keys(deps.as_mut().storage, None, None, Order::Ascending)
-        .collect::<StdResult<Vec<(String, String)>>>()
-        .unwrap();
-    let class_id = format!(
-        "{}/{}/{}",
-        ibc_packet.dest.port_id, ibc_packet.dest.channel_id, "id"
-    );
-    assert_eq!(keys, [(class_id, "1".to_string())]);
+    let conjunction_msg = match response.messages[0].msg.clone() {
+        cosmwasm_std::CosmosMsg::Wasm(WasmMsg::Execute { msg, .. }) => {
+            match from_json::<ExecuteMsg>(msg.clone()).unwrap() {
+                ExecuteMsg::Callback(callback_msg) => match callback_msg {
+                    CallbackMsg::Conjunction { operands } => Some(operands),
+                    _ => panic!("unexpected callback msg"),
+                },
+                _ => panic!("unexpected execute msg"),
+            }
+        }
+        _ => panic!("unexpected cosmos msg"),
+    };
+    assert!(conjunction_msg.is_some());
 
-    // check channel
-    let key = (
-        ClassId::new(keys[0].clone().0),
-        TokenId::new(keys[0].clone().1),
-    );
-    assert_eq!(
-        INCOMING_CLASS_TOKEN_TO_CHANNEL
-            .load(deps.as_mut().storage, key)
-            .unwrap(),
-        ibc_packet.dest.channel_id,
-    )
+    let operands = conjunction_msg.unwrap();
+    assert_eq!(operands.len(), 2);
+
+    let add_incoming_msg = operands[1].clone();
+    match add_incoming_msg {
+        WasmMsg::Execute { msg, .. } => {
+            match from_json::<ExecuteMsg>(msg).ok() {
+                Some(msg) => match msg {
+                    ExecuteMsg::Callback(msg) => match msg {
+                        CallbackMsg::AddIncomingChannelEntries(class_token_to_channel_list) => {
+                            let class_token_to_channel_list = class_token_to_channel_list
+                                .into_iter()
+                                .map(|((class, token), channel)| {
+                                    ((class.to_string(), token.into()), channel)
+                                })
+                                .collect::<Vec<((String, String), String)>>();
+                            // assert there is only one class token to channel entry
+                            let class_id = format!(
+                                "{}/{}/{}",
+                                ibc_packet.dest.port_id, ibc_packet.dest.channel_id, "id"
+                            );
+                            assert_eq!(
+                                class_token_to_channel_list,
+                                [((class_id, "1".to_string()), ibc_packet.dest.channel_id,)]
+                            );
+                        }
+                        _ => panic!("unexpected callback msg"),
+                    },
+                    _ => panic!("unexpected execute msg"),
+                },
+                _ => panic!("no callback msg"),
+            }
+        }
+        _ => panic!("unexpected wasm msg"),
+    }
 }
 
 #[test]
@@ -705,20 +736,21 @@ fn test_different_memo_ignored() {
         .ibc_packet_receive(deps.as_mut(), env, packet)
         .unwrap();
 
-    let memo_callback_msg = match res.messages[0].msg.clone() {
-        cosmwasm_std::CosmosMsg::Wasm(WasmMsg::Execute { msg, .. }) => {
-            match from_json::<ExecuteMsg>(msg).unwrap() {
-                ExecuteMsg::Callback(callback_msg) => match callback_msg {
-                    CallbackMsg::Conjunction { operands } => Some(operands),
-                    _ => Some(vec![]),
-                },
-                _ => None,
-            }
+    if let cosmwasm_std::CosmosMsg::Wasm(WasmMsg::Execute { msg, .. }) = res.messages[0].msg.clone()
+    {
+        if let ExecuteMsg::Callback(CallbackMsg::Conjunction { operands }) =
+            from_json::<ExecuteMsg>(msg).unwrap()
+        {
+            // check each operand and make sure there is no memo callback
+            operands.into_iter().for_each(|operand| {
+                if let WasmMsg::Execute { msg, .. } = operand {
+                    if let Ok(msg) = from_json::<ReceiverExecuteMsg>(msg) {
+                        panic!("unexpected callback message: {:?}", msg)
+                    }
+                }
+            })
         }
-        _ => None,
     };
-    assert!(memo_callback_msg.is_some());
-    assert!(memo_callback_msg.unwrap().is_empty());
 }
 
 #[test]
