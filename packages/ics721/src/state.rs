@@ -19,9 +19,10 @@ pub const PO: PauseOrchestrator = PauseOrchestrator::new("c", "d");
 
 /// Maps classID (from NonFungibleTokenPacketData) to the cw721
 /// contract we have instantiated for that classID.
+/// NOTE: legacy stores with keys `e` and `f` are no longer used.
 pub const CLASS_ID_AND_NFT_CONTRACT_INFO: IndexedMap<&str, ClassIdInfo, ClassIdInfoIndexes> =
     IndexedMap::new(
-        "e",
+        "m",
         ClassIdInfoIndexes {
             class_id: UniqueIndex::new(|d| d.class_id.clone(), "class_id_info__class_id"),
             address: UniqueIndex::new(|d| d.address.clone(), "class_id_info__address"),

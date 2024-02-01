@@ -21,7 +21,7 @@ use crate::{
     msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg},
     query::{
         load_class_id_for_nft_contract, load_nft_contract_for_class_id,
-        query_nft_contract_for_class_id,
+        query_nft_contract_for_class_id, query_nft_contracts,
     },
     state::{
         ClassIdInfo, CollectionData, UniversalAllNftInfoResponse, ADMIN_USED_FOR_CW721,
@@ -761,40 +761,44 @@ where
                         ),
                     );
 
-                // TODO: once migrated, this complete block can be deleted
-                // - get legacy map and migrate it to new indexed map
-                let nft_contract_to_class_id: Map<Addr, ClassId> = Map::new("f");
-                match cw_paginate_storage::paginate_map(
-                    deps.as_ref(),
-                    &nft_contract_to_class_id,
-                    None,
-                    None,
-                    Order::Ascending,
-                ) {
-                    Ok(nft_contract_and_class_id) => {
-                        // legacy map needs to be cleared, before migrating to indexed map
-                        let class_id_to_nft_contract: Map<ClassId, Addr> = Map::new("e");
-                        class_id_to_nft_contract.clear(deps.storage);
-                        let response = response.add_attribute(
-                            "migrated nft contracts",
-                            nft_contract_and_class_id.len().to_string(),
-                        );
-                        for (nft_contract, class_id) in nft_contract_and_class_id {
-                            let class_id_info = ClassIdInfo {
-                                class_id: class_id.clone(),
-                                address: nft_contract.clone(),
-                            };
-                            CLASS_ID_AND_NFT_CONTRACT_INFO.save(
-                                deps.storage,
-                                &class_id,
-                                &class_id_info,
-                            )?;
+                // we migrate only in case CLASS_ID_AND_NFT_CONTRACT_INFO is not populated yet
+                // TODO once migrated:
+                // - this complete block can be deleted
+                // - legacy map 'e' and 'f' can be deleted
+                let is_empty = query_nft_contracts(deps.as_ref(), None, None)
+                    .map(|nft_contracts| nft_contracts.is_empty())?;
+                if is_empty {
+                    // - get legacy map and migrate it to new indexed map
+                    let legacy_nft_contract_to_class_id: Map<Addr, ClassId> = Map::new("f");
+                    match cw_paginate_storage::paginate_map(
+                        deps.as_ref(),
+                        &legacy_nft_contract_to_class_id,
+                        None,
+                        None,
+                        Order::Ascending,
+                    ) {
+                        Ok(nft_contract_and_class_id) => {
+                            let response = response.add_attribute(
+                                "migrated nft contracts",
+                                nft_contract_and_class_id.len().to_string(),
+                            );
+                            for (nft_contract, class_id) in nft_contract_and_class_id {
+                                let class_id_info = ClassIdInfo {
+                                    class_id: class_id.clone(),
+                                    address: nft_contract.clone(),
+                                };
+                                CLASS_ID_AND_NFT_CONTRACT_INFO.save(
+                                    deps.storage,
+                                    &class_id,
+                                    &class_id_info,
+                                )?;
+                            }
+                            Ok(response)
                         }
-                        // let's clear legacy map, so it wont get migrated again
-                        nft_contract_to_class_id.clear(deps.storage);
-                        Ok(response)
+                        Err(err) => Err(ContractError::Std(err)),
                     }
-                    Err(err) => Err(ContractError::Std(err)),
+                } else {
+                    Ok(response)
                 }
             }
         }

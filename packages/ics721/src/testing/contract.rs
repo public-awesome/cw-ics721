@@ -640,14 +640,6 @@ fn test_migrate() {
     );
     let nft_contract_and_class_id_list = query_nft_contracts(deps.as_ref(), None, None).unwrap();
     assert_eq!(nft_contract_and_class_id_list.len(), 2);
-    assert_eq!(
-        nft_contract_to_class_id
-            .keys(&deps.storage, None, None, Order::Ascending)
-            .collect::<StdResult<Vec<Addr>>>()
-            .unwrap()
-            .len(),
-        0 // after migration legacy data is cleared
-    );
     assert_eq!(nft_contract_and_class_id_list[0].0, CLASS_ID_1);
     assert_eq!(nft_contract_and_class_id_list[0].1, NFT_CONTRACT_1);
     assert_eq!(nft_contract_and_class_id_list[1].0, CLASS_ID_2);
