@@ -143,7 +143,7 @@ where
         let child_collection = deps.api.addr_validate(&child_collection)?;
         let cw721_addr = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, child_class_id.clone())?;
         if cw721_addr != child_collection {
-            return Err(ContractError::NoClassIdForNftContract {
+            return Err(ContractError::NoNftContractMatch {
                 child_collection: child_collection.to_string(),
                 class_id: child_class_id.to_string(),
                 token_id: token_id.into(),
@@ -218,7 +218,7 @@ where
         let home_collection = deps.api.addr_validate(&home_collection)?;
         let cw721_addr = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, home_class_id.clone())?;
         if cw721_addr != home_collection {
-            return Err(ContractError::NoClassIdForNftContract {
+            return Err(ContractError::NoNftContractMatch {
                 child_collection: home_collection.to_string(),
                 class_id: home_class_id.to_string(),
                 token_id,

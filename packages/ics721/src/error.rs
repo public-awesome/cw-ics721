@@ -59,7 +59,7 @@ pub enum ContractError {
     NoNftContractForClassId(String),
 
     #[error("Unknown nft contract: {child_collection}, Class Id: {class_id}, Token ID: {token_id} => NFT contract: {cw721_addr}")]
-    NoClassIdForNftContract {
+    NoNftContractMatch {
         child_collection: String,
         class_id: String,
         token_id: String,
