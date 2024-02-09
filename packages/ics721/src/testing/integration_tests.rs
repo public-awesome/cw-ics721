@@ -370,7 +370,7 @@ impl Test {
                     &Cw721InstantiateMsg {
                         name: "name".to_string(),
                         symbol: "symbol".to_string(),
-                        minter: source_cw721_owner.to_string(),
+                        minter: Some(source_cw721_owner.to_string()),
                         withdraw_address: None,
                     },
                     &[],
@@ -1800,11 +1800,12 @@ fn test_proxy_authorized() {
             &cw721_base::InstantiateMsg {
                 name: "token".to_string(),
                 symbol: "nonfungible".to_string(),
-                minter: test
-                    .app
-                    .api()
-                    .addr_make(COLLECTION_OWNER_SOURCE_CHAIN)
-                    .to_string(),
+                minter: Some(
+                    test.app
+                        .api()
+                        .addr_make(COLLECTION_OWNER_SOURCE_CHAIN)
+                        .to_string(),
+                ),
                 withdraw_address: None,
             },
             &[],

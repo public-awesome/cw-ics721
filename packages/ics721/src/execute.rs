@@ -581,7 +581,7 @@ where
         let mut instantiate_msg = cw721_base::msg::InstantiateMsg {
             name: class.id.clone().into(),
             symbol: class.id.clone().into(),
-            minter: env.contract.address.to_string(),
+            minter: Some(env.contract.address.to_string()),
             withdraw_address: Some(creator),
         };
 

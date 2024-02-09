@@ -39,7 +39,7 @@ pub fn instantiate(
         msg::InstantiateMsg {
             name: msg.name,
             symbol: msg.symbol,
-            minter: msg.minter,
+            minter: Some(msg.minter),
             withdraw_address: None,
         },
     )?;
