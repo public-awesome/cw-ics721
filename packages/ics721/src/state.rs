@@ -63,9 +63,9 @@ pub struct UniversalNftInfoResponse {
 }
 
 /// Collection data send by ICS721 on source chain. It is an optional class data for interchain transfer to target chain.
-/// ICS721 on target chain is free to use this data or not. Lik in case of `sg721-base` it uses owner for defining creator in collection info.
+/// ICS721 on target chain is free to use this data or not. Like in case of `sg721-base` it uses owner for defining creator in collection info.
 /// `ics721-base` uses name and symbol for instantiating new cw721 contract.
-// NB: Please not cw_serde includes `deny_unknown_fields`: https://github.com/CosmWasm/cosmwasm/blob/v1.5.0/packages/schema-derive/src/cw_serde.rs
+// NB: Please note cw_serde includes `deny_unknown_fields`: https://github.com/CosmWasm/cosmwasm/blob/v1.5.0/packages/schema-derive/src/cw_serde.rs
 // For incoming data, parsing needs to be more lenient/less strict, so we use `serde` directly.
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq)]
 #[allow(clippy::derive_partial_eq_without_eq)]
