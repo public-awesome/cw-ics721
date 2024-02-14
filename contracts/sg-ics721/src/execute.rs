@@ -48,7 +48,9 @@ impl Ics721Execute for SgIcs721Contract {
                 // therefore, we use ics721 creator as owner
                 creator: ics721_contract_info.creator,
                 description: "".to_string(),
-                image: "https://arkprotocol.io".to_string(),
+                // use Stargaze icon as placeholder
+                image: "ipfs://bafkreie5vwrm5zts4wiq6ebtopmztgl5qzyl4uszyllgwpaizyc5w2uycm"
+                    .to_string(),
                 external_link: None,
                 explicit_content: None,
                 start_trading_time: None,
