@@ -500,52 +500,6 @@ where
         create: VoucherCreation,
     ) -> Result<Response<T>, ContractError> {
         let VoucherCreation { class, tokens } = create;
-        let instantiate =
-            if CLASS_ID_AND_NFT_CONTRACT_INFO.has(deps.storage, class.id.to_string().as_str()) {
-                vec![]
-            } else {
-                let class_id = ClassId::new(class.id.clone());
-                let cw721_code_id = CW721_CODE_ID.load(deps.storage)?;
-                // for creating a predictable nft contract using, using instantiate2, we need: checksum, creator, and salt:
-                // - using class id as salt for instantiating nft contract guarantees a) predictable address and b) uniqueness
-                // for this salt must be of length 32 bytes, so we use sha256 to hash class id
-                let mut hasher = Sha256::new();
-                hasher.update(class_id.as_bytes());
-                let salt = hasher.finalize().to_vec();
-
-                let nft_contract = get_instantiate2_address(
-                    deps.as_ref(),
-                    env.contract.address.as_str(),
-                    &salt,
-                    cw721_code_id,
-                )?;
-
-                // Save classId <-> contract mappings.
-                let class_id_info = ClassIdInfo {
-                    class_id: class_id.clone(),
-                    address: nft_contract.clone(),
-                };
-                CLASS_ID_AND_NFT_CONTRACT_INFO.save(deps.storage, &class.id, &class_id_info)?;
-
-                let admin = ADMIN_USED_FOR_CW721
-                    .load(deps.storage)?
-                    .map(|a| a.to_string());
-                let message = SubMsg::<T>::reply_on_success(
-                    WasmMsg::Instantiate2 {
-                        admin,
-                        code_id: cw721_code_id,
-                        msg: self.init_msg(deps.as_ref(), &env, &class)?,
-                        funds: vec![],
-                        // Attempting to fit the class ID in the label field
-                        // can make this field too long which causes data
-                        // errors in the SDK.
-                        label: "ics-721 debt-voucher cw-721".to_string(),
-                        salt: salt.into(),
-                    },
-                    INSTANTIATE_CW721_REPLY_ID,
-                );
-                vec![message]
-            };
 
         // Store mapping from classID to classURI. Notably, we don't check
         // if this has already been set. If a new NFT belonging to a class
@@ -555,19 +509,74 @@ where
         CLASS_ID_TO_CLASS.save(deps.storage, class.id.clone(), &class)?;
 
         let mint = WasmMsg::Execute {
-            contract_addr: env.contract.address.into_string(),
+            contract_addr: env.contract.address.to_string(),
             msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::Mint {
-                class_id: class.id,
+                class_id: class.id.clone(),
                 receiver,
                 tokens,
             }))?,
             funds: vec![],
         };
 
+        let instantiate = self.create_instantiate_msg(deps, &env, class.clone())?;
+
         Ok(Response::<T>::default()
             .add_attribute("method", "callback_create_vouchers")
             .add_submessages(instantiate)
             .add_message(mint))
+    }
+
+    fn create_instantiate_msg(
+        &self,
+        deps: DepsMut,
+        env: &Env,
+        class: Class,
+    ) -> Result<Vec<SubMsg<T>>, ContractError> {
+        if CLASS_ID_AND_NFT_CONTRACT_INFO.has(deps.storage, class.id.to_string().as_str()) {
+            Ok(vec![])
+        } else {
+            let class_id = ClassId::new(class.id.clone());
+            let cw721_code_id = CW721_CODE_ID.load(deps.storage)?;
+            // for creating a predictable nft contract using, using instantiate2, we need: checksum, creator, and salt:
+            // - using class id as salt for instantiating nft contract guarantees a) predictable address and b) uniqueness
+            // for this salt must be of length 32 bytes, so we use sha256 to hash class id
+            let mut hasher = Sha256::new();
+            hasher.update(class_id.as_bytes());
+            let salt = hasher.finalize().to_vec();
+
+            let nft_contract = get_instantiate2_address(
+                deps.as_ref(),
+                env.contract.address.as_str(),
+                &salt,
+                cw721_code_id,
+            )?;
+
+            // Save classId <-> contract mappings.
+            let class_id_info = ClassIdInfo {
+                class_id: class_id.clone(),
+                address: nft_contract.clone(),
+            };
+            CLASS_ID_AND_NFT_CONTRACT_INFO.save(deps.storage, &class.id, &class_id_info)?;
+
+            let admin = ADMIN_USED_FOR_CW721
+                .load(deps.storage)?
+                .map(|a| a.to_string());
+            let message = SubMsg::<T>::reply_on_success(
+                WasmMsg::Instantiate2 {
+                    admin,
+                    code_id: cw721_code_id,
+                    msg: self.init_msg(deps.as_ref(), env, &class)?,
+                    funds: vec![],
+                    // Attempting to fit the class ID in the label field
+                    // can make this field too long which causes data
+                    // errors in the SDK.
+                    label: "ics-721 debt-voucher cw-721".to_string(),
+                    salt: salt.into(),
+                },
+                INSTANTIATE_CW721_REPLY_ID,
+            );
+            Ok(vec![message])
+        }
     }
 
     /// Default implementation using `cw721_base::msg::InstantiateMsg`
@@ -761,46 +770,54 @@ where
                         ),
                     );
 
-                // we migrate only in case CLASS_ID_AND_NFT_CONTRACT_INFO is not populated yet
-                // TODO once migrated:
-                // - this complete block can be deleted
-                // - legacy map 'e' and 'f' can be deleted
-                let is_empty = query_nft_contracts(deps.as_ref(), None, None)
-                    .map(|nft_contracts| nft_contracts.is_empty())?;
-                if is_empty {
-                    // - get legacy map and migrate it to new indexed map
-                    let legacy_nft_contract_to_class_id: Map<Addr, ClassId> = Map::new("f");
-                    match cw_paginate_storage::paginate_map(
-                        deps.as_ref(),
-                        &legacy_nft_contract_to_class_id,
-                        None,
-                        None,
-                        Order::Ascending,
-                    ) {
-                        Ok(nft_contract_and_class_id) => {
-                            let response = response.add_attribute(
-                                "migrated nft contracts",
-                                nft_contract_and_class_id.len().to_string(),
-                            );
-                            for (nft_contract, class_id) in nft_contract_and_class_id {
-                                let class_id_info = ClassIdInfo {
-                                    class_id: class_id.clone(),
-                                    address: nft_contract.clone(),
-                                };
-                                CLASS_ID_AND_NFT_CONTRACT_INFO.save(
-                                    deps.storage,
-                                    &class_id,
-                                    &class_id_info,
-                                )?;
-                            }
-                            Ok(response)
-                        }
-                        Err(err) => Err(ContractError::Std(err)),
+                self.migrate_legacy(deps, response)
+            }
+        }
+    }
+
+    // TODO once migrated:
+    // - this complete block can be deleted
+    // - legacy map 'e' and 'f' can be deleted
+    fn migrate_legacy(
+        &self,
+        deps: DepsMut,
+        response: Response<T>,
+    ) -> Result<Response<T>, ContractError> {
+        // we migrate only in case CLASS_ID_AND_NFT_CONTRACT_INFO is not populated yet
+        let is_empty = query_nft_contracts(deps.as_ref(), None, None)
+            .map(|nft_contracts| nft_contracts.is_empty())?;
+        if is_empty {
+            // - get legacy map and migrate it to new indexed map
+            let legacy_nft_contract_to_class_id: Map<Addr, ClassId> = Map::new("f");
+            match cw_paginate_storage::paginate_map(
+                deps.as_ref(),
+                &legacy_nft_contract_to_class_id,
+                None,
+                None,
+                Order::Ascending,
+            ) {
+                Ok(nft_contract_and_class_id) => {
+                    let response = response.add_attribute(
+                        "migrated nft contracts",
+                        nft_contract_and_class_id.len().to_string(),
+                    );
+                    for (nft_contract, class_id) in nft_contract_and_class_id {
+                        let class_id_info = ClassIdInfo {
+                            class_id: class_id.clone(),
+                            address: nft_contract.clone(),
+                        };
+                        CLASS_ID_AND_NFT_CONTRACT_INFO.save(
+                            deps.storage,
+                            &class_id,
+                            &class_id_info,
+                        )?;
                     }
-                } else {
                     Ok(response)
                 }
+                Err(err) => Err(ContractError::Std(err)),
             }
+        } else {
+            Ok(response)
         }
     }
 }
