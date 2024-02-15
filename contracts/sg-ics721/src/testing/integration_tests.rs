@@ -30,7 +30,10 @@ use sg721::InstantiateMsg as Sg721InstantiateMsg;
 use sg721_base::msg::{CollectionInfoResponse, QueryMsg as Sg721QueryMsg};
 use sha2::{digest::Update, Digest, Sha256};
 
-use crate::{state::SgCollectionData, ContractError, SgIcs721Contract};
+use crate::{
+    state::{SgCollectionData, STARGAZE_ICON_PLACEHOLDER},
+    ContractError, SgIcs721Contract,
+};
 
 const ICS721_CREATOR: &str = "ics721-creator";
 const CONTRACT_NAME: &str = "crates.io:sg-ics721";
@@ -371,7 +374,7 @@ impl Test {
                     collection_info: sg721::CollectionInfo {
                         creator: source_cw721_owner.to_string(),
                         description: "".to_string(),
-                        image: "https://arkprotocol.io".to_string(),
+                        image: STARGAZE_ICON_PLACEHOLDER.to_string(),
                         external_link: None,
                         explicit_content: None,
                         start_trading_time: None,
@@ -728,7 +731,7 @@ fn test_do_instantiate_and_mint() {
                 // creator of ics721 contract is also creator of collection, since no owner in ClassData provided
                 creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
                 description: "".to_string(),
-                image: "https://arkprotocol.io".to_string(),
+                image: STARGAZE_ICON_PLACEHOLDER.to_string(),
                 external_link: None,
                 explicit_content: None,
                 start_trading_time: None,
@@ -904,7 +907,7 @@ fn test_do_instantiate_and_mint() {
                 // creator based on owner from collection in soure chain
                 creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
                 description: "".to_string(),
-                image: "https://arkprotocol.io".to_string(),
+                image: STARGAZE_ICON_PLACEHOLDER.to_string(),
                 external_link: None,
                 explicit_content: None,
                 start_trading_time: None,
@@ -1078,7 +1081,7 @@ fn test_do_instantiate_and_mint() {
                 // creator of ics721 contract is creator of nft contract, since no owner in ClassData provided
                 creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
                 description: "".to_string(),
-                image: "https://arkprotocol.io".to_string(),
+                image: STARGAZE_ICON_PLACEHOLDER.to_string(),
                 external_link: None,
                 explicit_content: None,
                 start_trading_time: None,
@@ -1256,7 +1259,7 @@ fn test_do_instantiate_and_mint() {
                 // creator of ics721 contract is creator of nft contract, since no owner in ClassData provided
                 creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
                 description: "".to_string(),
-                image: "https://arkprotocol.io".to_string(),
+                image: STARGAZE_ICON_PLACEHOLDER.to_string(),
                 external_link: None,
                 explicit_content: None,
                 start_trading_time: None,
@@ -1434,7 +1437,7 @@ fn test_do_instantiate_and_mint() {
                 // creator of ics721 contract is creator of nft contract, since no owner in ClassData provided
                 creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
                 description: "".to_string(),
-                image: "https://arkprotocol.io".to_string(),
+                image: STARGAZE_ICON_PLACEHOLDER.to_string(),
                 external_link: None,
                 explicit_content: None,
                 start_trading_time: None,
@@ -1666,7 +1669,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
                 // creator of ics721 contract is also creator of collection, since no owner in ClassData provided
                 creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
                 description: "".to_string(),
-                image: "https://arkprotocol.io".to_string(),
+                image: STARGAZE_ICON_PLACEHOLDER.to_string(),
                 external_link: None,
                 explicit_content: None,
                 start_trading_time: None,
@@ -1679,7 +1682,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
                 // creator of ics721 contract is also creator of collection, since no owner in ClassData provided
                 creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
                 description: "".to_string(),
-                image: "https://arkprotocol.io".to_string(),
+                image: STARGAZE_ICON_PLACEHOLDER.to_string(),
                 external_link: None,
                 explicit_content: None,
                 start_trading_time: None,
@@ -1926,7 +1929,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         CollectionInfoResponse {
             creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
             description: "".to_string(),
-            image: "https://arkprotocol.io".to_string(),
+            image: STARGAZE_ICON_PLACEHOLDER.to_string(),
             external_link: None,
             explicit_content: None,
             start_trading_time: None,
@@ -2108,7 +2111,7 @@ fn test_proxy_authorized() {
                         .addr_make(COLLECTION_OWNER_SOURCE_CHAIN)
                         .to_string(),
                     description: "".to_string(),
-                    image: "https://arkprotocol.io".to_string(),
+                    image: STARGAZE_ICON_PLACEHOLDER.to_string(),
                     external_link: None,
                     explicit_content: None,
                     start_trading_time: None,
@@ -2234,7 +2237,7 @@ fn test_receive_nft() {
         collection_info: Some(CollectionInfoResponse {
             creator: test.ics721.to_string(),
             description: "".to_string(),
-            image: "https://arkprotocol.io".to_string(),
+            image: STARGAZE_ICON_PLACEHOLDER.to_string(),
             external_link: None,
             explicit_content: None,
             start_trading_time: None,
