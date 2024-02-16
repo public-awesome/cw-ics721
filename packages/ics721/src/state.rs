@@ -88,9 +88,12 @@ pub struct UniversalOwnerOfResponse {
     pub approvals: Vec<Empty>,
 }
 
+/// ClassIdInfo is used to store associated ClassId for given collection/cw721 address.
 #[cw_serde]
 pub struct ClassIdInfo {
+    /// Associated class_id for a given collection/CW721 address.
     pub class_id: ClassId,
+    /// Associated collection/CW721 address for a given class_id.
     pub address: Addr,
 }
 
