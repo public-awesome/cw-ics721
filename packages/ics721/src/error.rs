@@ -55,14 +55,17 @@ pub enum ContractError {
     #[error("Transfer Doesn't contain any action, no redemption or creation")]
     InvalidTransferNoAction,
 
-    #[error("Couldn't find nft contract for this class id: {0}")]
+    #[error("Couldn't find nft contract for class id: {0}")]
     NoNftContractForClassId(String),
 
     #[error("Unknown nft contract: {child_collection}, Class Id: {class_id}, Token ID: {token_id} => NFT contract: {cw721_addr}")]
-    NoClassIdForNftContract {
+    NoNftContractMatch {
         child_collection: String,
         class_id: String,
         token_id: String,
         cw721_addr: String,
     },
+
+    #[error("Couldn't find class id for nft contract: {0}")]
+    NoClassIdForNftContract(String),
 }

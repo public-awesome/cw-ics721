@@ -370,7 +370,7 @@ impl Test {
                     &Cw721InstantiateMsg {
                         name: "name".to_string(),
                         symbol: "symbol".to_string(),
-                        minter: source_cw721_owner.to_string(),
+                        minter: Some(source_cw721_owner.to_string()),
                         withdraw_address: None,
                     },
                     &[],
@@ -1800,11 +1800,12 @@ fn test_proxy_authorized() {
             &cw721_base::InstantiateMsg {
                 name: "token".to_string(),
                 symbol: "nonfungible".to_string(),
-                minter: test
-                    .app
-                    .api()
-                    .addr_make(COLLECTION_OWNER_SOURCE_CHAIN)
-                    .to_string(),
+                minter: Some(
+                    test.app
+                        .api()
+                        .addr_make(COLLECTION_OWNER_SOURCE_CHAIN)
+                        .to_string(),
+                ),
                 withdraw_address: None,
             },
             &[],
@@ -2121,7 +2122,10 @@ fn test_admin_clean_and_unescrow_nft() {
             .unwrap_err()
             .downcast()
             .unwrap();
-        assert_eq!(err, ContractError::Std(StdError::NotFound { kind: "type: cosmwasm_std::addresses::Addr; key: [00, 01, 65, 75, 6E, 6B, 6E, 6F, 77, 6E]".to_string() }));
+        assert_eq!(
+            err,
+            ContractError::NoNftContractForClassId("unknown".to_string())
+        );
 
         let clean_and_unescrow_msg = ExecuteMsg::AdminCleanAndUnescrowNft {
             recipient: recipient.to_string(),

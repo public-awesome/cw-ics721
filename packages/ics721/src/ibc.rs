@@ -12,9 +12,10 @@ use crate::{
     helpers::ack_callback_msg,
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error, validate_order_and_version},
     ibc_packet_receive::receive_ibc_packet,
+    query::{load_class_id_for_nft_contract, load_nft_contract_for_class_id},
     state::{
-        CLASS_ID_TO_NFT_CONTRACT, INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY,
-        NFT_CONTRACT_TO_CLASS_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, TOKEN_METADATA,
+        INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+        OUTGOING_PROXY, TOKEN_METADATA,
     },
     ContractError,
 };
@@ -121,7 +122,8 @@ where
         } else {
             let msg: NonFungibleTokenPacketData = from_json(&ack.original_packet.data)?;
 
-            let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, msg.class_id.clone())?;
+            let nft_contract =
+                load_nft_contract_for_class_id(deps.storage, msg.class_id.to_string())?;
             // Burn all of the tokens being transfered out that were
             // previously transfered in on this channel.
             let burn_notices = msg.token_ids.iter().cloned().try_fold(
@@ -188,7 +190,8 @@ where
         error: &str,
     ) -> Result<IbcBasicResponse, ContractError> {
         let message: NonFungibleTokenPacketData = from_json(&packet.data)?;
-        let nft_contract = CLASS_ID_TO_NFT_CONTRACT.load(deps.storage, message.class_id.clone())?;
+        let nft_contract =
+            load_nft_contract_for_class_id(deps.storage, message.class_id.to_string())?;
         let sender = deps.api.addr_validate(&message.sender)?;
 
         let messages = message
@@ -241,15 +244,18 @@ where
                 // `ACK_AND_DO_NOTHING`.
 
                 let res = parse_reply_instantiate_data(reply)?;
-                let cw721_addr = deps.api.addr_validate(&res.contract_address)?;
+                let nft_contract = deps.api.addr_validate(&res.contract_address)?;
 
                 // cw721 addr has already been stored, here just check whether it exists, otherwise a NotFound error is thrown
-                let class_id = NFT_CONTRACT_TO_CLASS_ID.load(deps.storage, cw721_addr.clone())?;
-
-                Ok(Response::default()
-                    .add_attribute("method", "instantiate_cw721_reply")
-                    .add_attribute("class_id", class_id)
-                    .add_attribute("cw721_addr", cw721_addr))
+                match load_class_id_for_nft_contract(deps.storage, &nft_contract)? {
+                    Some(class_id) => Ok(Response::default()
+                        .add_attribute("method", "instantiate_cw721_reply")
+                        .add_attribute("class_id", class_id)
+                        .add_attribute("cw721_addr", nft_contract)),
+                    None => Err(ContractError::NoClassIdForNftContract(
+                        nft_contract.to_string(),
+                    )),
+                }
             }
             INSTANTIATE_OUTGOING_PROXY_REPLY_ID => {
                 let res = parse_reply_instantiate_data(reply)?;

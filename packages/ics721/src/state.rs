@@ -1,7 +1,7 @@
-use cosmwasm_schema::schemars::JsonSchema;
+use cosmwasm_schema::{cw_serde, schemars::JsonSchema};
 use cosmwasm_std::{Addr, Binary, ContractInfoResponse, Empty};
 use cw_pause_once::PauseOrchestrator;
-use cw_storage_plus::{Item, Map};
+use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
 use serde::{Deserialize, Serialize};
 
 use ics721_types::token_types::{Class, ClassId, TokenId};
@@ -19,9 +19,15 @@ pub const PO: PauseOrchestrator = PauseOrchestrator::new("c", "d");
 
 /// Maps classID (from NonFungibleTokenPacketData) to the cw721
 /// contract we have instantiated for that classID.
-pub const CLASS_ID_TO_NFT_CONTRACT: Map<ClassId, Addr> = Map::new("e");
-/// Maps cw721 contracts to the classID they were instantiated for.
-pub const NFT_CONTRACT_TO_CLASS_ID: Map<Addr, ClassId> = Map::new("f");
+/// NOTE: legacy stores with keys `e` and `f` are no longer used.
+pub const CLASS_ID_AND_NFT_CONTRACT_INFO: IndexedMap<&str, ClassIdInfo, ClassIdInfoIndexes> =
+    IndexedMap::new(
+        "m",
+        ClassIdInfoIndexes {
+            class_id: UniqueIndex::new(|d| d.class_id.clone(), "class_id_info__class_id"),
+            address: UniqueIndex::new(|d| d.address.clone(), "class_id_info__address"),
+        },
+    );
 
 /// Maps between classIDs and classs. We need to keep this state
 /// ourselves as cw721 contracts do not have class-level metadata.
@@ -57,9 +63,9 @@ pub struct UniversalNftInfoResponse {
 }
 
 /// Collection data send by ICS721 on source chain. It is an optional class data for interchain transfer to target chain.
-/// ICS721 on target chain is free to use this data or not. Lik in case of `sg721-base` it uses owner for defining creator in collection info.
+/// ICS721 on target chain is free to use this data or not. Like in case of `sg721-base` it uses owner for defining creator in collection info.
 /// `ics721-base` uses name and symbol for instantiating new cw721 contract.
-// NB: Please not cw_serde includes `deny_unknown_fields`: https://github.com/CosmWasm/cosmwasm/blob/v1.5.0/packages/schema-derive/src/cw_serde.rs
+// NB: Please note cw_serde includes `deny_unknown_fields`: https://github.com/CosmWasm/cosmwasm/blob/v1.5.0/packages/schema-derive/src/cw_serde.rs
 // For incoming data, parsing needs to be more lenient/less strict, so we use `serde` directly.
 #[derive(Serialize, Deserialize, JsonSchema, Clone, Debug, PartialEq)]
 #[allow(clippy::derive_partial_eq_without_eq)]
@@ -80,6 +86,27 @@ pub struct UniversalOwnerOfResponse {
     #[serde(skip_deserializing)]
     #[allow(dead_code)]
     pub approvals: Vec<Empty>,
+}
+
+/// ClassIdInfo is used to store associated ClassId for given collection/cw721 address.
+#[cw_serde]
+pub struct ClassIdInfo {
+    /// Associated class_id for a given collection/CW721 address.
+    pub class_id: ClassId,
+    /// Associated collection/CW721 address for a given class_id.
+    pub address: Addr,
+}
+
+pub struct ClassIdInfoIndexes<'a> {
+    pub class_id: UniqueIndex<'a, ClassId, ClassIdInfo>,
+    pub address: UniqueIndex<'a, Addr, ClassIdInfo>,
+}
+
+impl<'a> IndexList<ClassIdInfo> for ClassIdInfoIndexes<'a> {
+    fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<ClassIdInfo>> + '_> {
+        let v: Vec<&dyn Index<ClassIdInfo>> = vec![&self.class_id, &self.address];
+        Box::new(v.into_iter())
+    }
 }
 
 #[cfg(test)]

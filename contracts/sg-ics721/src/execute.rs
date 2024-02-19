@@ -4,7 +4,7 @@ use ics721_types::token_types::Class;
 
 use sg721_base::msg::{CollectionInfoResponse, QueryMsg};
 
-use crate::state::{SgCollectionData, SgIcs721Contract};
+use crate::state::{SgCollectionData, SgIcs721Contract, STARGAZE_ICON_PLACEHOLDER};
 
 impl Ics721Execute for SgIcs721Contract {
     type ClassData = SgCollectionData;
@@ -48,7 +48,8 @@ impl Ics721Execute for SgIcs721Contract {
                 // therefore, we use ics721 creator as owner
                 creator: ics721_contract_info.creator,
                 description: "".to_string(),
-                image: "https://arkprotocol.io".to_string(),
+                // use Stargaze icon as placeholder
+                image: STARGAZE_ICON_PLACEHOLDER.to_string(),
                 external_link: None,
                 explicit_content: None,
                 start_trading_time: None,
