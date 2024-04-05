@@ -1,7 +1,7 @@
-mod execute;
-mod ibc;
-mod query;
-mod state;
+pub mod execute;
+pub mod ibc;
+pub mod query;
+pub mod state;
 
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
