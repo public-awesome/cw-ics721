@@ -6,25 +6,31 @@ For ICS721 it requires these contracts:
 - Incoming Proxy: optional contract for filtering incoming packets
 - Outgoing Proxy: optional contract for filtering incoming packets
 
+NOTE:
+Below scripts use [select-chain.sh](./select-chain.sh). For each selected chain there is an `.env` file like `stargaze.env` and `osmosis.env`.
+
 ## Scripts
 
+### Initial Setup
 Scripts for setup must be executed in this order:
 
 1. ICS721 without proxies: [instantiate-ics721.sh](./instantiate-ics721.sh)
 2. Incoming Proxy: [instantiate-incoming-proxy.sh](./instantiate-incoming-proxy.sh)
-3. Outgoing Proxy: [instantiate-outgoing-proxy.sh](instantiate-outgoing-proxy.sh)
+3. Outgoing Proxy: [instantiate-outgoing-proxy.sh](.instantiate-outgoing-proxy.sh)
 
-NOTE:
-Once ICS721 is instantiated, please update `ADDR_ICS721` in env file.
+After instantiation:
 
-In case proxies are used, ICS721 must be migrated for setting incoming and outgoing proxies:
+- update `ADDR_ICS721`, `ADDR_INCOMING_PROXY`, `ADDR_OUTGOING_PROXY` in env file
+- Note: ICS721 is instantiated without(!) proxies, proxies are added via migration (velow)
 
-4. Migrate ICS721: TBD
+### Migration
 
-Once running, there are execute messages for proxies, allowing to add and remove channels and collections.
+1. ICS721 : [migrate-ics721.sh](./migrate-ics721.sh)
+2. Incoming Proxy: [migrate-incoming-proxy.sh](./migrate-incoming-proxy.sh)
+3. Outgoing Proxy: [migrate-outgoing-proxy.sh](.migrate-outgoing-proxy.sh)
 
-5. WL Collection: TBD
-6. WL Channel: TBD
 
-NOTE:
-Above scripts use [select-chain.sh](./select-chain.sh). For each selected chain there is an `.env` file like `stargaze.env` and `osmosis.env`.
+### Proxy Messages
+
+
+TBD
