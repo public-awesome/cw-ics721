@@ -14,6 +14,9 @@ Scripts for setup must be executed in this order:
 2. Incoming Proxy: [instantiate-incoming-proxy.sh](./instantiate-incoming-proxy.sh)
 3. Outgoing Proxy: [instantiate-outgoing-proxy.sh](instantiate-outgoing-proxy.sh)
 
+NOTE:
+Once ICS721 is instantiated, please update `ADDR_ICS721` in env file.
+
 In case proxies are used, ICS721 must be migrated for setting incoming and outgoing proxies:
 
 4. Migrate ICS721: TBD
