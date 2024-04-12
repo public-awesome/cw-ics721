@@ -36,7 +36,7 @@ for arg in "$@"; do
         ;;
     --fees) ;;
     --type) ;;
-    collection | channel | fees | checksum)
+    collection | channel | fees | checksum | rate-limit)
         if [[ "$prev_arg" != "--type" ]]; then
             echo "Invalid argument order. Use --type before specifying 'collection' or 'channel'." >&2
             exit 1
@@ -64,7 +64,7 @@ done
 
 # Check if all required arguments are provided
 if [[ -z "$ACTION" || -z "$CHAIN" || -z "$VALUE" ]]; then
-    echo "Usage: $0 ${CHAIN_CHOICES_STR// /|} [--add WHITELIST|--remove WHITELIST|--enable true_or_false] --type collection|channel|checksum|fees" >&2
+    echo "Usage: $0 ${CHAIN_CHOICES_STR// /|} [--add WHITELIST|--remove WHITELIST|--enable true_or_false] --type collection|channel|checksum|fees|rate-limit" >&2
     echo "Example:" >&2
     echo "$0 ${CHAIN_CHOICES_STR// /|} --add channel-1 --type channel" >&2
     echo "$0 ${CHAIN_CHOICES_STR// /|} --enable false --type collection" >&2
@@ -84,6 +84,9 @@ case $ACTION in
         printf -v MSG '{"update_config": {"add_fees_collection": {"collection": "%s", "fees": {"amount": "%s", "denom": "%s"}}}}' $VALUE $FEES $CLI_DENOM
     elif [ "$TYPE" == "checksum" ]; then
         printf -v MSG '{"update_config": {"add_collection_checksum_to_whitelist": {"checksum": "%s"}}}' $VALUE
+    else
+        echo "Invalid type $TYPE. Use collection, channel, fees, or checksum." >&2
+        exit 1
     fi
     ;;
 --remove)
@@ -95,6 +98,9 @@ case $ACTION in
         printf -v MSG '{"update_config": {"remove_fees_collection": {"collection": "%s"}}}' $VALUE
     elif [ "$TYPE" == "checksum" ]; then
         printf -v MSG '{"update_config": {"remove_collection_checksum_from_whitelist": {"checksum": "%s"}}}' $VALUE
+    else
+        echo "Invalid type $TYPE. Use collection, channel, fees, or checksum." >&2
+        exit 1
     fi
     ;;
 --enable)
@@ -106,6 +112,11 @@ case $ACTION in
         printf -v MSG '{"update_config": {"enable_fees_collections_whitelist": %s}}' $VALUE
     elif [ "$TYPE" == "checksum" ]; then
         printf -v MSG '{"update_config": {"enable_collection_checksums_whitelist": %s}}' $VALUE
+    elif [ "$TYPE" == "rate-limit" ]; then
+        printf -v MSG '{"update_config": {"enable_rate_limiter": %s}}' $VALUE
+    else
+        echo "Invalid type $TYPE. Use collection, channel, fees, checksum, or rate-limit." >&2
+        exit 1
     fi
     ;;
 *)
