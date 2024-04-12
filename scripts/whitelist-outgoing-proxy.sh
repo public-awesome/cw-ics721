@@ -115,9 +115,9 @@ case $ACTION in
 esac
 
 echo "==========================================================================================" >&2
-echo "=============== updating $ADDR_OUTGOING_PROXY using dev wallet $WALLET_DEV" >&2
+echo "=============== updating $ADDR_OUTGOING_PROXY using owner wallet $WALLET_OWNER" >&2
 CMD="$CLI tx wasm execute $ADDR_OUTGOING_PROXY '$MSG'"
-CMD+=" --from $WALLET"
+CMD+=" --from $WALLET_OWNER"
 CMD+=" --gas $CLI_GAS --gas-prices $CLI_GAS_PRICES --gas-adjustment $CLI_GAS_ADJUSTMENT"
 CMD+=" --chain-id $CHAIN_ID --node $CHAIN_NODE -y"
 echo "$CMD" >&2
@@ -143,6 +143,6 @@ if [ $ERROR_CODE -ne 0 ]; then
 fi
 
 echo "==========================================================================================" >&2
-echo "config before change $ADDR_OUTGOING_PROXY=$ADDR_OUTGOING_PROXY:" >&2
+echo "config after change $ADDR_OUTGOING_PROXY=$ADDR_OUTGOING_PROXY:" >&2
 sleep 10
 query_config
