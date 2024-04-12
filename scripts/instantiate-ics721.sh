@@ -1,6 +1,6 @@
 #!/bin/bash
 # ----------------------------------------------------
-# - exports CHAIN_NET and CHAIN based on user input  -
+# Instantiates the ICS721 contract with cw721_base_code_id and pauser
 # ----------------------------------------------------
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)

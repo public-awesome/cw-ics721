@@ -1,6 +1,10 @@
 #!/bin/bash
 # ----------------------------------------------------
-# - exports CHAIN_NET and CHAIN based on user input  -
+# Migrate the ICS721 Outgoing Whitelist Channel Proxy contract, and sets:
+# - config with origin (ICS721) and owner
+# - optional channels
+# - optional collections
+# - proxy with optional channels and collections whitelist
 # ----------------------------------------------------
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -81,9 +85,6 @@ printf -v MSG '{
       "owner": "%s"
     },
     "proxy": {
-      "rate_limit": {
-        "per_block": 100
-      }
       %s
       %s
     }

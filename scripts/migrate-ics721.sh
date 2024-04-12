@@ -1,6 +1,11 @@
 #!/bin/bash
 # ----------------------------------------------------
-# - exports CHAIN_NET and CHAIN based on user input  -
+# Migrates the ICS721 contract, and sets optional:
+# - incoming proxy
+# - outgoing proxy
+# - cw721 code id
+# - pauser
+# - cw721 admin
 # ----------------------------------------------------
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)

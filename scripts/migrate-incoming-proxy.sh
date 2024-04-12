@@ -1,6 +1,8 @@
 #!/bin/bash
 # ----------------------------------------------------
-# - exports CHAIN_NET and CHAIN based on user input  -
+# Migrate the Incoming Whitelist Channel Proxy contract, and sets:
+# - origin
+# - optional channels
 # ----------------------------------------------------
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)

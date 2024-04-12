@@ -1,6 +1,7 @@
 #!/bin/bash
 # ----------------------------------------------------
-# - exports CHAIN_NET and CHAIN based on user input  -
+# Instantiates the ICS721 Outgoing Whitelist Channel Proxy contract
+# with the (channels, collections, checksums, collection fees) whitelist and reference to the ICS721 contract
 # ----------------------------------------------------
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)

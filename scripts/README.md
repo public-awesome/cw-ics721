@@ -12,6 +12,7 @@ Below scripts use [select-chain.sh](./select-chain.sh). For each selected chain 
 ## Scripts
 
 ### Initial Setup
+
 Scripts for setup must be executed in this order:
 
 1. ICS721 without proxies: [instantiate-ics721.sh](./instantiate-ics721.sh)
@@ -29,8 +30,16 @@ After instantiation:
 2. Incoming Proxy: [migrate-incoming-proxy.sh](./migrate-incoming-proxy.sh)
 3. Outgoing Proxy: [migrate-outgoing-proxy.sh](.migrate-outgoing-proxy.sh)
 
+### Outgoing Proxy Messages
 
-### Proxy Messages
+Usage:
 
+```sh
+$ ./scripts/whitelist-outgoing-proxy.sh
+Usage: ./scripts/whitelist-outgoing-proxy.sh stargaze|osmosis [--add WHITELIST|--remove WHITELIST|--enable true_or_false] --type collection|channel|checksum|fees
+Example:
+./scripts/whitelist-outgoing-proxy.sh stargaze|osmosis --add channel-1 --type channel
+./scripts/whitelist-outgoing-proxy.sh stargaze|osmosis --enable false --type collection
+```
 
-TBD
+The owner of the outgoing proxy contract can add, remove and enable whitelists for collections, channels, collection checksums, and collection fees.

@@ -2,10 +2,14 @@
 # ----------------------------------------------------
 # - exports CHAIN based on user input  -
 # ----------------------------------------------------
+export CHAIN_CHOICES=("stargaze" "osmosis")
+export CHAIN_CHOICES_STR=$(
+    IFS=\|
+    echo "${CHAIN_CHOICES[*]}"
+)
 
 function select_chain() {
     # Read chains from the file into an array
-    CHAIN_CHOICES=("stargaze" "osmosis")
     echo "Available chains: ${CHAIN_CHOICES[*]}" >&2
 
     echo "Please select the chain:" >&2
