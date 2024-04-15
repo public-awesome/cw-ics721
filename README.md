@@ -29,6 +29,8 @@ To gain a better understanding of how ICS721 (interchain) workflows function, co
 - Mint an NFT.
 - Transfer the NFT from one chain to another.
 
+For testing interchain transfers please check [gist code snippet](https://gist.github.com/taitruong/c561fbebc46a99b3723d37a1dc3ff0af).
+
 ## From a thousand feet up
 
 This contract deals in debt-vouchers.
