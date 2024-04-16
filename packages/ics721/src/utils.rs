@@ -1,8 +1,18 @@
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, DepsMut, Empty, Env, StdResult};
-use cw721::{ContractInfoResponse, NumTokensResponse};
+use cw721::NumTokensResponse;
 use cw_ownable::Ownership;
 
 use crate::state::CollectionData;
+
+#[cw_serde]
+pub struct ContractInfoResponse {
+    pub name: String,
+    pub symbol: String,
+    pub minter: Option<String>,
+    pub royalty_bps: Option<Vec<u64>>,
+    pub royalty_addrs: Option<Vec<String>>,
+}
 
 pub fn get_collection_data(deps: &DepsMut, collection: &Addr) -> StdResult<CollectionData> {
     // cw721 v0.17 and higher holds ownership in the contract
@@ -21,7 +31,13 @@ pub fn get_collection_data(deps: &DepsMut, collection: &Addr) -> StdResult<Colle
         }
     };
     let contract_info = deps.querier.query_wasm_contract_info(collection)?;
-    let ContractInfoResponse { name, symbol } = deps.querier.query_wasm_smart(
+    let ContractInfoResponse {
+        name,
+        symbol,
+        minter: _,
+        royalty_bps: _,
+        royalty_addrs: _,
+    } = deps.querier.query_wasm_smart(
         collection,
         &cw721_base::msg::QueryMsg::<Empty>::ContractInfo {},
     )?;
