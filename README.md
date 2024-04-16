@@ -29,6 +29,8 @@ To gain a better understanding of how ICS721 (interchain) workflows function, co
 - Mint an NFT.
 - Transfer the NFT from one chain to another.
 
+For testing interchain transfers please check [gist code snippet](https://gist.github.com/taitruong/c561fbebc46a99b3723d37a1dc3ff0af).
+
 ## From a thousand feet up
 
 This contract deals in debt-vouchers.
@@ -78,10 +80,26 @@ These sorts of issues can cause trouble with relayer implementations. The inabil
 
 ## Callbacks
 
-There are 2 types of callbacks users can use when transfering an NFT:
+cw-ics721 supports [callbacks](./packages/ics721-types/src/types.rs#L67-L70) for Ics721ReceiveCallback and Ics721AckCallback.
 
 1. Receive callback - Callback that is being called on the receiving chain when the NFT was succesfully transferred.
 2. Ack callback - Callback that is being called on the sending chain notifying about the status of the transfer.
+
+Workflow:
+
+1. `send_nft` from cw721 -> cw-ics721.
+2. `send_nft` holds `IbcOutgoingMsg` msg.
+3. `IbcOutgoingMsg` holds `Ics721Memo` with optional receive (request) and ack (response) callbacks.
+4. `cw-ics721` on target chain executes optional receive callback.
+5. `cw-ics721` sends ack success or ack error to `cw-ics721` on source chain.
+6. `cw-ics721` on source chain executes optional ack callback.
+
+NOTES:
+
+In case of 4. if any error occurs on target chain, NFT gets rolled back and return to sender on source chain.
+In case of 6. ack callback also holds `Ics721Status::Success` or `Ics721Status::Failed(String)`
+
+### Callback Execution
 
 Callbacks are optional and can be added in the memo field of the transfer message:
 
@@ -96,7 +114,90 @@ Callbacks are optional and can be added in the memo field of the transfer messag
 }
 ```
 
+An [Ics721Memo](./packages/ics721-types/src/types.rs#L11-L30) may be provided as part of [IbcOutgoingMsg](./packages/ics721-types/src/ibc_types.rs#L99):
+
+```rust
+// -- ibc_types.rs
+#[cw_serde]
+pub struct IbcOutgoingMsg {
+    /// The address that should receive the NFT being sent on the
+    /// *receiving chain*.
+    pub receiver: String,
+    /// The *local* channel ID this ought to be sent away on. This
+    /// contract must have a connection on this channel.
+    pub channel_id: String,
+    /// Timeout for the IBC message.
+    pub timeout: IbcTimeout,
+    /// Memo to add custom string to the msg
+    pub memo: Option<String>,
+}
+
+// -- types.rs
+pub struct Ics721Memo {
+    pub callbacks: Option<Ics721Callbacks>,
+}
+
+/// The format we expect for the memo field on a send
+#[cw_serde]
+pub struct Ics721Callbacks {
+    /// Data to pass with a callback on source side (status update)
+    /// Note - If this field is empty, no callback will be sent
+    pub ack_callback_data: Option<Binary>,
+    /// The address that will receive the callback message
+    /// Defaults to the sender address
+    pub ack_callback_addr: Option<String>,
+    /// Data to pass with a callback on the destination side (ReceiveNftIcs721)
+    /// Note - If this field is empty, no callback will be sent
+    pub receive_callback_data: Option<Binary>,
+    /// The address that will receive the callback message
+    /// Defaults to the receiver address
+    pub receive_callback_addr: Option<String>,
+}
+
+```
+
 In order to execute an ack callback, `ack_callback_data` must not be empty. In order to execute a receive callback, `receive_callback_data` must not be empty.
+
+A contract sending an NFT with callback may look like this:
+
+```rust
+let callback_msg = MyAckCallbackMsgData {
+  // ... any arbitrary data contract wants to
+};
+let mut callbacks = Ics721Callbacks {
+    ack_callback_data: Some(to_json_binary(&callback_msg)?),
+    ack_callback_addr: None, // in case of none ics721 uses recipient (default) as callback addr
+    receive_callback_data: None,
+    receive_callback_addr: None,
+};
+if let Some(counterparty_contract) = COUNTERPARTY_CONTRACT.may_load(deps.storage)? {
+    callbacks.receive_callback_data = Some(to_json_binary(&callback_msg)?);
+    callbacks.receive_callback_addr = Some(counterparty_contract); // here we need to set contract addr, since receiver is NFT receiver
+}
+let memo = Ics721Memo {
+    callbacks: Some(callbacks),
+};
+let ibc_msg = IbcOutgoingMsg {
+    receiver,
+    channel_id,
+    timeout: IbcTimeout::with_timestamp(env.block.time.plus_minutes(30)),
+    memo: Some(Binary::to_base64(&to_json_binary(&memo)?)),
+};
+// send nft to ics721 (or outgoing proxy if set by ics721)
+let send_nft_msg = Cw721ExecuteMsg::SendNft {
+    contract: 'ADDR_ICS721_OUTGOING_PROXY'.to_string(),
+    token_id: token_id.to_string(),
+    msg: to_json_binary(&ibc_msg)?,
+};
+let send_nft_sub_msg = SubMsg::<Empty>::reply_on_success(
+    WasmMsg::Execute {
+        contract_addr: CW721_ADDR.load(storage)?.to_string(),
+        msg: to_json_binary(&send_nft_msg)?,
+        funds: vec![],
+    },
+    REPLY_NOOP,
+);
+```
 
 ### Contract to accept callbacks
 
