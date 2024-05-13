@@ -53,6 +53,13 @@ pub struct UniversalAllNftInfoResponse {
     pub info: UniversalNftInfoResponse,
 }
 
+/// Based on `cw721::ContractInfoResponse v0.18`
+#[derive(Deserialize)]
+pub struct UniversalCollectionInfoResponse {
+    pub name: String,
+    pub symbol: String,
+}
+
 #[derive(Deserialize)]
 pub struct UniversalNftInfoResponse {
     pub token_uri: Option<String>,

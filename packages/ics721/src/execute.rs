@@ -695,7 +695,7 @@ where
         for (key, channel) in entries {
             INCOMING_CLASS_TOKEN_TO_CHANNEL.save(deps.storage, key, &channel)?;
         }
-        Ok(Response::default().add_attribute("method", "callback_redeem_outgoing_channel_entries"))
+        Ok(Response::default().add_attribute("method", "callback_save_incoming_channel_entries"))
     }
 
     fn migrate(
