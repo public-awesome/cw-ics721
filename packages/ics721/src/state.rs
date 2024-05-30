@@ -38,14 +38,21 @@ pub const CLASS_ID_TO_CLASS: Map<ClassId, Class> = Map::new("g");
 pub const OUTGOING_CLASS_TOKEN_TO_CHANNEL: Map<(ClassId, TokenId), String> = Map::new("h");
 /// Same as above, but for NFTs arriving at this contract.
 pub const INCOMING_CLASS_TOKEN_TO_CHANNEL: Map<(ClassId, TokenId), String> = Map::new("i");
+
 /// Maps (class ID, token ID) -> token metadata. Used to store
 /// on-chain metadata for tokens that have arrived from other
 /// chains. When a token arrives, it's metadata (regardless of if it
 /// is `None`) is stored in this map. When the token is returned to
 /// it's source chain, the metadata is removed from the map.
 pub const TOKEN_METADATA: Map<(ClassId, TokenId), Option<Binary>> = Map::new("j");
+
 /// The admin address for instantiating new cw721 contracts. In case of None, contract is immutable.
 pub const ADMIN_USED_FOR_CW721: Item<Option<Addr>> = Item::new("l");
+
+/// The optional contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).
+/// So length must be shorter than 32. For example, Injective has 20 length address.
+/// Bug: https://github.com/CosmWasm/cosmwasm/issues/2155
+pub const CONTRACT_ADDR_LENGTH: Item<usize> = Item::new("n");
 
 #[derive(Deserialize)]
 pub struct UniversalAllNftInfoResponse {
