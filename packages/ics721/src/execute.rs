@@ -25,7 +25,7 @@ use crate::{
     },
     state::{
         ClassIdInfo, CollectionData, UniversalAllNftInfoResponse, ADMIN_USED_FOR_CW721,
-        CLASS_ID_AND_NFT_CONTRACT_INFO, CLASS_ID_TO_CLASS, CW721_CODE_ID,
+        CLASS_ID_AND_NFT_CONTRACT_INFO, CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_CODE_ID,
         INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
         OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
@@ -76,6 +76,15 @@ where
                 .transpose()?,
         )?;
 
+        let contract_addr_length = msg.contract_addr_length;
+        if let Some(contract_addr_length) = contract_addr_length {
+            if let Some(contract_addr_length) = contract_addr_length {
+                CONTRACT_ADDR_LENGTH.save(deps.storage, &contract_addr_length)?;
+            } else {
+                CONTRACT_ADDR_LENGTH.remove(deps.storage);
+            }
+        }
+
         Ok(Response::default()
             .add_submessages(proxies_instantiate)
             .add_attribute("method", "instantiate")
@@ -84,6 +93,13 @@ where
                 "cw721_admin",
                 msg.cw721_admin
                     .map_or_else(|| "immutable".to_string(), |or| or),
+            )
+            .add_attribute(
+                "contract_addr_length",
+                contract_addr_length.map_or_else(
+                    || "none".to_string(),
+                    |or| or.map_or_else(|| "deleted".to_string(), |or| or.to_string()),
+                ),
             ))
     }
 
@@ -711,6 +727,7 @@ where
                 outgoing_proxy,
                 cw721_base_code_id,
                 cw721_admin,
+                contract_addr_length,
             } => {
                 // disables incoming proxy if none is provided!
                 INCOMING_PROXY.save(
@@ -741,6 +758,14 @@ where
                     }
                 }
 
+                if let Some(contract_addr_length) = contract_addr_length {
+                    if let Some(contract_addr_length) = contract_addr_length {
+                        CONTRACT_ADDR_LENGTH.save(deps.storage, &contract_addr_length)?;
+                    } else {
+                        CONTRACT_ADDR_LENGTH.remove(deps.storage);
+                    }
+                }
+
                 let response = Response::default()
                     .add_attribute("method", "migrate")
                     .add_attribute("pauser", pauser.map_or_else(|| "none".to_string(), |or| or))
@@ -767,6 +792,13 @@ where
                                     or
                                 }
                             },
+                        ),
+                    )
+                    .add_attribute(
+                        "contract_addr_length",
+                        contract_addr_length.map_or_else(
+                            || "none".to_string(),
+                            |or| or.map_or_else(|| "deleted".to_string(), |or| or.to_string()),
                         ),
                     );
 

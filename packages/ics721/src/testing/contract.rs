@@ -20,8 +20,8 @@ use crate::{
         Ics721Query,
     },
     state::{
-        CollectionData, ADMIN_USED_FOR_CW721, CLASS_ID_TO_CLASS, CW721_CODE_ID, INCOMING_PROXY,
-        OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
+        CollectionData, ADMIN_USED_FOR_CW721, CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH,
+        CW721_CODE_ID, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
     },
     utils::get_collection_data,
 };
@@ -504,6 +504,7 @@ fn instantiate_msg(
         outgoing_proxy,
         pauser: Some(PAUSER_ADDR.to_string()),
         cw721_admin: Some(ADMIN_ADDR.to_string()),
+        contract_addr_length: None,
     }
 }
 
@@ -528,10 +529,11 @@ fn test_instantiate() {
         }),
         label: "outgoing".to_string(),
     };
-    let msg = instantiate_msg(
+    let mut msg = instantiate_msg(
         Some(incoming_proxy_init_msg.clone()),
         Some(outgoing_proxy_init_msg.clone()),
     );
+    msg.contract_addr_length = Some(Some(20));
     let response = Ics721Contract {}
         .instantiate(deps.as_mut(), env.clone(), info, msg.clone())
         .unwrap();
@@ -550,7 +552,8 @@ fn test_instantiate() {
         ))
         .add_attribute("method", "instantiate")
         .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string())
-        .add_attribute("cw721_admin", ADMIN_ADDR);
+        .add_attribute("cw721_admin", ADMIN_ADDR)
+        .add_attribute("contract_addr_length", "20");
     assert_eq!(response, expected_response);
     assert_eq!(CW721_CODE_ID.load(&deps.storage).unwrap(), 0);
     // incoming and outgoing proxy initially set to None and set later in sub msg
@@ -565,6 +568,7 @@ fn test_instantiate() {
         ADMIN_USED_FOR_CW721.load(&deps.storage).unwrap(),
         Some(Addr::unchecked(ADMIN_ADDR.to_string()))
     );
+    assert_eq!(CONTRACT_ADDR_LENGTH.load(&deps.storage).unwrap(), 20);
 }
 
 #[test]
@@ -582,6 +586,7 @@ fn test_migrate() {
         incoming_proxy: Some("incoming".to_string()),
         cw721_base_code_id: Some(1),
         cw721_admin: Some("some_other_admin".to_string()),
+        contract_addr_length: Some(Some(20)),
     };
 
     // before migrate, populate legacy
@@ -638,6 +643,7 @@ fn test_migrate() {
         ADMIN_USED_FOR_CW721.load(&deps.storage).unwrap(),
         Some(Addr::unchecked("some_other_admin"))
     );
+    assert_eq!(CONTRACT_ADDR_LENGTH.load(&deps.storage).unwrap(), 20);
     let nft_contract_and_class_id_list = query_nft_contracts(deps.as_ref(), None, None).unwrap();
     assert_eq!(nft_contract_and_class_id_list.len(), 2);
     assert_eq!(nft_contract_and_class_id_list[0].0, CLASS_ID_1);

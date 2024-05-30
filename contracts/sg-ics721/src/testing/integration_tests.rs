@@ -354,6 +354,7 @@ impl Test {
                     outgoing_proxy,
                     pauser: admin.clone(),
                     cw721_admin: admin,
+                    contract_addr_length: None,
                 },
                 &[],
                 "sg-ics721",
@@ -2350,6 +2351,7 @@ fn test_pause() {
                     outgoing_proxy: None,
                     cw721_base_code_id: None,
                     cw721_admin: None,
+                    contract_addr_length: None,
                 })
                 .unwrap(),
             }
@@ -2404,6 +2406,7 @@ fn test_migration() {
                     outgoing_proxy: None,
                     cw721_base_code_id: Some(12345678),
                     cw721_admin: Some(admin.to_string()),
+                    contract_addr_length: None,
                 })
                 .unwrap(),
             }
@@ -2432,6 +2435,7 @@ fn test_migration() {
                     outgoing_proxy: None,
                     cw721_base_code_id: None,
                     cw721_admin: Some("".to_string()),
+                    contract_addr_length: None,
                 })
                 .unwrap(),
             }

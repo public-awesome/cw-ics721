@@ -31,6 +31,8 @@ pub struct InstantiateMsg {
     pub pauser: Option<String>,
     /// The admin address for instantiating new cw721 contracts. In case of None, contract is immutable.
     pub cw721_admin: Option<String>,
+    /// The optional contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).
+    pub contract_addr_length: Option<Option<usize>>,
 }
 
 #[cw_serde]
@@ -212,5 +214,7 @@ pub enum MigrateMsg {
         cw721_base_code_id: Option<u64>,
         /// The admin address for instantiating new cw721 contracts. In case of "", contract is immutable.
         cw721_admin: Option<String>,
+        /// The optional contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).
+        contract_addr_length: Option<Option<usize>>,
     },
 }
