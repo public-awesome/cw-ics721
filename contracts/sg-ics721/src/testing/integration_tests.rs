@@ -465,6 +465,13 @@ impl Test {
             .unwrap()
     }
 
+    fn query_contract_addr_length(&mut self) -> Option<usize> {
+        self.app
+            .wrap()
+            .query_wasm_smart(self.ics721.clone(), &QueryMsg::ContractAddrLength {})
+            .unwrap()
+    }
+
     fn query_nft_contracts(&mut self) -> Vec<(String, Addr)> {
         self.app
             .wrap()
@@ -2406,7 +2413,7 @@ fn test_migration() {
                     outgoing_proxy: None,
                     cw721_base_code_id: Some(12345678),
                     cw721_admin: Some(admin.to_string()),
-                    contract_addr_length: None,
+                    contract_addr_length: Some(20), // injective have 20 bytes addresses
                 })
                 .unwrap(),
             }
@@ -2420,24 +2427,25 @@ fn test_migration() {
     assert!(proxy.is_none());
     let cw721_code_id = test.query_cw721_id();
     assert_eq!(cw721_code_id, 12345678);
-    assert_eq!(test.query_cw721_admin(), Some(admin),);
+    assert_eq!(test.query_cw721_admin(), Some(admin));
+    assert_eq!(test.query_contract_addr_length(), Some(20),);
 
     // migrate without changing code id
+    let msg = MigrateMsg::WithUpdate {
+        pauser: None,
+        incoming_proxy: None,
+        outgoing_proxy: None,
+        cw721_base_code_id: None,
+        cw721_admin: Some("".to_string()),
+        contract_addr_length: None,
+    };
     test.app
         .execute(
             test.app.api().addr_make(ICS721_ADMIN_AND_PAUSER),
             WasmMsg::Migrate {
                 contract_addr: test.ics721.to_string(),
                 new_code_id: test.ics721_id,
-                msg: to_json_binary(&MigrateMsg::WithUpdate {
-                    pauser: None,
-                    incoming_proxy: None,
-                    outgoing_proxy: None,
-                    cw721_base_code_id: None,
-                    cw721_admin: Some("".to_string()),
-                    contract_addr_length: None,
-                })
-                .unwrap(),
+                msg: to_json_binary(&msg).unwrap(),
             }
             .into(),
         )
@@ -2449,5 +2457,6 @@ fn test_migration() {
     assert!(proxy.is_none());
     let cw721_code_id = test.query_cw721_id();
     assert_eq!(cw721_code_id, 12345678);
-    assert_eq!(test.query_cw721_admin(), None,);
+    assert_eq!(test.query_cw721_admin(), None);
+    assert_eq!(test.query_contract_addr_length(), None,);
 }

@@ -10,6 +10,15 @@
       "cw721_base_code_id"
     ],
     "properties": {
+      "contract_addr_length": {
+        "description": "The optional contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint",
+        "minimum": 0.0
+      },
       "cw721_admin": {
         "description": "The admin address for instantiating new cw721 contracts. In case of None, contract is immutable.",
         "type": [
@@ -1048,6 +1057,20 @@
         "additionalProperties": false
       },
       {
+        "description": "Gets the contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).",
+        "type": "object",
+        "required": [
+          "contract_addr_length"
+        ],
+        "properties": {
+          "contract_addr_length": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
         "description": "Gets a list of classID as key (from NonFungibleTokenPacketData) and cw721 contract as value (instantiated for that classID).",
         "type": "object",
         "required": [
@@ -1254,6 +1277,16 @@
           "type": "string"
         }
       }
+    },
+    "contract_addr_length": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Nullable_uint",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint",
+      "minimum": 0.0
     },
     "cw721_admin": {
       "$schema": "http://json-schema.org/draft-07/schema#",

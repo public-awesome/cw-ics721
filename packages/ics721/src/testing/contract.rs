@@ -533,7 +533,7 @@ fn test_instantiate() {
         Some(incoming_proxy_init_msg.clone()),
         Some(outgoing_proxy_init_msg.clone()),
     );
-    msg.contract_addr_length = Some(Some(20));
+    msg.contract_addr_length = Some(20);
     let response = Ics721Contract {}
         .instantiate(deps.as_mut(), env.clone(), info, msg.clone())
         .unwrap();
@@ -586,7 +586,7 @@ fn test_migrate() {
         incoming_proxy: Some("incoming".to_string()),
         cw721_base_code_id: Some(1),
         cw721_admin: Some("some_other_admin".to_string()),
-        contract_addr_length: Some(Some(20)),
+        contract_addr_length: Some(20),
     };
 
     // before migrate, populate legacy

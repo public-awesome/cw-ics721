@@ -5,8 +5,8 @@ use crate::{
     msg::QueryMsg,
     state::{
         UniversalAllNftInfoResponse, ADMIN_USED_FOR_CW721, CLASS_ID_AND_NFT_CONTRACT_INFO,
-        CLASS_ID_TO_CLASS, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY,
-        OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO, TOKEN_METADATA,
+        CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL,
+        INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
 };
 use ics721_types::token_types::{Class, ClassId, ClassToken, Token, TokenId};
@@ -35,6 +35,9 @@ pub trait Ics721Query {
             QueryMsg::IncomingProxy {} => to_json_binary(&INCOMING_PROXY.load(deps.storage)?),
             QueryMsg::Cw721CodeId {} => to_json_binary(&query_cw721_code_id(deps)?),
             QueryMsg::Cw721Admin {} => to_json_binary(&ADMIN_USED_FOR_CW721.load(deps.storage)?),
+            QueryMsg::ContractAddrLength {} => {
+                to_json_binary(&CONTRACT_ADDR_LENGTH.may_load(deps.storage)?)
+            }
             QueryMsg::NftContracts { start_after, limit } => {
                 to_json_binary(&query_nft_contracts(deps, start_after, limit)?)
             }

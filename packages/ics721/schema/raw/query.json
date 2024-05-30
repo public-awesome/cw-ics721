@@ -204,6 +204,20 @@
       "additionalProperties": false
     },
     {
+      "description": "Gets the contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).",
+      "type": "object",
+      "required": [
+        "contract_addr_length"
+      ],
+      "properties": {
+        "contract_addr_length": {
+          "type": "object",
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
       "description": "Gets a list of classID as key (from NonFungibleTokenPacketData) and cw721 contract as value (instantiated for that classID).",
       "type": "object",
       "required": [

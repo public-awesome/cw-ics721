@@ -78,11 +78,9 @@ where
 
         let contract_addr_length = msg.contract_addr_length;
         if let Some(contract_addr_length) = contract_addr_length {
-            if let Some(contract_addr_length) = contract_addr_length {
-                CONTRACT_ADDR_LENGTH.save(deps.storage, &contract_addr_length)?;
-            } else {
-                CONTRACT_ADDR_LENGTH.remove(deps.storage);
-            }
+            CONTRACT_ADDR_LENGTH.save(deps.storage, &contract_addr_length)?;
+        } else {
+            CONTRACT_ADDR_LENGTH.remove(deps.storage);
         }
 
         Ok(Response::default()
@@ -96,10 +94,7 @@ where
             )
             .add_attribute(
                 "contract_addr_length",
-                contract_addr_length.map_or_else(
-                    || "none".to_string(),
-                    |or| or.map_or_else(|| "deleted".to_string(), |or| or.to_string()),
-                ),
+                contract_addr_length.map_or_else(|| "none".to_string(), |or| or.to_string()),
             ))
     }
 
@@ -720,6 +715,7 @@ where
         _env: Env,
         msg: MigrateMsg,
     ) -> Result<Response<T>, ContractError> {
+        println!(">>>>>>>> msg: {:?}", msg);
         match msg {
             MigrateMsg::WithUpdate {
                 pauser,
@@ -759,11 +755,9 @@ where
                 }
 
                 if let Some(contract_addr_length) = contract_addr_length {
-                    if let Some(contract_addr_length) = contract_addr_length {
-                        CONTRACT_ADDR_LENGTH.save(deps.storage, &contract_addr_length)?;
-                    } else {
-                        CONTRACT_ADDR_LENGTH.remove(deps.storage);
-                    }
+                    CONTRACT_ADDR_LENGTH.save(deps.storage, &contract_addr_length)?;
+                } else {
+                    CONTRACT_ADDR_LENGTH.remove(deps.storage);
                 }
 
                 let response = Response::default()
@@ -796,10 +790,8 @@ where
                     )
                     .add_attribute(
                         "contract_addr_length",
-                        contract_addr_length.map_or_else(
-                            || "none".to_string(),
-                            |or| or.map_or_else(|| "deleted".to_string(), |or| or.to_string()),
-                        ),
+                        contract_addr_length
+                            .map_or_else(|| "none".to_string(), |or| or.to_string()),
                     );
 
                 self.migrate_legacy(deps, response)
