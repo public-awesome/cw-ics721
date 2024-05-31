@@ -4,7 +4,11 @@ use cosmwasm_std::{
 };
 use serde::Deserialize;
 
-use crate::{ibc::ACK_CALLBACK_REPLY_ID, state::INCOMING_PROXY, ContractError};
+use crate::{
+    ibc::ACK_CALLBACK_REPLY_ID,
+    state::{CONTRACT_ADDR_LENGTH, INCOMING_PROXY},
+    ContractError,
+};
 use ics721_types::{
     ibc_types::NonFungibleTokenPacketData,
     types::{
@@ -147,8 +151,14 @@ pub fn get_instantiate2_address(
     let CodeInfoResponse { checksum, .. } = deps.querier.query_wasm_code_info(code_id)?;
 
     let canonical_cw721_addr = instantiate2_address(&checksum, &canonical_creator, salt)?;
-
-    Ok(deps.api.addr_humanize(&canonical_cw721_addr)?)
+    if let Some(contract_addr_length) = CONTRACT_ADDR_LENGTH.may_load(deps.storage)? {
+        let contract_addr_length = contract_addr_length as usize;
+        Ok(deps
+            .api
+            .addr_humanize(&canonical_cw721_addr[..contract_addr_length].into())?)
+    } else {
+        Ok(deps.api.addr_humanize(&canonical_cw721_addr)?)
+    }
 }
 
 mod test {

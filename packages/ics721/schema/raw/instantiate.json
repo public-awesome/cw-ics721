@@ -6,6 +6,15 @@
     "cw721_base_code_id"
   ],
   "properties": {
+    "contract_addr_length": {
+      "description": "The optional contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0.0
+    },
     "cw721_admin": {
       "description": "The admin address for instantiating new cw721 contracts. In case of None, contract is immutable.",
       "type": [
