@@ -12,7 +12,7 @@
         "integer",
         "null"
       ],
-      "format": "uint",
+      "format": "uint32",
       "minimum": 0.0
     },
     "cw721_admin": {

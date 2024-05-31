@@ -16,7 +16,7 @@
           "integer",
           "null"
         ],
-        "format": "uint",
+        "format": "uint32",
         "minimum": 0.0
       },
       "cw721_admin": {
@@ -1280,12 +1280,12 @@
     },
     "contract_addr_length": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Nullable_uint",
+      "title": "Nullable_uint32",
       "type": [
         "integer",
         "null"
       ],
-      "format": "uint",
+      "format": "uint32",
       "minimum": 0.0
     },
     "cw721_admin": {
