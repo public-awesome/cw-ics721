@@ -47,6 +47,36 @@
       "additionalProperties": false
     },
     {
+      "description": "Returns predictable NFT contract using instantiate2. If no cw721_code_id is provided, default cw721_code_id from storage is used.",
+      "type": "object",
+      "required": [
+        "get_instantiate2_nft_contract"
+      ],
+      "properties": {
+        "get_instantiate2_nft_contract": {
+          "type": "object",
+          "required": [
+            "class_id"
+          ],
+          "properties": {
+            "class_id": {
+              "type": "string"
+            },
+            "cw721_code_id": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    {
       "description": "Gets the class level metadata URI for the provided class_id. If there is no metadata, returns None. Returns `Option<Class>`.",
       "type": "object",
       "required": [

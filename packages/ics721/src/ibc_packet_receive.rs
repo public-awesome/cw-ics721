@@ -226,6 +226,8 @@ fn create_callback_msg(
             load_nft_contract_for_class_id(deps.storage, local_class_id.to_string())
                 .map_err(|_| ContractError::NoNftContractForClassId(local_class_id.to_string()))
         } else {
+            // here we know NFT contract is always instantiated, so it is safe getting it from storage
+            // NEVER use instantiate2 to get the NFT contract address here, since code id may change!
             Ok(CLASS_ID_AND_NFT_CONTRACT_INFO
                 .load(deps.storage, &local_class_id)?
                 .address)

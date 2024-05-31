@@ -23,7 +23,7 @@ pub trait Ics721Query {
             QueryMsg::NftContract { class_id } => Ok(to_json_binary(
                 &query_nft_contract_for_class_id(deps.storage, class_id)?,
             )?),
-            QueryMsg::GetNftContractByInstantiate2 {
+            QueryMsg::GetInstantiate2NftContract {
                 class_id,
                 cw721_code_id,
             } => Ok(to_json_binary(&query_get_nft_contract_for_class_id(
