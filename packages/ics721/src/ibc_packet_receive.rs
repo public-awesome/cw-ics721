@@ -233,7 +233,7 @@ fn create_callback_msg(
                 .map_err(|_| ContractError::NoNftContractForClassId(local_class_id.to_string()))
         } else {
             // If its a creation action, we can use the instantiate2 function to get the nft contract
-            // we don't care of the contract is instantiated yet or not, as later submessage will instantiate it if its not.
+            // we don't care if the contract is instantiated yet or not, as later submessage will instantiate it if its not.
             // The reason we use instantiate2 here is because we don't know if it was already instantiated or not.
 
             let cw721_code_id = CW721_CODE_ID.load(deps.storage)?;

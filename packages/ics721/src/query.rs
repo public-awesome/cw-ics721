@@ -1,57 +1,65 @@
 use cosmwasm_std::{to_json_binary, Addr, Binary, Deps, Env, Order, StdError, StdResult, Storage};
 use cw_storage_plus::{Bound, Map};
+use sha2::{Digest, Sha256};
 
 use crate::{
+    helpers::get_instantiate2_address,
     msg::QueryMsg,
     state::{
         UniversalAllNftInfoResponse, ADMIN_USED_FOR_CW721, CLASS_ID_AND_NFT_CONTRACT_INFO,
         CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL,
         INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
+    ContractError,
 };
 use ics721_types::token_types::{Class, ClassId, ClassToken, Token, TokenId};
 
 pub trait Ics721Query {
-    fn query(&self, deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    fn query(&self, deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
         match msg {
-            QueryMsg::ClassId { contract } => {
-                to_json_binary(&query_class_id_for_nft_contract(deps, contract)?)
-            }
-            QueryMsg::NftContract { class_id } => {
-                to_json_binary(&query_nft_contract_for_class_id(deps.storage, class_id)?)
-            }
-            QueryMsg::ClassMetadata { class_id } => {
-                to_json_binary(&query_class_metadata(deps, class_id)?)
-            }
-            QueryMsg::TokenMetadata { class_id, token_id } => {
-                to_json_binary(&query_token_metadata(deps, class_id, token_id)?)
-            }
-            QueryMsg::Owner { class_id, token_id } => {
-                to_json_binary(&query_owner(deps, class_id, token_id)?)
-            }
-            QueryMsg::Pauser {} => to_json_binary(&PO.query_pauser(deps.storage)?),
-            QueryMsg::Paused {} => to_json_binary(&PO.query_paused(deps.storage)?),
-            QueryMsg::OutgoingProxy {} => to_json_binary(&OUTGOING_PROXY.load(deps.storage)?),
-            QueryMsg::IncomingProxy {} => to_json_binary(&INCOMING_PROXY.load(deps.storage)?),
-            QueryMsg::Cw721CodeId {} => to_json_binary(&query_cw721_code_id(deps)?),
-            QueryMsg::Cw721Admin {} => to_json_binary(&ADMIN_USED_FOR_CW721.load(deps.storage)?),
-            QueryMsg::ContractAddrLength {} => {
-                to_json_binary(&CONTRACT_ADDR_LENGTH.may_load(deps.storage)?)
-            }
-            QueryMsg::NftContracts { start_after, limit } => {
-                to_json_binary(&query_nft_contracts(deps, start_after, limit)?)
-            }
-            QueryMsg::OutgoingChannels { start_after, limit } => to_json_binary(&query_channels(
-                deps,
-                &OUTGOING_CLASS_TOKEN_TO_CHANNEL,
-                start_after,
-                limit,
+            QueryMsg::ClassId { contract } => Ok(to_json_binary(
+                &query_class_id_for_nft_contract(deps, contract)?,
             )?),
-            QueryMsg::IncomingChannels { start_after, limit } => to_json_binary(&query_channels(
+            QueryMsg::NftContract { class_id } => Ok(to_json_binary(
+                &query_nft_contract_for_class_id(deps.storage, class_id)?,
+            )?),
+            QueryMsg::GetNftContractByInstantiate2 {
+                class_id,
+                cw721_code_id,
+            } => Ok(to_json_binary(&query_get_nft_contract_for_class_id(
                 deps,
-                &INCOMING_CLASS_TOKEN_TO_CHANNEL,
-                start_after,
-                limit,
+                &env,
+                class_id,
+                cw721_code_id,
+            )?)?),
+            QueryMsg::ClassMetadata { class_id } => {
+                Ok(to_json_binary(&query_class_metadata(deps, class_id)?)?)
+            }
+            QueryMsg::TokenMetadata { class_id, token_id } => Ok(to_json_binary(
+                &query_token_metadata(deps, class_id, token_id)?,
+            )?),
+            QueryMsg::Owner { class_id, token_id } => {
+                Ok(to_json_binary(&query_owner(deps, class_id, token_id)?)?)
+            }
+            QueryMsg::Pauser {} => Ok(to_json_binary(&PO.query_pauser(deps.storage)?)?),
+            QueryMsg::Paused {} => Ok(to_json_binary(&PO.query_paused(deps.storage)?)?),
+            QueryMsg::OutgoingProxy {} => Ok(to_json_binary(&OUTGOING_PROXY.load(deps.storage)?)?),
+            QueryMsg::IncomingProxy {} => Ok(to_json_binary(&INCOMING_PROXY.load(deps.storage)?)?),
+            QueryMsg::Cw721CodeId {} => Ok(to_json_binary(&query_cw721_code_id(deps)?)?),
+            QueryMsg::Cw721Admin {} => {
+                Ok(to_json_binary(&ADMIN_USED_FOR_CW721.load(deps.storage)?)?)
+            }
+            QueryMsg::ContractAddrLength {} => Ok(to_json_binary(
+                &CONTRACT_ADDR_LENGTH.may_load(deps.storage)?,
+            )?),
+            QueryMsg::NftContracts { start_after, limit } => Ok(to_json_binary(
+                &query_nft_contracts(deps, start_after, limit)?,
+            )?),
+            QueryMsg::OutgoingChannels { start_after, limit } => Ok(to_json_binary(
+                &query_channels(deps, &OUTGOING_CLASS_TOKEN_TO_CHANNEL, start_after, limit)?,
+            )?),
+            QueryMsg::IncomingChannels { start_after, limit } => Ok(to_json_binary(
+                &query_channels(deps, &INCOMING_CLASS_TOKEN_TO_CHANNEL, start_after, limit)?,
             )?),
         }
     }
@@ -86,6 +94,28 @@ pub fn query_nft_contract_for_class_id(
         .class_id
         .item(storage, class_id_key)
         .map(|e| e.map(|(_, v)| v.address))
+}
+
+pub fn query_get_nft_contract_for_class_id(
+    deps: Deps,
+    env: &Env,
+    class_id: String,
+    cw721_code_id: Option<u64>,
+) -> Result<Addr, ContractError> {
+    let class_id = ClassId::new(class_id);
+    let cw721_code_id = if let Some(cw721_code_id) = cw721_code_id {
+        cw721_code_id
+    } else {
+        CW721_CODE_ID.load(deps.storage)?
+    };
+
+    let mut hasher = Sha256::new();
+    hasher.update(class_id.as_bytes());
+    let salt = hasher.finalize().to_vec();
+
+    let nft_contract =
+        get_instantiate2_address(deps, env.contract.address.as_str(), &salt, cw721_code_id)?;
+    Ok(nft_contract)
 }
 
 pub fn load_nft_contract_for_class_id(storage: &dyn Storage, class_id: String) -> StdResult<Addr> {
