@@ -32,7 +32,7 @@ pub struct InstantiateMsg {
     /// The admin address for instantiating new cw721 contracts. In case of None, contract is immutable.
     pub cw721_admin: Option<String>,
     /// The optional contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).
-    pub contract_addr_length: Option<usize>,
+    pub contract_addr_length: Option<u32>,
 }
 
 #[cw_serde]
@@ -165,7 +165,7 @@ pub enum QueryMsg {
     Cw721Admin {},
 
     /// Gets the contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).
-    #[returns(Option<usize>)]
+    #[returns(Option<u32>)]
     ContractAddrLength {},
 
     /// Gets a list of classID as key (from
@@ -219,6 +219,6 @@ pub enum MigrateMsg {
         /// The admin address for instantiating new cw721 contracts. In case of "", contract is immutable.
         cw721_admin: Option<String>,
         /// The optional contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).
-        contract_addr_length: Option<usize>,
+        contract_addr_length: Option<u32>,
     },
 }

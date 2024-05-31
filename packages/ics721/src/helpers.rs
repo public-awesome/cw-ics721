@@ -151,10 +151,11 @@ pub fn get_instantiate2_address(
     let CodeInfoResponse { checksum, .. } = deps.querier.query_wasm_code_info(code_id)?;
 
     let canonical_cw721_addr = instantiate2_address(&checksum, &canonical_creator, salt)?;
-    if let Some(len) = CONTRACT_ADDR_LENGTH.may_load(deps.storage)? {
+    if let Some(contract_addr_length) = CONTRACT_ADDR_LENGTH.may_load(deps.storage)? {
+        let contract_addr_length = contract_addr_length as usize;
         Ok(deps
             .api
-            .addr_humanize(&canonical_cw721_addr[..len].into())?)
+            .addr_humanize(&canonical_cw721_addr[..contract_addr_length].into())?)
     } else {
         Ok(deps.api.addr_humanize(&canonical_cw721_addr)?)
     }

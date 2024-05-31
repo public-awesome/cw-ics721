@@ -472,7 +472,7 @@ impl Test {
             .unwrap()
     }
 
-    fn query_contract_addr_length(&mut self) -> Option<usize> {
+    fn query_contract_addr_length(&mut self) -> Option<u32> {
         self.app
             .wrap()
             .query_wasm_smart(self.ics721.clone(), &QueryMsg::ContractAddrLength {})

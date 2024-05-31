@@ -52,7 +52,7 @@ pub const ADMIN_USED_FOR_CW721: Item<Option<Addr>> = Item::new("l");
 /// The optional contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).
 /// So length must be shorter than 32. For example, Injective has 20 length address.
 /// Bug: https://github.com/CosmWasm/cosmwasm/issues/2155
-pub const CONTRACT_ADDR_LENGTH: Item<usize> = Item::new("n");
+pub const CONTRACT_ADDR_LENGTH: Item<u32> = Item::new("n");
 
 #[derive(Deserialize)]
 pub struct UniversalAllNftInfoResponse {
