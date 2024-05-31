@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    from_json, to_json_binary, DepsMut, Empty, Env, IbcBasicResponse, IbcChannelCloseMsg,
+    from_json, to_json_binary, DepsMut, Empty, Env, Event, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacket, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, Never, Reply, Response,
     StdResult, SubMsgResult, WasmMsg,
@@ -162,6 +162,12 @@ where
                 None => vec![],
             };
 
+            let token_ids = format!("{:?}", msg.token_ids);
+            let event = Event::new("ics721_ack_burn_vouchers")
+                .add_attribute("class_id", msg.class_id.to_string())
+                .add_attribute("nft_contract", nft_contract.clone())
+                .add_attribute("token_ids", token_ids.clone());
+
             Ok(IbcBasicResponse::new()
                 .add_messages(burn_notices)
                 .add_submessages(callback)
@@ -169,7 +175,8 @@ where
                 .add_attribute("sender", msg.sender)
                 .add_attribute("receiver", msg.receiver)
                 .add_attribute("classId", msg.class_id)
-                .add_attribute("token_ids", format!("{:?}", msg.token_ids)))
+                .add_attribute("token_ids", token_ids)
+                .add_event(event))
         }
     }
 
