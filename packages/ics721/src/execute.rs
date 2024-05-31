@@ -715,7 +715,6 @@ where
         _env: Env,
         msg: MigrateMsg,
     ) -> Result<Response<T>, ContractError> {
-        println!(">>>>>>>> msg: {:?}", msg);
         match msg {
             MigrateMsg::WithUpdate {
                 pauser,
