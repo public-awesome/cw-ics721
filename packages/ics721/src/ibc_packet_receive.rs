@@ -2,19 +2,15 @@ use cosmwasm_std::{
     from_json, to_json_binary, Addr, Binary, Deps, DepsMut, Empty, Env, IbcPacket,
     IbcReceiveResponse, StdResult, SubMsg, WasmMsg,
 };
-use sha2::{Digest, Sha256};
 use zip_optional::Zippable;
 
 use crate::{
-    helpers::{
-        generate_receive_callback_msg, get_incoming_proxy_msg, get_instantiate2_address,
-        get_receive_callback,
-    },
+    helpers::{generate_receive_callback_msg, get_incoming_proxy_msg, get_receive_callback},
     ibc::ACK_AND_DO_NOTHING_REPLY_ID,
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg},
     query::load_nft_contract_for_class_id,
-    state::{CW721_CODE_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO},
+    state::{CLASS_ID_AND_NFT_CONTRACT_INFO, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO},
     token_types::{VoucherCreation, VoucherRedemption},
     ContractError,
 };
@@ -58,7 +54,6 @@ pub(crate) fn receive_ibc_packet(
     // - one optional callback message
     let callback_msg = create_callback_msg(
         deps.as_ref(),
-        &env,
         &data,
         is_redemption,
         callback,
@@ -218,7 +213,6 @@ fn create_voucher_and_channel_messages(
 
 fn create_callback_msg(
     deps: Deps,
-    env: &Env,
     data: &NonFungibleTokenPacketData,
     is_redemption: bool,
     callback: Option<(Binary, Option<String>)>,
@@ -232,19 +226,9 @@ fn create_callback_msg(
             load_nft_contract_for_class_id(deps.storage, local_class_id.to_string())
                 .map_err(|_| ContractError::NoNftContractForClassId(local_class_id.to_string()))
         } else {
-            // If its a creation action, we can use the instantiate2 function to get the nft contract
-            // we don't care if the contract is instantiated yet or not, as later submessage will instantiate it if its not.
-            // The reason we use instantiate2 here is because we don't know if it was already instantiated or not.
-
-            let cw721_code_id = CW721_CODE_ID.load(deps.storage)?;
-            // for creating a predictable nft contract using, using instantiate2, we need: checksum, creator, and salt:
-            // - using class id as salt for instantiating nft contract guarantees a) predictable address and b) uniqueness
-            // for this salt must be of length 32 bytes, so we use sha256 to hash class id
-            let mut hasher = Sha256::new();
-            hasher.update(local_class_id.as_bytes());
-            let salt = hasher.finalize().to_vec();
-
-            get_instantiate2_address(deps, env.contract.address.as_str(), &salt, cw721_code_id)
+            Ok(CLASS_ID_AND_NFT_CONTRACT_INFO
+                .load(deps.storage, &local_class_id)?
+                .address)
         }?;
 
         Ok(generate_receive_callback_msg(
