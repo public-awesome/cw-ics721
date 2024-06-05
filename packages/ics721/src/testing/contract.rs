@@ -652,10 +652,10 @@ fn test_migrate() {
     assert_eq!(nft_contract_and_class_id_list[1].1, NFT_CONTRACT_2);
     // test query and indexers for class id and addr are working
     let nft_contract_1 =
-        query_nft_contract_for_class_id(&deps.storage, CLASS_ID_1.to_string()).unwrap();
+        query_nft_contract_for_class_id(&deps.storage, CLASS_ID_1.to_string().into()).unwrap();
     assert_eq!(nft_contract_1, Some(Addr::unchecked(NFT_CONTRACT_1)));
     let nft_contract_2 =
-        query_nft_contract_for_class_id(&deps.storage, CLASS_ID_2.to_string()).unwrap();
+        query_nft_contract_for_class_id(&deps.storage, CLASS_ID_2.to_string().into()).unwrap();
     assert_eq!(nft_contract_2, Some(Addr::unchecked(NFT_CONTRACT_2)));
     let class_id_1 =
         query_class_id_for_nft_contract(deps.as_ref(), NFT_CONTRACT_1.to_string()).unwrap();

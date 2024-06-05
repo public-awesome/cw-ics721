@@ -21,15 +21,15 @@ pub trait Ics721Query {
                 &query_class_id_for_nft_contract(deps, contract)?,
             )?),
             QueryMsg::NftContract { class_id } => Ok(to_json_binary(
-                &query_nft_contract_for_class_id(deps.storage, class_id)?,
+                &query_nft_contract_for_class_id(deps.storage, class_id.into())?,
             )?),
             QueryMsg::GetInstantiate2NftContract {
                 class_id,
                 cw721_code_id,
-            } => Ok(to_json_binary(&query_get_nft_contract_for_class_id(
+            } => Ok(to_json_binary(&query_get_instantiate2_nft_contract(
                 deps,
                 &env,
-                class_id,
+                class_id.into(),
                 cw721_code_id,
             )?)?),
             QueryMsg::ClassMetadata { class_id } => {
@@ -83,26 +83,22 @@ pub fn load_class_id_for_nft_contract(
 
 pub fn query_nft_contract_for_class_id(
     storage: &dyn Storage,
-    class_id: String,
+    class_id: ClassId,
 ) -> StdResult<Option<Addr>> {
-    // Convert the class_id string to ClassId type if necessary
-    let class_id_key = ClassId::new(class_id);
-
     // Query the IndexedMap using the class_id index
     CLASS_ID_AND_NFT_CONTRACT_INFO
         .idx
         .class_id
-        .item(storage, class_id_key)
+        .item(storage, class_id)
         .map(|e| e.map(|(_, v)| v.address))
 }
 
-pub fn query_get_nft_contract_for_class_id(
+pub fn query_get_instantiate2_nft_contract(
     deps: Deps,
     env: &Env,
-    class_id: String,
+    class_id: ClassId,
     cw721_code_id: Option<u64>,
 ) -> Result<Addr, ContractError> {
-    let class_id = ClassId::new(class_id);
     let cw721_code_id = if let Some(cw721_code_id) = cw721_code_id {
         cw721_code_id
     } else {
@@ -119,7 +115,7 @@ pub fn query_get_nft_contract_for_class_id(
 }
 
 pub fn load_nft_contract_for_class_id(storage: &dyn Storage, class_id: String) -> StdResult<Addr> {
-    query_nft_contract_for_class_id(storage, class_id.clone())?.map_or_else(
+    query_nft_contract_for_class_id(storage, class_id.clone().into())?.map_or_else(
         || {
             Err(StdError::NotFound {
                 kind: format!("NFT contract not found for class id {}", class_id),
@@ -148,8 +144,7 @@ pub fn query_token_metadata(
         // metadata entry, we have no entry for this token at all.
         return Ok(None);
     };
-    let Some(nft_contract) = query_nft_contract_for_class_id(deps.storage, class_id.to_string())?
-    else {
+    let Some(nft_contract) = query_nft_contract_for_class_id(deps.storage, class_id)? else {
         debug_assert!(false, "token_metadata != None => token_contract != None");
         return Ok(None);
     };

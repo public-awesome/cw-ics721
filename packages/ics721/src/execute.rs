@@ -157,7 +157,7 @@ where
         let token_id = TokenId::new(token_id);
         let child_class_id = ClassId::new(child_class_id);
         let child_collection = deps.api.addr_validate(&child_collection)?;
-        match query_nft_contract_for_class_id(deps.storage, child_class_id.to_string())? {
+        match query_nft_contract_for_class_id(deps.storage, child_class_id.clone())? {
             Some(cw721_addr) => {
                 if cw721_addr != child_collection {
                     return Err(ContractError::NoNftContractMatch {
@@ -240,7 +240,7 @@ where
         // check given home class id and home collection is the same as stored in the contract
         let home_class_id = ClassId::new(home_class_id);
         let home_collection = deps.api.addr_validate(&home_collection)?;
-        match query_nft_contract_for_class_id(deps.storage, home_class_id.to_string())? {
+        match query_nft_contract_for_class_id(deps.storage, home_class_id.clone())? {
             Some(cw721_addr) => {
                 if cw721_addr != home_collection {
                     return Err(ContractError::NoNftContractMatch {
