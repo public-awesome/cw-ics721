@@ -9,8 +9,11 @@ use crate::{
     ibc::ACK_AND_DO_NOTHING_REPLY_ID,
     ibc_helpers::{get_endpoint_prefix, try_pop_source_prefix},
     msg::{CallbackMsg, ExecuteMsg},
-    query::load_nft_contract_for_class_id,
-    state::{CLASS_ID_AND_NFT_CONTRACT_INFO, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO},
+    query::{
+        load_nft_contract_for_class_id, query_get_instantiate2_nft_contract,
+        query_nft_contract_for_class_id,
+    },
+    state::{CW721_CODE_ID, OUTGOING_CLASS_TOKEN_TO_CHANNEL, PO},
     token_types::{VoucherCreation, VoucherRedemption},
     ContractError,
 };
@@ -54,6 +57,7 @@ pub(crate) fn receive_ibc_packet(
     // - one optional callback message
     let callback_msg = create_callback_msg(
         deps.as_ref(),
+        &env,
         &data,
         is_redemption,
         callback,
@@ -213,6 +217,7 @@ fn create_voucher_and_channel_messages(
 
 fn create_callback_msg(
     deps: Deps,
+    env: &Env,
     data: &NonFungibleTokenPacketData,
     is_redemption: bool,
     callback: Option<(Binary, Option<String>)>,
@@ -226,11 +231,24 @@ fn create_callback_msg(
             load_nft_contract_for_class_id(deps.storage, local_class_id.to_string())
                 .map_err(|_| ContractError::NoNftContractForClassId(local_class_id.to_string()))
         } else {
-            // here we know NFT contract is always instantiated, so it is safe getting it from storage
-            // NEVER use instantiate2 to get the NFT contract address here, since code id may change!
-            Ok(CLASS_ID_AND_NFT_CONTRACT_INFO
-                .load(deps.storage, &local_class_id)?
-                .address)
+            let nft_contract =
+                match query_nft_contract_for_class_id(deps.storage, local_class_id.clone()) {
+                    Ok(nft_contract) => nft_contract,
+                    Err(_) => None, // not found, occurs on initial transfer when we don't have the contract address
+                };
+            match nft_contract {
+                Some(nft_contract) => Ok(nft_contract),
+                None => {
+                    // contract not yet instantiated, so we use instantiate2 to get the contract address
+                    let cw721_code_id = CW721_CODE_ID.load(deps.storage)?;
+                    query_get_instantiate2_nft_contract(
+                        deps,
+                        env,
+                        local_class_id.clone(),
+                        Some(cw721_code_id),
+                    )
+                }
+            }
         }?;
 
         Ok(generate_receive_callback_msg(
