@@ -4,6 +4,7 @@ use cosmwasm_std::{
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, Never, Reply, Response,
     StdResult, SubMsgResult, WasmMsg,
 };
+use cw721::{DefaultOptionalCollectionExtensionMsg, DefaultOptionalNftExtensionMsg};
 use cw_utils::parse_reply_instantiate_data;
 use ics721_types::{ibc_types::NonFungibleTokenPacketData, types::Ics721Status};
 use serde::{de::DeserializeOwned, Serialize};
@@ -142,7 +143,11 @@ where
 
                         messages.push(WasmMsg::Execute {
                             contract_addr: nft_contract.to_string(),
-                            msg: to_json_binary(&cw721::Cw721ExecuteMsg::Burn {
+                            msg: to_json_binary(&cw721::msg::Cw721ExecuteMsg::<
+                                DefaultOptionalNftExtensionMsg,
+                                DefaultOptionalCollectionExtensionMsg,
+                                Empty,
+                            >::Burn {
                                 token_id: token.into(),
                             })?,
                             funds: vec![],
@@ -212,7 +217,11 @@ where
                     .remove(deps.storage, (message.class_id.clone(), token_id.clone()));
                 Ok(WasmMsg::Execute {
                     contract_addr: nft_contract.to_string(),
-                    msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                    msg: to_json_binary(&cw721::msg::Cw721ExecuteMsg::<
+                        DefaultOptionalNftExtensionMsg,
+                        DefaultOptionalCollectionExtensionMsg,
+                        Empty,
+                    >::TransferNft {
                         recipient: sender.to_string(),
                         token_id: token_id.into(),
                     })?,

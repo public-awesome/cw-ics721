@@ -4,6 +4,10 @@ use cosmwasm_std::{
     from_json, to_json_binary, Addr, Binary, ContractInfoResponse, Deps, DepsMut, Empty, Env,
     Event, IbcMsg, MessageInfo, Order, Response, StdResult, SubMsg, WasmMsg,
 };
+use cw721::{
+    DefaultOptionalCollectionExtension, DefaultOptionalCollectionExtensionMsg,
+    DefaultOptionalNftExtension, DefaultOptionalNftExtensionMsg,
+};
 use cw_storage_plus::Map;
 use ics721_types::{
     ibc_types::{IbcOutgoingMsg, IbcOutgoingProxyMsg, NonFungibleTokenPacketData},
@@ -107,7 +111,7 @@ where
     ) -> Result<Response<T>, ContractError> {
         PO.error_if_paused(deps.storage)?;
         match msg {
-            ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+            ExecuteMsg::ReceiveNft(cw721::receiver::Cw721ReceiveMsg {
                 sender,
                 token_id,
                 msg,
@@ -185,7 +189,11 @@ where
             .querier
             .query_wasm_smart(
                 child_collection.clone(),
-                &cw721::Cw721QueryMsg::AllNftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::AllNftInfo {
                     token_id: token_id.clone().into(),
                     include_expired: None,
                 },
@@ -206,7 +214,11 @@ where
             // note: this requires approval from recipient, or recipient burns it himself
             let burn_msg = WasmMsg::Execute {
                 contract_addr: child_collection.to_string(),
-                msg: to_json_binary(&cw721::Cw721ExecuteMsg::Burn {
+                msg: to_json_binary(&cw721::msg::Cw721ExecuteMsg::<
+                    DefaultOptionalNftExtensionMsg,
+                    DefaultOptionalCollectionExtensionMsg,
+                    Empty,
+                >::Burn {
                     token_id: token_id.clone().into(),
                 })?,
                 funds: vec![],
@@ -268,7 +280,11 @@ where
             .querier
             .query_wasm_smart(
                 home_collection.clone(),
-                &cw721::Cw721QueryMsg::AllNftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::AllNftInfo {
                     token_id: token_id.clone().into(),
                     include_expired: None,
                 },
@@ -284,7 +300,11 @@ where
             // transfer NFT
             let transfer_msg = WasmMsg::Execute {
                 contract_addr: home_collection.to_string(),
-                msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                msg: to_json_binary(&cw721::msg::Cw721ExecuteMsg::<
+                    DefaultOptionalNftExtensionMsg,
+                    DefaultOptionalCollectionExtensionMsg,
+                    Empty,
+                >::TransferNft {
                     recipient: recipient.to_string(),
                     token_id: token_id.clone().into(),
                 })?,
@@ -401,7 +421,11 @@ where
         // make sure NFT is escrowed by ics721
         let UniversalAllNftInfoResponse { access, info } = deps.querier.query_wasm_smart(
             nft_contract,
-            &cw721::Cw721QueryMsg::AllNftInfo {
+            &cw721::msg::Cw721QueryMsg::<
+                DefaultOptionalNftExtension,
+                DefaultOptionalCollectionExtension,
+                Empty,
+            >::AllNftInfo {
                 token_id: token_id.clone().into(),
                 include_expired: None,
             },
@@ -608,12 +632,15 @@ where
             .query_wasm_contract_info(env.contract.address.to_string())?;
 
         // use by default ClassId, in case there's no class data with name and symbol
-        let mut instantiate_msg = cw721_base::msg::InstantiateMsg {
-            name: class.id.clone().into(),
-            symbol: class.id.clone().into(),
-            minter: Some(env.contract.address.to_string()),
-            withdraw_address: Some(creator),
-        };
+        let mut instantiate_msg =
+            cw721_base::msg::InstantiateMsg::<DefaultOptionalCollectionExtensionMsg> {
+                name: class.id.clone().into(),
+                symbol: class.id.clone().into(),
+                minter: Some(env.contract.address.to_string()),
+                creator: None,
+                collection_info_extension: None,
+                withdraw_address: Some(creator),
+            };
 
         // use collection data for setting name and symbol
         let collection_data = class
@@ -655,7 +682,11 @@ where
                     .map(|token_id| {
                         Ok(WasmMsg::Execute {
                             contract_addr: nft_contract.to_string(),
-                            msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                            msg: to_json_binary(&cw721::msg::Cw721ExecuteMsg::<
+                                DefaultOptionalNftExtensionMsg,
+                                DefaultOptionalCollectionExtensionMsg,
+                                Empty,
+                            >::TransferNft {
                                 recipient: receiver.to_string(),
                                 token_id: token_id.into(),
                             })?,
@@ -686,11 +717,15 @@ where
                 // Also note that this is set for every token, regardless of if data is None.
                 TOKEN_METADATA.save(deps.storage, (class_id.clone(), id.clone()), &data)?;
 
-                let msg = cw721_base::msg::ExecuteMsg::<Empty, Empty>::Mint {
+                let msg = cw721_base::msg::ExecuteMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::Mint {
                     token_id: id.into(),
                     token_uri: uri,
                     owner: receiver.to_string(),
-                    extension: Empty::default(),
+                    extension: None,
                 };
                 Ok(WasmMsg::Execute {
                     contract_addr: nft_contract.to_string(),

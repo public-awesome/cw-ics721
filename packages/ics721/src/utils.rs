@@ -1,14 +1,22 @@
 use cosmwasm_std::{Addr, DepsMut, Empty, Env, StdResult};
-use cw721::NumTokensResponse;
+use cw721::{
+    msg::NumTokensResponse, DefaultOptionalCollectionExtension, DefaultOptionalNftExtension,
+};
 use cw_ownable::Ownership;
 
 use crate::state::{CollectionData, UniversalCollectionInfoResponse};
 
 pub fn get_collection_data(deps: &DepsMut, collection: &Addr) -> StdResult<CollectionData> {
     // cw721 v0.17 and higher holds ownership in the contract
-    let ownership: StdResult<Ownership<Addr>> = deps
-        .querier
-        .query_wasm_smart(collection, &cw721_base::msg::QueryMsg::Ownership::<Addr> {});
+    #[allow(deprecated)]
+    let ownership: StdResult<Ownership<Addr>> = deps.querier.query_wasm_smart(
+        collection,
+        &cw721_base::msg::QueryMsg::<
+            DefaultOptionalNftExtension,
+            DefaultOptionalCollectionExtension,
+            Empty,
+        >::Minter {},
+    );
     let owner = match ownership {
         Ok(ownership) => ownership.owner.map(|a| a.to_string()),
         Err(_) => {
@@ -21,13 +29,23 @@ pub fn get_collection_data(deps: &DepsMut, collection: &Addr) -> StdResult<Colle
         }
     };
     let contract_info = deps.querier.query_wasm_contract_info(collection)?;
+
+    #[allow(deprecated)]
     let UniversalCollectionInfoResponse { name, symbol } = deps.querier.query_wasm_smart(
         collection,
-        &cw721_base::msg::QueryMsg::<Empty>::ContractInfo {},
+        &cw721_base::msg::QueryMsg::<
+            DefaultOptionalNftExtension,
+            DefaultOptionalCollectionExtension,
+            Empty,
+        >::ContractInfo {},
     )?;
     let NumTokensResponse { count } = deps.querier.query_wasm_smart(
         collection,
-        &cw721_base::msg::QueryMsg::<Empty>::NumTokens {},
+        &cw721_base::msg::QueryMsg::<
+            DefaultOptionalNftExtension,
+            DefaultOptionalCollectionExtension,
+            Empty,
+        >::NumTokens {},
     )?;
 
     Ok(CollectionData {

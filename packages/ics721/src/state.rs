@@ -54,20 +54,20 @@ pub const ADMIN_USED_FOR_CW721: Item<Option<Addr>> = Item::new("l");
 /// Bug: https://github.com/CosmWasm/cosmwasm/issues/2155
 pub const CONTRACT_ADDR_LENGTH: Item<u32> = Item::new("n");
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, PartialEq)]
 pub struct UniversalAllNftInfoResponse {
     pub access: UniversalOwnerOfResponse,
     pub info: UniversalNftInfoResponse,
 }
 
 /// Based on `cw721::ContractInfoResponse v0.18`
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, PartialEq)]
 pub struct UniversalCollectionInfoResponse {
     pub name: String,
     pub symbol: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, PartialEq)]
 pub struct UniversalNftInfoResponse {
     pub token_uri: Option<String>,
 
@@ -93,7 +93,7 @@ pub struct CollectionData {
     pub num_tokens: Option<u64>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, PartialEq)]
 pub struct UniversalOwnerOfResponse {
     pub owner: String,
 
@@ -131,12 +131,12 @@ mod tests {
 
     #[test]
     fn test_universal_deserialize() {
-        let start = cw721::AllNftInfoResponse::<Coin> {
-            access: cw721::OwnerOfResponse {
+        let start = cw721::msg::AllNftInfoResponse::<Coin> {
+            access: cw721::msg::OwnerOfResponse {
                 owner: "foo".to_string(),
                 approvals: vec![],
             },
-            info: cw721::NftInfoResponse {
+            info: cw721::msg::NftInfoResponse {
                 token_uri: None,
                 extension: Coin::new(100, "ujuno"),
             },

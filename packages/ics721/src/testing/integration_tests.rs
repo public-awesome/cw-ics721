@@ -7,6 +7,10 @@ use cosmwasm_std::{
     RecoverPubkeyError, Reply, Response, StdError, StdResult, Storage, VerificationError, WasmMsg,
 };
 use cw2::set_contract_version;
+use cw721::{
+    DefaultOptionalCollectionExtension, DefaultOptionalCollectionExtensionMsg,
+    DefaultOptionalNftExtension, DefaultOptionalNftExtensionMsg,
+};
 use cw721_base::msg::{InstantiateMsg as Cw721InstantiateMsg, QueryMsg as Cw721QueryMsg};
 use cw_cii::{Admin, ContractInstantiateInfo};
 use cw_multi_test::{
@@ -368,10 +372,12 @@ impl Test {
                 .instantiate_contract(
                     source_cw721_id,
                     source_cw721_owner.clone(),
-                    &Cw721InstantiateMsg {
+                    &Cw721InstantiateMsg::<DefaultOptionalCollectionExtensionMsg> {
                         name: "name".to_string(),
                         symbol: "symbol".to_string(),
                         minter: Some(source_cw721_owner.to_string()),
+                        creator: None,
+                        collection_info_extension: None,
                         withdraw_address: None,
                     },
                     &[],
@@ -523,7 +529,11 @@ impl Test {
             .wrap()
             .query_wasm_smart(
                 self.source_cw721.clone(),
-                &cw721_base::msg::QueryMsg::<Empty>::AllNftInfo {
+                &cw721_base::msg::QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::AllNftInfo {
                     token_id,
                     include_expired: None,
                 },
@@ -538,7 +548,11 @@ impl Test {
             .execute_contract(
                 self.source_cw721_owner.clone(),
                 self.source_cw721.clone(),
-                &cw721_base::msg::ExecuteMsg::<Empty, Empty>::Mint {
+                &cw721_base::msg::ExecuteMsg::<
+                    DefaultOptionalNftExtensionMsg,
+                    DefaultOptionalCollectionExtensionMsg,
+                    Empty,
+                >::Mint {
                     token_id: self.nfts_minted.to_string(),
                     owner: owner.to_string(),
                     token_uri: None,
@@ -733,29 +747,40 @@ fn test_do_instantiate_and_mint() {
             .unwrap();
 
         // check name and symbol contains class id for instantiated nft contract
+        #[allow(deprecated)]
         let contract_info: cw721::ContractInfoResponse = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &Cw721QueryMsg::<Empty>::ContractInfo {},
+                &Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::ContractInfo {},
             )
             .unwrap();
         assert_eq!(
             contract_info,
-            cw721::ContractInfoResponse {
+            cw721::msg::CollectionInfoAndExtensionResponse::<DefaultOptionalCollectionExtension> {
                 name: class_id.to_string(),   // name is set to class_id
-                symbol: class_id.to_string()  // symbol is set to class_id
+                symbol: class_id.to_string(), // symbol is set to class_id
+                extension: None,
+                updated_at: contract_info.updated_at, // ignore this field
             }
         );
 
         // Check that token_uri was set properly.
-        let token_info: cw721::NftInfoResponse<Empty> = test
+        let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721::Cw721QueryMsg::NftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
@@ -764,12 +789,16 @@ fn test_do_instantiate_and_mint() {
             token_info.token_uri,
             Some("https://moonphase.is/image.svg".to_string())
         );
-        let token_info: cw721::NftInfoResponse<Empty> = test
+        let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721::Cw721QueryMsg::NftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
@@ -781,7 +810,11 @@ fn test_do_instantiate_and_mint() {
             .execute_contract(
                 test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN),
                 nft_contract.clone(),
-                &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
+                &cw721_base::msg::ExecuteMsg::<
+                    DefaultOptionalNftExtensionMsg,
+                    DefaultOptionalCollectionExtensionMsg,
+                    Empty,
+                >::TransferNft {
                     recipient: nft_contract.to_string(),
                     token_id: "1".to_string(),
                 },
@@ -790,7 +823,7 @@ fn test_do_instantiate_and_mint() {
             .unwrap();
 
         // ics721 owner query and check nft contract owns it
-        let owner: cw721::OwnerOfResponse = test
+        let owner: cw721::msg::OwnerOfResponse = test
             .app
             .wrap()
             .query_wasm_smart(
@@ -804,12 +837,16 @@ fn test_do_instantiate_and_mint() {
         assert_eq!(owner.owner, nft_contract.to_string());
 
         // check cw721 owner query matches ics721 owner query
-        let base_owner: cw721::OwnerOfResponse = test
+        let base_owner: cw721::msg::OwnerOfResponse = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract,
-                &cw721::Cw721QueryMsg::OwnerOf {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,
                 },
@@ -887,29 +924,40 @@ fn test_do_instantiate_and_mint() {
             .unwrap();
 
         // check name and symbol is using class data for instantiated nft contract
+        #[allow(deprecated)]
         let contract_info: cw721::ContractInfoResponse = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &Cw721QueryMsg::<Empty>::ContractInfo {},
+                &Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::ContractInfo {},
             )
             .unwrap();
         assert_eq!(
             contract_info,
-            cw721::ContractInfoResponse {
+            cw721::msg::CollectionInfoAndExtensionResponse::<DefaultOptionalCollectionExtension> {
                 name: "ark".to_string(),
-                symbol: "protocol".to_string()
+                symbol: "protocol".to_string(),
+                extension: None,
+                updated_at: contract_info.updated_at, // ignore this field
             }
         );
 
         // Check that token_uri was set properly.
-        let token_info: cw721::NftInfoResponse<Empty> = test
+        let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721::Cw721QueryMsg::NftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
@@ -918,12 +966,16 @@ fn test_do_instantiate_and_mint() {
             token_info.token_uri,
             Some("https://moonphase.is/image.svg".to_string())
         );
-        let token_info: cw721::NftInfoResponse<Empty> = test
+        let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721::Cw721QueryMsg::NftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
@@ -935,7 +987,11 @@ fn test_do_instantiate_and_mint() {
             .execute_contract(
                 test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN),
                 nft_contract.clone(), // new recipient
-                &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
+                &cw721_base::msg::ExecuteMsg::<
+                    DefaultOptionalNftExtensionMsg,
+                    DefaultOptionalCollectionExtensionMsg,
+                    Empty,
+                >::TransferNft {
                     recipient: nft_contract.to_string(),
                     token_id: "1".to_string(),
                 },
@@ -944,7 +1000,7 @@ fn test_do_instantiate_and_mint() {
             .unwrap();
 
         // ics721 owner query and check nft contract owns it
-        let owner: cw721::OwnerOfResponse = test
+        let owner: cw721::msg::OwnerOfResponse = test
             .app
             .wrap()
             .query_wasm_smart(
@@ -958,12 +1014,16 @@ fn test_do_instantiate_and_mint() {
         assert_eq!(owner.owner, nft_contract.to_string());
 
         // check cw721 owner query matches ics721 owner query
-        let base_owner: cw721::OwnerOfResponse = test
+        let base_owner: cw721::msg::OwnerOfResponse = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract,
-                &cw721::Cw721QueryMsg::OwnerOf {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,
                 },
@@ -1040,29 +1100,41 @@ fn test_do_instantiate_and_mint() {
             .unwrap();
 
         // check name and symbol contains class id for instantiated nft contract
-        let contract_info: cw721::ContractInfoResponse = test
+        let contract_info: cw721::msg::CollectionInfoAndExtensionResponse<
+            DefaultOptionalCollectionExtension,
+        > = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &Cw721QueryMsg::<Empty>::ContractInfo {},
+                &Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::GetCollectionInfoAndExtension {},
             )
             .unwrap();
         assert_eq!(
             contract_info,
-            cw721::ContractInfoResponse {
+            cw721::msg::CollectionInfoAndExtensionResponse::<DefaultOptionalCollectionExtension> {
                 name: class_id.to_string(),
-                symbol: class_id.to_string()
+                symbol: class_id.to_string(),
+                extension: None,
+                updated_at: contract_info.updated_at, // ignore this field
             }
         );
 
         // Check that token_uri was set properly.
-        let token_info: cw721::NftInfoResponse<Empty> = test
+        let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721::Cw721QueryMsg::NftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
@@ -1071,12 +1143,16 @@ fn test_do_instantiate_and_mint() {
             token_info.token_uri,
             Some("https://moonphase.is/image.svg".to_string())
         );
-        let token_info: cw721::NftInfoResponse<Empty> = test
+        let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721::Cw721QueryMsg::NftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
@@ -1088,7 +1164,11 @@ fn test_do_instantiate_and_mint() {
             .execute_contract(
                 test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN),
                 nft_contract.clone(),
-                &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
+                &cw721_base::msg::ExecuteMsg::<
+                    DefaultOptionalNftExtensionMsg,
+                    DefaultOptionalCollectionExtensionMsg,
+                    Empty,
+                >::TransferNft {
                     recipient: nft_contract.to_string(), // new owner
                     token_id: "1".to_string(),
                 },
@@ -1097,7 +1177,7 @@ fn test_do_instantiate_and_mint() {
             .unwrap();
 
         // ics721 owner query and check nft contract owns it
-        let owner: cw721::OwnerOfResponse = test
+        let owner: cw721::msg::OwnerOfResponse = test
             .app
             .wrap()
             .query_wasm_smart(
@@ -1112,12 +1192,16 @@ fn test_do_instantiate_and_mint() {
         assert_eq!(owner.owner, nft_contract.to_string());
 
         // check cw721 owner query matches ics721 owner query
-        let base_owner: cw721::OwnerOfResponse = test
+        let base_owner: cw721::msg::OwnerOfResponse = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract,
-                &cw721::Cw721QueryMsg::OwnerOf {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,
                 },
@@ -1197,29 +1281,42 @@ fn test_do_instantiate_and_mint() {
             .unwrap();
 
         // check name and symbol contains class id for instantiated nft contract
-        let contract_info: cw721::ContractInfoResponse = test
+        let contract_info: cw721::msg::CollectionInfoAndExtensionResponse<
+            DefaultOptionalCollectionExtension,
+        > = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &Cw721QueryMsg::<Empty>::ContractInfo {},
+                #[allow(deprecated)]
+                &Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::ContractInfo {},
             )
             .unwrap();
         assert_eq!(
             contract_info,
-            cw721::ContractInfoResponse {
+            cw721::msg::CollectionInfoAndExtensionResponse::<DefaultOptionalCollectionExtension> {
                 name: "collection-name".to_string(),
-                symbol: "collection-symbol".to_string()
+                symbol: "collection-symbol".to_string(),
+                extension: None,
+                updated_at: contract_info.updated_at, // ignore this field
             }
         );
 
         // Check that token_uri was set properly.
-        let token_info: cw721::NftInfoResponse<Empty> = test
+        let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721::Cw721QueryMsg::NftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
@@ -1228,12 +1325,16 @@ fn test_do_instantiate_and_mint() {
             token_info.token_uri,
             Some("https://moonphase.is/image.svg".to_string())
         );
-        let token_info: cw721::NftInfoResponse<Empty> = test
+        let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721::Cw721QueryMsg::NftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
@@ -1245,7 +1346,11 @@ fn test_do_instantiate_and_mint() {
             .execute_contract(
                 test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN),
                 nft_contract.clone(),
-                &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
+                &cw721_base::msg::ExecuteMsg::<
+                    DefaultOptionalNftExtensionMsg,
+                    DefaultOptionalCollectionExtensionMsg,
+                    Empty,
+                >::TransferNft {
                     recipient: nft_contract.to_string(), // new owner
                     token_id: "1".to_string(),
                 },
@@ -1254,7 +1359,7 @@ fn test_do_instantiate_and_mint() {
             .unwrap();
 
         // ics721 owner query and check nft contract owns it
-        let owner: cw721::OwnerOfResponse = test
+        let owner: cw721::msg::OwnerOfResponse = test
             .app
             .wrap()
             .query_wasm_smart(
@@ -1269,12 +1374,16 @@ fn test_do_instantiate_and_mint() {
         assert_eq!(owner.owner, nft_contract.to_string());
 
         // check cw721 owner query matches ics721 owner query
-        let base_owner: cw721::OwnerOfResponse = test
+        let base_owner: cw721::msg::OwnerOfResponse = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract,
-                &cw721::Cw721QueryMsg::OwnerOf {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,
                 },
@@ -1389,54 +1498,80 @@ fn test_do_instantiate_and_mint_2_different_collections() {
             .unwrap();
 
         // check name and symbol contains class id for instantiated nft contract
-        let contract_info_1: cw721::ContractInfoResponse = test
+        let contract_info_1: cw721::msg::CollectionInfoAndExtensionResponse<
+            DefaultOptionalCollectionExtension,
+        > = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract_1.clone(),
-                &Cw721QueryMsg::<Empty>::ContractInfo {},
+                #[allow(deprecated)]
+                &Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::ContractInfo {},
             )
             .unwrap();
-        let contract_info_2: cw721::ContractInfoResponse = test
+        let contract_info_2: cw721::msg::CollectionInfoAndExtensionResponse<
+            DefaultOptionalCollectionExtension,
+        > = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract_2.clone(),
-                &Cw721QueryMsg::<Empty>::ContractInfo {},
+                #[allow(deprecated)]
+                &Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::ContractInfo {},
             )
             .unwrap();
         assert_eq!(
             contract_info_1,
-            cw721::ContractInfoResponse {
+            cw721::msg::CollectionInfoAndExtensionResponse::<DefaultOptionalCollectionExtension> {
                 name: class_id_1.to_string(),   // name is set to class_id
-                symbol: class_id_1.to_string()  // symbol is set to class_id
+                symbol: class_id_1.to_string(), // symbol is set to class_id
+                extension: None,
+                updated_at: contract_info_1.updated_at, // ignore this field
             }
         );
         assert_eq!(
             contract_info_2,
-            cw721::ContractInfoResponse {
+            cw721::msg::CollectionInfoAndExtensionResponse::<DefaultOptionalCollectionExtension> {
                 name: class_id_2.to_string(),   // name is set to class_id
-                symbol: class_id_2.to_string()  // symbol is set to class_id
+                symbol: class_id_2.to_string(), // symbol is set to class_id
+                extension: None,
+                updated_at: contract_info_2.updated_at, // ignore this field
             }
         );
 
         // Check that token_uri was set properly.
-        let token_info_1_1: cw721::NftInfoResponse<Empty> = test
+        let token_info_1_1: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract_1.clone(),
-                &cw721::Cw721QueryMsg::NftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
             .unwrap();
-        let token_info_2_1: cw721::NftInfoResponse<Empty> = test
+        let token_info_2_1: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract_2.clone(),
-                &cw721::Cw721QueryMsg::NftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
@@ -1446,22 +1581,30 @@ fn test_do_instantiate_and_mint_2_different_collections() {
             Some("https://moonphase.is/image.svg".to_string())
         );
         assert_eq!(token_info_2_1.token_uri, Some("https://mr.t".to_string()));
-        let token_info_1_2: cw721::NftInfoResponse<Empty> = test
+        let token_info_1_2: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract_1.clone(),
-                &cw721::Cw721QueryMsg::NftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
             .unwrap();
-        let token_info_2_2: cw721::NftInfoResponse<Empty> = test
+        let token_info_2_2: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract_2.clone(),
-                &cw721::Cw721QueryMsg::NftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
@@ -1480,7 +1623,11 @@ fn test_do_instantiate_and_mint_2_different_collections() {
             .execute_contract(
                 test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN),
                 nft_contract_1.clone(),
-                &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
+                &cw721_base::msg::ExecuteMsg::<
+                    DefaultOptionalNftExtensionMsg,
+                    DefaultOptionalCollectionExtensionMsg,
+                    Empty,
+                >::TransferNft {
                     recipient: nft_contract_1.to_string(),
                     token_id: "1".to_string(),
                 },
@@ -1491,7 +1638,11 @@ fn test_do_instantiate_and_mint_2_different_collections() {
             .execute_contract(
                 test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN),
                 nft_contract_2.clone(),
-                &cw721_base::msg::ExecuteMsg::<Empty, Empty>::TransferNft {
+                &cw721_base::msg::ExecuteMsg::<
+                    DefaultOptionalNftExtensionMsg,
+                    DefaultOptionalCollectionExtensionMsg,
+                    Empty,
+                >::TransferNft {
                     recipient: nft_contract_2.to_string(),
                     token_id: "1".to_string(),
                 },
@@ -1500,7 +1651,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
             .unwrap();
 
         // ics721 owner query and check nft contract owns it
-        let owner_1: cw721::OwnerOfResponse = test
+        let owner_1: cw721::msg::OwnerOfResponse = test
             .app
             .wrap()
             .query_wasm_smart(
@@ -1511,7 +1662,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
                 },
             )
             .unwrap();
-        let owner_2: cw721::OwnerOfResponse = test
+        let owner_2: cw721::msg::OwnerOfResponse = test
             .app
             .wrap()
             .query_wasm_smart(
@@ -1526,23 +1677,31 @@ fn test_do_instantiate_and_mint_2_different_collections() {
         assert_eq!(owner_2.owner, nft_contract_2.to_string());
 
         // check cw721 owner query matches ics721 owner query
-        let base_owner_1: cw721::OwnerOfResponse = test
+        let base_owner_1: cw721::msg::OwnerOfResponse = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract_1,
-                &cw721::Cw721QueryMsg::OwnerOf {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,
                 },
             )
             .unwrap();
-        let base_owner_2: cw721::OwnerOfResponse = test
+        let base_owner_2: cw721::msg::OwnerOfResponse = test
             .app
             .wrap()
             .query_wasm_smart(
                 nft_contract_2,
-                &cw721::Cw721QueryMsg::OwnerOf {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,
                 },
@@ -1647,12 +1806,16 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         .unwrap();
 
     // Make sure we have our tokens.
-    let tokens: cw721::TokensResponse = test
+    let tokens: cw721::msg::TokensResponse = test
         .app
         .wrap()
         .query_wasm_smart(
             nft_contract,
-            &cw721::Cw721QueryMsg::AllTokens {
+            &cw721::msg::Cw721QueryMsg::<
+                DefaultOptionalNftExtension,
+                DefaultOptionalCollectionExtension,
+                Empty,
+            >::AllTokens {
                 start_after: None,
                 limit: None,
             },
@@ -1736,7 +1899,7 @@ fn test_no_proxy_unknown_msg() {
         .execute_contract(
             test.app.api().addr_make("proxy"),
             test.ics721,
-            &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+            &ExecuteMsg::ReceiveNft(cw721::receiver::Cw721ReceiveMsg {
                 sender: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
                 token_id: "1".to_string(),
                 msg: to_json_binary(&msg).unwrap(),
@@ -1774,7 +1937,7 @@ fn test_no_proxy_unauthorized() {
         .execute_contract(
             test.app.api().addr_make("foo"),
             test.ics721,
-            &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+            &ExecuteMsg::ReceiveNft(cw721::receiver::Cw721ReceiveMsg {
                 sender: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
                 token_id: "1".to_string(),
                 msg: to_json_binary(&msg).unwrap(),
@@ -1805,7 +1968,7 @@ fn test_proxy_authorized() {
         .instantiate_contract(
             source_cw721_id,
             test.app.api().addr_make("ekez"),
-            &cw721_base::InstantiateMsg {
+            &cw721_base::msg::InstantiateMsg::<DefaultOptionalCollectionExtensionMsg> {
                 name: "token".to_string(),
                 symbol: "nonfungible".to_string(),
                 minter: Some(
@@ -1814,6 +1977,8 @@ fn test_proxy_authorized() {
                         .addr_make(COLLECTION_OWNER_SOURCE_CHAIN)
                         .to_string(),
                 ),
+                creator: None,
+                collection_info_extension: None,
                 withdraw_address: None,
             },
             &[],
@@ -1827,11 +1992,15 @@ fn test_proxy_authorized() {
         .execute_contract(
             test.app.api().addr_make(COLLECTION_OWNER_SOURCE_CHAIN),
             source_cw721.clone(),
-            &cw721_base::ExecuteMsg::<Empty, Empty>::Mint {
+            &cw721_base::msg::ExecuteMsg::<
+                DefaultOptionalNftExtensionMsg,
+                DefaultOptionalCollectionExtensionMsg,
+                Empty,
+            >::Mint {
                 token_id: "1".to_string(),
                 owner: test.ics721.to_string(),
                 token_uri: None,
-                extension: Empty::default(),
+                extension: None,
             },
             &[],
         )
@@ -1844,7 +2013,7 @@ fn test_proxy_authorized() {
         .execute_contract(
             proxy_address,
             test.ics721,
-            &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+            &ExecuteMsg::ReceiveNft(cw721::receiver::Cw721ReceiveMsg {
                 sender: test
                     .app
                     .api()
@@ -1886,7 +2055,7 @@ fn test_receive_nft() {
             .execute_contract(
                 test.source_cw721.clone(),
                 test.ics721,
-                &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+                &ExecuteMsg::ReceiveNft(cw721::receiver::Cw721ReceiveMsg {
                     sender: test.source_cw721_owner.to_string(),
                     token_id,
                     msg: to_json_binary(&IbcOutgoingMsg {
@@ -1954,7 +2123,7 @@ fn test_receive_nft() {
             .execute_contract(
                 test.source_cw721.clone(),
                 test.ics721,
-                &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+                &ExecuteMsg::ReceiveNft(cw721::receiver::Cw721ReceiveMsg {
                     sender: test.source_cw721_owner.to_string(),
                     token_id,
                     msg: to_json_binary(&IbcOutgoingMsg {
@@ -2035,7 +2204,7 @@ fn test_admin_clean_and_unescrow_nft() {
             .execute_contract(
                 test.source_cw721.clone(),
                 test.ics721.clone(),
-                &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+                &ExecuteMsg::ReceiveNft(cw721::receiver::Cw721ReceiveMsg {
                     sender: test.source_cw721_owner.to_string(),
                     token_id: token_id_escrowed_by_ics721.clone(),
                     msg: to_json_binary(&IbcOutgoingMsg {
@@ -2169,7 +2338,7 @@ fn test_no_receive_with_proxy() {
         .execute_contract(
             test.app.api().addr_make("cw721"),
             test.ics721,
-            &ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+            &ExecuteMsg::ReceiveNft(cw721::receiver::Cw721ReceiveMsg {
                 sender: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
                 token_id: "1".to_string(),
                 msg: to_json_binary(&IbcOutgoingMsg {

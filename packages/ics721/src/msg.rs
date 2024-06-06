@@ -39,7 +39,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     /// Receives a NFT to be IBC transfered away. The `msg` field must
     /// be a binary encoded `IbcOutgoingMsg`.
-    ReceiveNft(cw721::Cw721ReceiveMsg),
+    ReceiveNft(cw721::receiver::Cw721ReceiveMsg),
 
     /// Pauses the ICS721 contract. Only the pauser may call this. In pausing
     /// the contract, the pauser burns the right to do so again.
@@ -145,7 +145,7 @@ pub enum QueryMsg {
     /// Gets the owner of the NFT identified by CLASS_ID and
     /// TOKEN_ID. Errors if no such NFT exists. Returns
     /// `cw721::OwnerOfResonse`.
-    #[returns(::cw721::OwnerOfResponse)]
+    #[returns(::cw721::msg::OwnerOfResponse)]
     Owner { class_id: String, token_id: String },
 
     /// Gets the address that may pause this contract if one is set.

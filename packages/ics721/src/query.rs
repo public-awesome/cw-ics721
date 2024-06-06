@@ -1,4 +1,7 @@
-use cosmwasm_std::{to_json_binary, Addr, Binary, Deps, Env, Order, StdError, StdResult, Storage};
+use cosmwasm_std::{
+    to_json_binary, Addr, Binary, Deps, Empty, Env, Order, StdError, StdResult, Storage,
+};
+use cw721::{DefaultOptionalCollectionExtension, DefaultOptionalNftExtension};
 use cw_storage_plus::{Bound, Map};
 use sha2::{Digest, Sha256};
 
@@ -150,7 +153,11 @@ pub fn query_token_metadata(
     };
     let UniversalAllNftInfoResponse { info, .. } = deps.querier.query_wasm_smart(
         nft_contract,
-        &cw721::Cw721QueryMsg::AllNftInfo {
+        &cw721::msg::Cw721QueryMsg::<
+            DefaultOptionalNftExtension,
+            DefaultOptionalCollectionExtension,
+            Empty,
+        >::AllNftInfo {
             token_id: token_id.clone().into(),
             include_expired: None,
         },
@@ -166,11 +173,15 @@ pub fn query_owner(
     deps: Deps,
     class_id: String,
     token_id: String,
-) -> StdResult<cw721::OwnerOfResponse> {
+) -> StdResult<cw721::msg::OwnerOfResponse> {
     let nft_contract = load_nft_contract_for_class_id(deps.storage, class_id)?;
-    let resp: cw721::OwnerOfResponse = deps.querier.query_wasm_smart(
+    let resp: cw721::msg::OwnerOfResponse = deps.querier.query_wasm_smart(
         nft_contract,
-        &cw721::Cw721QueryMsg::OwnerOf {
+        &cw721::msg::Cw721QueryMsg::<
+            DefaultOptionalNftExtension,
+            DefaultOptionalCollectionExtension,
+            Empty,
+        >::OwnerOf {
             token_id,
             include_expired: None,
         },
