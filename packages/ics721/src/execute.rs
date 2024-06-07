@@ -603,14 +603,14 @@ where
             };
             CLASS_ID_AND_NFT_CONTRACT_INFO.save(deps.storage, &class.id, &class_id_info)?;
 
-            let admin = ADMIN_USED_FOR_CW721
+            let cw721_admin = ADMIN_USED_FOR_CW721
                 .load(deps.storage)?
                 .map(|a| a.to_string());
             let message = SubMsg::<T>::reply_on_success(
                 WasmMsg::Instantiate2 {
-                    admin,
+                    admin: cw721_admin.clone(),
                     code_id: cw721_code_id,
-                    msg: self.init_msg(deps.as_ref(), env, &class)?,
+                    msg: self.init_msg(deps.as_ref(), env, &class, cw721_admin)?,
                     funds: vec![],
                     // Attempting to fit the class ID in the label field
                     // can make this field too long which causes data
@@ -625,7 +625,13 @@ where
     }
 
     /// Default implementation using `cw721_base::msg::InstantiateMsg`
-    fn init_msg(&self, deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
+    fn init_msg(
+        &self,
+        deps: Deps,
+        env: &Env,
+        class: &Class,
+        cw721_admin: Option<String>,
+    ) -> StdResult<Binary> {
         // use ics721 creator for withdraw address
         let ContractInfoResponse { creator, .. } = deps
             .querier
@@ -637,7 +643,7 @@ where
                 name: class.id.clone().into(),
                 symbol: class.id.clone().into(),
                 minter: Some(env.contract.address.to_string()),
-                creator: None,
+                creator: cw721_admin,
                 collection_info_extension: None,
                 withdraw_address: Some(creator),
             };

@@ -17,6 +17,7 @@ use cw_multi_test::{
     AddressGenerator, App, AppBuilder, BankKeeper, Contract, ContractWrapper, DistributionKeeper,
     Executor, FailingModule, IbcAcceptingModule, Router, StakeKeeper, StargateFailing, WasmKeeper,
 };
+use cw_ownable::Ownership;
 use cw_pause_once::PauseError;
 use sha2::{digest::Update, Digest, Sha256};
 
@@ -287,6 +288,7 @@ struct Test {
     ics721_id: u64,
     ics721: Addr,
     nfts_minted: usize,
+    admin_and_pauser: Option<Addr>,
 }
 
 impl Test {
@@ -345,7 +347,7 @@ impl Test {
             false => None,
         };
 
-        let admin = admin_and_pauser
+        let admin_and_pauser = admin_and_pauser
             .clone()
             .map(|p| app.api().addr_make(&p).to_string());
         let ics721 = app
@@ -356,13 +358,13 @@ impl Test {
                     cw721_base_code_id: source_cw721_id,
                     incoming_proxy,
                     outgoing_proxy,
-                    pauser: admin.clone(),
-                    cw721_admin: admin.clone(),
+                    pauser: admin_and_pauser.clone(),
+                    cw721_admin: admin_and_pauser.clone(),
                     contract_addr_length: None,
                 },
                 &[],
                 "ics721-base",
-                admin.clone(),
+                admin_and_pauser.clone(),
             )
             .unwrap();
 
@@ -401,6 +403,7 @@ impl Test {
                 .unwrap(),
         };
 
+        let admin_and_pauser = admin_and_pauser.map(Addr::unchecked);
         Self {
             app,
             source_cw721_owner,
@@ -409,6 +412,7 @@ impl Test {
             ics721_id,
             ics721,
             nfts_minted: 0,
+            admin_and_pauser,
         }
     }
 
@@ -691,7 +695,7 @@ fn test_do_instantiate_and_mint_weird_data() {
 }
 
 #[test]
-fn test_do_instantiate_and_mint() {
+fn test_create_vouchers() {
     // test case: instantiate cw721 with no ClassData (without owner, name, and symbol)
     {
         let mut test = Test::new(false, false, None, None, cw721_base_contract(), true);
@@ -769,6 +773,22 @@ fn test_do_instantiate_and_mint() {
                 updated_at: contract_info.updated_at, // ignore this field
             }
         );
+
+        // check creator ownership is set to ics721
+        #[allow(deprecated)]
+        let creator_ownership: Ownership<Addr> = test
+            .app
+            .wrap()
+            .query_wasm_smart(
+                nft_contract.clone(),
+                &Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::GetCreatorOwnership {},
+            )
+            .unwrap();
+        assert_eq!(creator_ownership.owner, Some(test.ics721.clone()));
 
         // Check that token_uri was set properly.
         let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
@@ -1391,6 +1411,145 @@ fn test_do_instantiate_and_mint() {
             .unwrap();
         assert_eq!(base_owner, owner);
     }
+}
+
+#[test]
+fn test_create_vouchers_with_cw721_admin() {
+    let ics721_creator = Some(ICS721_CREATOR.to_string());
+    let mut test = Test::new(
+        false,
+        false,
+        None,
+        ics721_creator,
+        cw721_base_contract(),
+        true,
+    );
+    let collection_contract_source_chain =
+        ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
+    let class_id = format!(
+        "wasm.{}/{}/{}",
+        test.ics721, CHANNEL_TARGET_CHAIN, collection_contract_source_chain
+    );
+    test.app
+        .execute_contract(
+            test.ics721.clone(),
+            test.ics721.clone(),
+            &ExecuteMsg::Callback(CallbackMsg::CreateVouchers {
+                receiver: test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN).to_string(),
+                create: VoucherCreation {
+                    class: Class {
+                        id: ClassId::new(class_id.clone()),
+                        uri: Some("https://moonphase.is".to_string()),
+                        data: None, // no class data
+                    },
+                    tokens: vec![
+                        Token {
+                            id: TokenId::new("1"),
+                            uri: Some("https://moonphase.is/image.svg".to_string()),
+                            data: None,
+                        },
+                        Token {
+                            id: TokenId::new("2"),
+                            uri: Some("https://foo.bar".to_string()),
+                            data: None,
+                        },
+                    ],
+                },
+            }),
+            &[],
+        )
+        .unwrap();
+    // Check entry added in CLASS_ID_TO_NFT_CONTRACT
+    let nft_contracts = test.query_nft_contracts();
+    assert_eq!(nft_contracts.len(), 1);
+    assert_eq!(nft_contracts[0].0, class_id);
+    // Get the address of the instantiated NFT.
+    let nft_contract: Addr = test
+        .app
+        .wrap()
+        .query_wasm_smart(
+            test.ics721.clone(),
+            &QueryMsg::NftContract {
+                class_id: class_id.to_string(),
+            },
+        )
+        .unwrap();
+
+    // check name and symbol contains class id for instantiated nft contract
+    #[allow(deprecated)]
+    let contract_info: cw721::ContractInfoResponse = test
+        .app
+        .wrap()
+        .query_wasm_smart(
+            nft_contract.clone(),
+            &Cw721QueryMsg::<
+                DefaultOptionalNftExtension,
+                DefaultOptionalCollectionExtension,
+                Empty,
+            >::ContractInfo {},
+        )
+        .unwrap();
+    assert_eq!(
+        contract_info,
+        cw721::msg::CollectionInfoAndExtensionResponse::<DefaultOptionalCollectionExtension> {
+            name: class_id.to_string(),   // name is set to class_id
+            symbol: class_id.to_string(), // symbol is set to class_id
+            extension: None,
+            updated_at: contract_info.updated_at, // ignore this field
+        }
+    );
+
+    // check creator ownership is set to ics721 creator
+    #[allow(deprecated)]
+    let creator_ownership: Ownership<Addr> = test
+        .app
+        .wrap()
+        .query_wasm_smart(
+            nft_contract.clone(),
+            &Cw721QueryMsg::<
+                DefaultOptionalNftExtension,
+                DefaultOptionalCollectionExtension,
+                Empty,
+            >::GetCreatorOwnership {},
+        )
+        .unwrap();
+
+    assert_eq!(creator_ownership.owner, test.admin_and_pauser);
+
+    // Check that token_uri was set properly.
+    let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
+        .app
+        .wrap()
+        .query_wasm_smart(
+            nft_contract.clone(),
+            &cw721::msg::Cw721QueryMsg::<
+                DefaultOptionalNftExtension,
+                DefaultOptionalCollectionExtension,
+                Empty,
+            >::NftInfo {
+                token_id: "1".to_string(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        token_info.token_uri,
+        Some("https://moonphase.is/image.svg".to_string())
+    );
+    let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
+        .app
+        .wrap()
+        .query_wasm_smart(
+            nft_contract.clone(),
+            &cw721::msg::Cw721QueryMsg::<
+                DefaultOptionalNftExtension,
+                DefaultOptionalCollectionExtension,
+                Empty,
+            >::NftInfo {
+                token_id: "2".to_string(),
+            },
+        )
+        .unwrap();
+    assert_eq!(token_info.token_uri, Some("https://foo.bar".to_string()));
 }
 
 #[test]

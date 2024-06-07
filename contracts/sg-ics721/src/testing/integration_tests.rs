@@ -23,7 +23,10 @@ use ics721::{
     ibc::Ics721Ibc,
     msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
     query::Ics721Query,
-    state::{CollectionData, UniversalCollectionInfoResponse, UniversalNftInfoResponse},
+    state::{
+        CollectionData, UniversalAllNftInfoResponse, UniversalCollectionInfoResponse,
+        UniversalNftInfoResponse,
+    },
     token_types::VoucherCreation,
 };
 use ics721_types::{
@@ -40,6 +43,7 @@ use crate::{
 };
 
 const ICS721_CREATOR: &str = "ics721-creator";
+const ICS721_ADMIN: &str = "ics721-admin";
 const CONTRACT_NAME: &str = "crates.io:sg-ics721";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -289,6 +293,8 @@ struct Test {
     ics721_id: u64,
     ics721: Addr,
     nfts_minted: usize,
+    #[allow(dead_code)] //TODO: will be used once sg721 migrates to cw721 v19
+    admin_and_pauser: Option<Addr>,
 }
 
 impl Test {
@@ -346,7 +352,7 @@ impl Test {
             false => None,
         };
 
-        let admin = admin_and_pauser
+        let admin_and_pauser = admin_and_pauser
             .clone()
             .map(|p| app.api().addr_make(&p).to_string());
         let ics721 = app
@@ -357,13 +363,13 @@ impl Test {
                     cw721_base_code_id: source_cw721_id,
                     incoming_proxy,
                     outgoing_proxy,
-                    pauser: admin.clone(),
-                    cw721_admin: admin,
+                    pauser: admin_and_pauser.clone(),
+                    cw721_admin: admin_and_pauser.clone(),
                     contract_addr_length: None,
                 },
                 &[],
                 "sg-ics721",
-                admin_and_pauser.map(|p| app.api().addr_make(&p).to_string()),
+                admin_and_pauser.clone(),
             )
             .unwrap();
 
@@ -393,6 +399,7 @@ impl Test {
             )
             .unwrap();
 
+        let admin_and_pauser = admin_and_pauser.map(Addr::unchecked);
         Self {
             app,
             source_cw721_owner,
@@ -401,6 +408,7 @@ impl Test {
             ics721_id,
             ics721,
             nfts_minted: 0,
+            admin_and_pauser,
         }
     }
 
@@ -516,6 +524,23 @@ impl Test {
             .unwrap()
     }
 
+    fn query_cw721_all_nft_info(&mut self, token_id: String) -> UniversalAllNftInfoResponse {
+        self.app
+            .wrap()
+            .query_wasm_smart(
+                self.source_cw721.clone(),
+                &cw721_base::msg::QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::AllNftInfo {
+                    token_id,
+                    include_expired: None,
+                },
+            )
+            .unwrap()
+    }
+
     fn execute_cw721_mint(&mut self, owner: Addr) -> Result<String, anyhow::Error> {
         self.nfts_minted += 1;
 
@@ -595,7 +620,13 @@ fn outgoing_proxy_contract() -> Box<dyn Contract<Empty>> {
 
 #[test]
 fn test_instantiate() {
-    let mut test = Test::new(true, true, None, None, sg721_base_contract());
+    let mut test = Test::new(
+        true,
+        true,
+        None,
+        Some(ICS721_ADMIN.to_string()),
+        sg721_base_contract(),
+    );
 
     // check stores are properly initialized
     let cw721_id = test.query_cw721_id();
@@ -610,6 +641,8 @@ fn test_instantiate() {
     assert!(outgoing_proxy.is_some());
     let incoming_proxy = test.query_incoming_proxy();
     assert!(incoming_proxy.is_some());
+    let cw721_admin = test.query_cw721_admin();
+    assert_eq!(cw721_admin, Some(test.app.api().addr_make(ICS721_ADMIN)));
 }
 
 #[test]
@@ -663,7 +696,7 @@ fn test_do_instantiate_and_mint_weird_data() {
 }
 
 #[test]
-fn test_do_instantiate_and_mint() {
+fn test_create_vouchers() {
     // test case: instantiate cw721 with no ClassData (without owner, name, and symbol)
     {
         let mut test = Test::new(false, false, None, None, sg721_base_contract());
@@ -739,6 +772,23 @@ fn test_do_instantiate_and_mint() {
                 symbol: class_id.to_string(), // symbol is set to class_id
             }
         );
+
+        // TODO: once sg721 migrates to cw721 v19, check creator ownership
+        // // check creator ownership is set to ics721
+        // #[allow(deprecated)]
+        // let creator_ownership: Ownership<Addr> = test
+        //     .app
+        //     .wrap()
+        //     .query_wasm_smart(
+        //         nft_contract.clone(),
+        //         &Cw721QueryMsg::<
+        //             DefaultOptionalNftExtension,
+        //             DefaultOptionalCollectionExtension,
+        //             Empty,
+        //         >::GetCreatorOwnership {},
+        //     )
+        //     .unwrap();
+        // assert_eq!(creator_ownership.owner, Some(test.ics721.clone()));
 
         // check collection info is properly set
         let collection_info: CollectionInfoResponse = test
@@ -1638,6 +1688,10 @@ fn test_do_instantiate_and_mint() {
     }
 }
 
+// TODO: once sg721 migrates to cw721 v19, check creator ownership, check and copy-pase integration test in ics721 package
+// #[test]
+// fn test_create_vouchers_with_cw721_admin() {}
+
 #[test]
 fn test_do_instantiate_and_mint_2_different_collections() {
     // test case: instantiate two cw721 contracts with different class id and make sure instantiate2 creates 2 different, predictable contracts
@@ -2421,6 +2475,150 @@ fn test_receive_nft() {
         class_data_attribute.value,
         format!("{expected_collection_data:?}")
     );
+}
+
+#[test]
+fn test_admin_clean_and_unescrow_nft() {
+    // test case: receive nft from cw721-base
+    {
+        let mut test = Test::new(
+            false,
+            false,
+            None,
+            Some(ICS721_ADMIN_AND_PAUSER.to_string()),
+            sg721_base_contract(),
+        );
+        // simplify: mint and escrowed/owned by ics721, as a precondition for receive nft
+        let token_id_escrowed_by_ics721 = test.execute_cw721_mint(test.ics721.clone()).unwrap();
+        let recipient = test.app.api().addr_make("recipient");
+        let token_id_from_owner = test.execute_cw721_mint(recipient.clone()).unwrap();
+        let channel = "channel-0".to_string();
+        test.app
+            .execute_contract(
+                test.source_cw721.clone(),
+                test.ics721.clone(),
+                &ExecuteMsg::ReceiveNft(cw721::receiver::Cw721ReceiveMsg {
+                    sender: test.source_cw721_owner.to_string(),
+                    token_id: token_id_escrowed_by_ics721.clone(),
+                    msg: to_json_binary(&IbcOutgoingMsg {
+                        receiver: NFT_OWNER_TARGET_CHAIN.to_string(), // nft owner for other chain, on this chain ics721 is owner
+                        channel_id: channel.clone(),
+                        timeout: IbcTimeout::with_block(IbcTimeoutBlock {
+                            revision: 0,
+                            height: 10,
+                        }),
+                        memo: None,
+                    })
+                    .unwrap(),
+                }),
+                &[],
+            )
+            .unwrap();
+        // check outgoing channel entry
+        let outgoing_channel = test.query_outgoing_channels();
+        assert_eq!(outgoing_channel.len(), 1);
+        let class_id = ClassId::new(test.source_cw721.to_string());
+        assert_eq!(
+            outgoing_channel,
+            vec![(
+                (class_id.to_string(), token_id_escrowed_by_ics721.clone()),
+                channel.clone()
+            )]
+        );
+        // assert nft is escrowed
+        let UniversalAllNftInfoResponse { access, .. } =
+            test.query_cw721_all_nft_info(token_id_escrowed_by_ics721.clone());
+        assert_eq!(access.owner, test.ics721.to_string());
+
+        // non admin can't call
+        let non_admin = test.app.api().addr_make("not_admin");
+        let admin = test.app.api().addr_make(ICS721_ADMIN_AND_PAUSER);
+        let clean_and_burn_msg = ExecuteMsg::AdminCleanAndBurnNft {
+            owner: recipient.to_string(),
+            token_id: token_id_escrowed_by_ics721.clone(),
+            class_id: class_id.to_string(),
+            collection: test.source_cw721.to_string(),
+        };
+        let err: ContractError = test
+            .app
+            .execute_contract(
+                non_admin.clone(),
+                test.ics721.clone(),
+                &clean_and_burn_msg,
+                &[],
+            )
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(err, ContractError::Unauthorized {});
+
+        let clean_and_unescrow_msg = ExecuteMsg::AdminCleanAndUnescrowNft {
+            recipient: recipient.to_string(),
+            token_id: token_id_from_owner.clone(), // not escrowed by ics721
+            class_id: class_id.to_string(),
+            collection: test.source_cw721.to_string(),
+        };
+        let err: ContractError = test
+            .app
+            .execute_contract(
+                admin.clone(),
+                test.ics721.clone(),
+                &clean_and_unescrow_msg,
+                &[],
+            )
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(
+            err,
+            ContractError::NotEscrowedByIcs721(recipient.to_string())
+        );
+
+        // unknown class id
+        let clean_and_unescrow_msg = ExecuteMsg::AdminCleanAndUnescrowNft {
+            recipient: recipient.to_string(),
+            token_id: token_id_escrowed_by_ics721.to_string(),
+            class_id: "unknown".to_string(),
+            collection: test.source_cw721.to_string(),
+        };
+        let err: ContractError = test
+            .app
+            .execute_contract(
+                admin.clone(),
+                test.ics721.clone(),
+                &clean_and_unescrow_msg,
+                &[],
+            )
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(
+            err,
+            ContractError::NoNftContractForClassId("unknown".to_string())
+        );
+
+        let clean_and_unescrow_msg = ExecuteMsg::AdminCleanAndUnescrowNft {
+            recipient: recipient.to_string(),
+            token_id: token_id_escrowed_by_ics721.clone(),
+            class_id: class_id.to_string(),
+            collection: test.source_cw721.to_string(),
+        };
+        test.app
+            .execute_contract(
+                admin.clone(),
+                test.ics721.clone(),
+                &clean_and_unescrow_msg,
+                &[],
+            )
+            .unwrap();
+        // asert outgoing channel entry is removed
+        let outgoing_channel = test.query_outgoing_channels();
+        assert_eq!(outgoing_channel.len(), 0);
+        // check nft is unescrowed
+        let UniversalAllNftInfoResponse { access, .. } =
+            test.query_cw721_all_nft_info(token_id_escrowed_by_ics721.clone());
+        assert_eq!(access.owner, recipient.to_string());
+    }
 }
 
 /// In case proxy for ICS721 is defined, ICS721 only accepts receival from proxy - not from nft contract!
