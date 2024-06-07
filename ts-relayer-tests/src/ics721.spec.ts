@@ -56,7 +56,9 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
   t.context.osmoClient = await setupOsmosisClient(MNEMONIC);
 
   t.context.wasmAddr = t.context.wasmClient.senderAddress;
+  t.log(`wasm client address: ${t.context.wasmAddr}`);
   t.context.osmoAddr = t.context.osmoClient.senderAddress;
+  t.log(`osmo client address: ${t.context.osmoAddr}`);
 
   const { wasmClient, osmoClient } = t.context;
 
@@ -331,6 +333,7 @@ test.serial('transfer NFT: wasmd -> osmo', async (t) => {
     },
   };
   transferResponse = await sendNft(wasmClient, wasmCw721, wasmCw721OutgoingProxy, ibcMsg, tokenId);
+  t.log(`- transfer response: ${JSON.stringify(transferResponse)}`);
   t.truthy(transferResponse);
 
   // Relay and verify we got an error
