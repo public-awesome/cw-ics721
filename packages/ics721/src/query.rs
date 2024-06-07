@@ -96,6 +96,8 @@ pub fn query_nft_contract_for_class_id(
         .map(|e| e.map(|(_, v)| v.address))
 }
 
+/// Returns the address of the instantiated NFT contract for the given class_id.
+/// If cw721_code_id is None, it will use the default CW721_CODE_ID.
 pub fn query_get_instantiate2_nft_contract(
     deps: Deps,
     env: &Env,
