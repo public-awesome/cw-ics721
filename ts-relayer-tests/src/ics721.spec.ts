@@ -333,7 +333,7 @@ test.serial('transfer NFT: wasmd -> osmo', async (t) => {
     },
   };
   transferResponse = await sendNft(wasmClient, wasmCw721, wasmCw721OutgoingProxy, ibcMsg, tokenId);
-  t.log(`- transfer response: ${JSON.stringify(transferResponse)}`);
+  t.log(`- transfer response: ${JSON.stringify(transferResponse, bigIntReplacer, 2)}`);
   t.truthy(transferResponse);
 
   // Relay and verify we got an error
