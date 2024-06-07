@@ -45,9 +45,9 @@ interface TestContext {
 
 const test = anyTest as TestFn<TestContext>;
 
-const WASM_FILE_CW721 = './internal/cw721_base_v0.18.0.wasm';
-const WASM_FILE_CW721_INCOMING_PROXY = './internal/cw721_incoming_proxy.wasm';
-const WASM_FILE_CW721_OUTGOING_PROXY = './internal/cw721_outgoing_proxy_rate_limit.wasm';
+const WASM_FILE_CW721 = './internal/cw721_base_v0.19.0.wasm';
+const WASM_FILE_CW721_INCOMING_PROXY = './internal/cw_ics721_incoming_proxy_base.wasm';
+const WASM_FILE_CW721_OUTGOING_PROXY = './internal/cw_ics721_outgoing_proxy_rate_limit.wasm';
 const WASM_FILE_CW_ICS721_ICS721 = './internal/ics721_base.wasm';
 const MALICIOUS_CW721 = './internal/cw721_tester.wasm';
 

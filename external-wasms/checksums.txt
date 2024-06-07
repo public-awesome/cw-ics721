@@ -1,0 +1,3 @@
+cw721_base_v0.19.0.wasm 96b5cd406ec19804d12052f9a87b78989c9094d319b5dabdb45e975258ec6575, collection-info branch: https://github.com/arkprotocol/cw-nfts/tree/228c9ef0c9ff9386a964296e0924b27b57cc5083
+cw_ics721_incoming_proxy_base.wasm 32dd48b27688b4f7783bccd506006b6c0754db79deccca92a9db13d8e4aa7355, https://github.com/arkprotocol/cw-ics721-proxy/releases/tag/v0.1.1
+cw_ics721_outgoing_proxy_rate_limit.wasm aae9d990fa4bd4b2d25692c0d6496b52865c64fdb2df3911deb093060871a72f, https://github.com/arkprotocol/cw-ics721-proxy/releases/tag/v0.1.1
