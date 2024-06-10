@@ -55,14 +55,35 @@ pub(crate) fn receive_ibc_packet(
     let incoming_proxy_msg =
         get_incoming_proxy_msg(deps.as_ref().storage, packet.clone(), data.clone())?;
     // - one optional callback message
-    let callback_msg = create_callback_msg(
-        deps.as_ref(),
-        &env,
-        &data,
-        is_redemption,
-        callback,
-        local_class_id,
-    )?;
+    // callback require the nft contract, get it using the class id from the action
+    let nft_contract = if is_redemption {
+        // If its a redemption, it means we already have the contract address in storage
+
+        load_nft_contract_for_class_id(deps.storage, local_class_id.to_string())
+            .map_err(|_| ContractError::NoNftContractForClassId(local_class_id.to_string()))
+    } else {
+        let nft_contract =
+            match query_nft_contract_for_class_id(deps.storage, local_class_id.clone()) {
+                Ok(nft_contract) => nft_contract,
+                Err(_) => None, // not found, occurs on initial transfer when we don't have the contract address
+            };
+        match nft_contract {
+            Some(nft_contract) => Ok(nft_contract),
+            None => {
+                // contract not yet instantiated, so we use instantiate2 to get the contract address
+                let cw721_code_id = CW721_CODE_ID.load(deps.storage)?;
+                query_get_instantiate2_nft_contract(
+                    deps.as_ref(),
+                    &env,
+                    local_class_id.clone(),
+                    Some(cw721_code_id),
+                )
+            }
+        }
+    }?;
+
+    let callback_msg =
+        create_callback_msg(deps.as_ref(), &data, nft_contract.to_string(), callback)?;
 
     let submessage = into_submessage(
         env.contract.address,
@@ -81,6 +102,8 @@ pub(crate) fn receive_ibc_packet(
     Ok(response
         .add_submessage(submessage)
         .add_attribute("method", "receive_ibc_packet")
+        .add_attribute("nft_contract", nft_contract.to_string())
+        .add_attribute("is_redemption", is_redemption.to_string())
         .add_attribute("class_id", data.class_id)
         .add_attribute("local_channel", packet.dest.channel_id)
         .add_attribute("counterparty_channel", packet.src.channel_id))
@@ -217,40 +240,11 @@ fn create_voucher_and_channel_messages(
 
 fn create_callback_msg(
     deps: Deps,
-    env: &Env,
     data: &NonFungibleTokenPacketData,
-    is_redemption: bool,
+    nft_contract: String,
     callback: Option<(Binary, Option<String>)>,
-    local_class_id: ClassId,
 ) -> Result<Option<WasmMsg>, ContractError> {
     if let Some((receive_callback_data, receive_callback_addr)) = callback {
-        // callback require the nft contract, get it using the class id from the action
-        let nft_contract = if is_redemption {
-            // If its a redemption, it means we already have the contract address in storage
-
-            load_nft_contract_for_class_id(deps.storage, local_class_id.to_string())
-                .map_err(|_| ContractError::NoNftContractForClassId(local_class_id.to_string()))
-        } else {
-            let nft_contract =
-                match query_nft_contract_for_class_id(deps.storage, local_class_id.clone()) {
-                    Ok(nft_contract) => nft_contract,
-                    Err(_) => None, // not found, occurs on initial transfer when we don't have the contract address
-                };
-            match nft_contract {
-                Some(nft_contract) => Ok(nft_contract),
-                None => {
-                    // contract not yet instantiated, so we use instantiate2 to get the contract address
-                    let cw721_code_id = CW721_CODE_ID.load(deps.storage)?;
-                    query_get_instantiate2_nft_contract(
-                        deps,
-                        env,
-                        local_class_id.clone(),
-                        Some(cw721_code_id),
-                    )
-                }
-            }
-        }?;
-
         Ok(generate_receive_callback_msg(
             deps,
             data,

@@ -164,18 +164,20 @@ where
 
             let token_ids = format!("{:?}", msg.token_ids);
             let event = Event::new("ics721_ack_burn_vouchers")
-                .add_attribute("class_id", msg.class_id.to_string())
                 .add_attribute("nft_contract", nft_contract.clone())
+                .add_attribute("class_id", msg.class_id.to_string())
                 .add_attribute("token_ids", token_ids.clone());
 
             Ok(IbcBasicResponse::new()
-                .add_messages(burn_notices)
-                .add_submessages(callback)
-                .add_attribute("method", "acknowledge")
+                .add_attribute("burn_notices", (!burn_notices.is_empty()).to_string())
+                .add_attribute("method", "ibc_packet_ack_success")
                 .add_attribute("sender", msg.sender)
                 .add_attribute("receiver", msg.receiver)
+                .add_attribute("nft_contract", nft_contract)
                 .add_attribute("classId", msg.class_id)
                 .add_attribute("token_ids", token_ids)
+                .add_messages(burn_notices)
+                .add_submessages(callback)
                 .add_event(event))
         }
     }
@@ -232,7 +234,7 @@ where
         Ok(IbcBasicResponse::new()
             .add_messages(messages)
             .add_submessages(callback)
-            .add_attribute("method", "handle_packet_fail")
+            .add_attribute("method", "ibc_packet_ack_fail")
             .add_attribute("token_ids", format!("{:?}", message.token_ids))
             .add_attribute("class_id", message.class_id)
             .add_attribute("channel_id", packet.src.channel_id)
