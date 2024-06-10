@@ -43,9 +43,9 @@ func (suite *TransferTestSuite) SetupTest() {
 	require.Equal(suite.T(), uint64(1), chainBStoreResp.CodeID)
 
 	// Store the cw721 contract.
-	chainAStoreResp = suite.chainA.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	chainAStoreResp = suite.chainA.StoreCodeFile("../external-wasms/cw721_base_v0.19.0.wasm")
 	require.Equal(suite.T(), uint64(2), chainAStoreResp.CodeID)
-	chainBStoreResp = suite.chainB.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	chainBStoreResp = suite.chainB.StoreCodeFile("../external-wasms/cw721_base_v0.19.0.wasm")
 	require.Equal(suite.T(), uint64(2), chainBStoreResp.CodeID)
 
 	instantiateICS721 := InstantiateICS721Bridge{
@@ -263,7 +263,7 @@ func TestIBC(t *testing.T) {
 func instantiateBridge(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAddress {
 	// Store the contracts.
 	bridgeresp := chain.StoreCodeFile("../artifacts/ics721_base.wasm")
-	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.19.0.wasm")
 
 	// Instantiate the ICS721 contract.
 	instantiateICS721 := InstantiateICS721Bridge{
@@ -278,7 +278,7 @@ func instantiateBridge(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAdd
 }
 
 func instantiateCw721(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAddress {
-	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.19.0.wasm")
 	cw721Instantiate := InstantiateCw721{
 		"bad/kids",
 		"bad/kids",
@@ -612,9 +612,9 @@ func TestCloseRejected(t *testing.T) {
 	require.Equal(t, uint64(1), chainBStoreResp.CodeID)
 
 	// Store the cw721 contract.
-	chainAStoreResp = chainA.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	chainAStoreResp = chainA.StoreCodeFile("../external-wasms/cw721_base_v0.19.0.wasm")
 	require.Equal(t, uint64(2), chainAStoreResp.CodeID)
-	chainBStoreResp = chainB.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	chainBStoreResp = chainB.StoreCodeFile("../external-wasms/cw721_base_v0.19.0.wasm")
 	require.Equal(t, uint64(2), chainBStoreResp.CodeID)
 
 	// Store the cw721_base contract.
