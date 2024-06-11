@@ -23,8 +23,8 @@ use crate::{
         Ics721Query,
     },
     state::{
-        CollectionData, ADMIN_USED_FOR_CW721, CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH,
-        CW721_CODE_ID, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
+        CollectionData, CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_ADMIN, CW721_CODE_ID,
+        CW721_CREATOR, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
     },
     utils::get_collection_data,
 };
@@ -39,6 +39,8 @@ const CLASS_ID_1: &str = "some/class/id1";
 const CLASS_ID_2: &str = "some/class/id2";
 const OWNER_ADDR: &str = "owner";
 const ADMIN_ADDR: &str = "admin";
+const CW721_ADMIN_ADDR: &str = "cw721_admin";
+const CW721_CREATOR_ADDR: &str = "cw721_creator";
 const PAUSER_ADDR: &str = "pauser";
 
 #[derive(Default)]
@@ -552,7 +554,8 @@ fn instantiate_msg(
         incoming_proxy,
         outgoing_proxy,
         pauser: Some(PAUSER_ADDR.to_string()),
-        cw721_admin: Some(ADMIN_ADDR.to_string()),
+        cw721_admin: Some(CW721_ADMIN_ADDR.to_string()),
+        cw721_creator: Some(CW721_CREATOR_ADDR.to_string()),
         contract_addr_length: None,
     }
 }
@@ -601,7 +604,8 @@ fn test_instantiate() {
         ))
         .add_attribute("method", "instantiate")
         .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string())
-        .add_attribute("cw721_admin", ADMIN_ADDR)
+        .add_attribute("cw721_admin", CW721_ADMIN_ADDR)
+        .add_attribute("cw721_creator", CW721_CREATOR_ADDR)
         .add_attribute("contract_addr_length", "20");
     assert_eq!(response, expected_response);
     assert_eq!(CW721_CODE_ID.load(&deps.storage).unwrap(), 0);
@@ -614,8 +618,12 @@ fn test_instantiate() {
     );
     assert!(!PO.paused.load(&deps.storage).unwrap());
     assert_eq!(
-        ADMIN_USED_FOR_CW721.load(&deps.storage).unwrap(),
-        Some(Addr::unchecked(ADMIN_ADDR.to_string()))
+        CW721_ADMIN.load(&deps.storage).unwrap(),
+        Some(Addr::unchecked(CW721_ADMIN_ADDR.to_string()))
+    );
+    assert_eq!(
+        CW721_CREATOR.load(&deps.storage).unwrap(),
+        Some(Addr::unchecked(CW721_CREATOR_ADDR.to_string()))
     );
     assert_eq!(CONTRACT_ADDR_LENGTH.load(&deps.storage).unwrap(), 20);
 }
@@ -635,6 +643,7 @@ fn test_migrate() {
         incoming_proxy: Some("incoming".to_string()),
         cw721_base_code_id: Some(1),
         cw721_admin: Some("some_other_admin".to_string()),
+        cw721_creator: Some("some_other_creator".to_string()),
         contract_addr_length: Some(20),
     };
 
@@ -689,7 +698,7 @@ fn test_migrate() {
     );
     assert_eq!(CW721_CODE_ID.load(&deps.storage).unwrap(), 1);
     assert_eq!(
-        ADMIN_USED_FOR_CW721.load(&deps.storage).unwrap(),
+        CW721_ADMIN.load(&deps.storage).unwrap(),
         Some(Addr::unchecked("some_other_admin"))
     );
     assert_eq!(CONTRACT_ADDR_LENGTH.load(&deps.storage).unwrap(), 20);

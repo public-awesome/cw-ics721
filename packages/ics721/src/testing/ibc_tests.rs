@@ -138,6 +138,7 @@ fn do_instantiate(deps: DepsMut, env: Env, sender: &str) -> StdResult<Response> 
         outgoing_proxy: None,
         pauser: None,
         cw721_admin: None,
+        cw721_creator: None,
         contract_addr_length: None,
     };
     Ics721Contract::default().instantiate(deps, env, mock_info(sender, &[]), msg)

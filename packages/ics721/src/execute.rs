@@ -28,8 +28,8 @@ use crate::{
         query_nft_contract_for_class_id, query_nft_contracts,
     },
     state::{
-        ClassIdInfo, CollectionData, UniversalAllNftInfoResponse, ADMIN_USED_FOR_CW721,
-        CLASS_ID_AND_NFT_CONTRACT_INFO, CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_CODE_ID,
+        ClassIdInfo, CollectionData, UniversalAllNftInfoResponse, CLASS_ID_AND_NFT_CONTRACT_INFO,
+        CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_ADMIN, CW721_CODE_ID, CW721_CREATOR,
         INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
         OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
@@ -72,9 +72,17 @@ where
             ));
         }
 
-        ADMIN_USED_FOR_CW721.save(
+        CW721_ADMIN.save(
             deps.storage,
             &msg.cw721_admin
+                .as_ref()
+                .map(|h| deps.api.addr_validate(h))
+                .transpose()?,
+        )?;
+
+        CW721_CREATOR.save(
+            deps.storage,
+            &msg.cw721_creator
                 .as_ref()
                 .map(|h| deps.api.addr_validate(h))
                 .transpose()?,
@@ -93,8 +101,29 @@ where
             .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string())
             .add_attribute(
                 "cw721_admin",
-                msg.cw721_admin
-                    .map_or_else(|| "immutable".to_string(), |or| or),
+                msg.cw721_admin.map_or_else(
+                    || "immutable".to_string(),
+                    |or| {
+                        if or.is_empty() {
+                            "immutable".to_string()
+                        } else {
+                            or
+                        }
+                    },
+                ),
+            )
+            .add_attribute(
+                "cw721_creator",
+                msg.cw721_creator.map_or_else(
+                    || "none".to_string(),
+                    |or| {
+                        if or.is_empty() {
+                            "none".to_string()
+                        } else {
+                            or
+                        }
+                    },
+                ),
             )
             .add_attribute(
                 "contract_addr_length",
@@ -603,14 +632,12 @@ where
             };
             CLASS_ID_AND_NFT_CONTRACT_INFO.save(deps.storage, &class.id, &class_id_info)?;
 
-            let cw721_admin = ADMIN_USED_FOR_CW721
-                .load(deps.storage)?
-                .map(|a| a.to_string());
+            let cw721_admin = CW721_ADMIN.load(deps.storage)?.map(|a| a.to_string());
             let message = SubMsg::<T>::reply_on_success(
                 WasmMsg::Instantiate2 {
-                    admin: cw721_admin.clone(),
+                    admin: cw721_admin,
                     code_id: cw721_code_id,
-                    msg: self.init_msg(deps.as_ref(), env, &class, cw721_admin)?,
+                    msg: self.init_msg(deps.as_ref(), env, &class)?,
                     funds: vec![],
                     // Attempting to fit the class ID in the label field
                     // can make this field too long which causes data
@@ -625,13 +652,8 @@ where
     }
 
     /// Default implementation using `cw721_base::msg::InstantiateMsg`
-    fn init_msg(
-        &self,
-        deps: Deps,
-        env: &Env,
-        class: &Class,
-        cw721_admin: Option<String>,
-    ) -> StdResult<Binary> {
+    fn init_msg(&self, deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
+        let cw721_creator = CW721_CREATOR.load(deps.storage)?.map(|a| a.to_string());
         // use ics721 creator for withdraw address
         let ContractInfoResponse { creator, .. } = deps
             .querier
@@ -643,7 +665,7 @@ where
                 name: class.id.clone().into(),
                 symbol: class.id.clone().into(),
                 minter: Some(env.contract.address.to_string()),
-                creator: cw721_admin,
+                creator: cw721_creator,
                 collection_info_extension: None,
                 withdraw_address: Some(creator),
             };
@@ -781,6 +803,7 @@ where
                 outgoing_proxy,
                 cw721_base_code_id,
                 cw721_admin,
+                cw721_creator,
                 contract_addr_length,
             } => {
                 // disables incoming proxy if none is provided!
@@ -805,10 +828,19 @@ where
                 }
                 if let Some(cw721_admin) = cw721_admin.clone() {
                     if cw721_admin.is_empty() {
-                        ADMIN_USED_FOR_CW721.save(deps.storage, &None)?;
+                        CW721_ADMIN.save(deps.storage, &None)?;
                     } else {
-                        ADMIN_USED_FOR_CW721
+                        CW721_ADMIN
                             .save(deps.storage, &Some(deps.api.addr_validate(&cw721_admin)?))?;
+                    }
+                }
+
+                if let Some(cw721_creator) = cw721_creator.clone() {
+                    if cw721_creator.is_empty() {
+                        CW721_CREATOR.save(deps.storage, &None)?;
+                    } else {
+                        CW721_CREATOR
+                            .save(deps.storage, &Some(deps.api.addr_validate(&cw721_creator)?))?;
                     }
                 }
 
@@ -840,6 +872,19 @@ where
                             |or| {
                                 if or.is_empty() {
                                     "immutable".to_string()
+                                } else {
+                                    or
+                                }
+                            },
+                        ),
+                    )
+                    .add_attribute(
+                        "cw721_creator",
+                        cw721_creator.map_or_else(
+                            || "none".to_string(),
+                            |or| {
+                                if or.is_empty() {
+                                    "none".to_string()
                                 } else {
                                     or
                                 }

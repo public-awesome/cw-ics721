@@ -1,5 +1,9 @@
 use cosmwasm_std::{from_json, to_json_binary, Addr, Binary, Deps, DepsMut, Env, StdResult};
-use ics721::{execute::Ics721Execute, state::CollectionData, utils::get_collection_data};
+use ics721::{
+    execute::Ics721Execute,
+    state::{CollectionData, CW721_CREATOR},
+    utils::get_collection_data,
+};
 use ics721_types::token_types::Class;
 
 use sg721_base::msg::{CollectionInfoResponse, QueryMsg};
@@ -32,17 +36,19 @@ impl Ics721Execute for SgIcs721Contract {
         }))
     }
 
-    fn init_msg(
-        &self,
-        deps: Deps,
-        env: &Env,
-        class: &Class,
-        _cw721_admin: Option<String>,
-    ) -> StdResult<Binary> {
-        // ics721 creator is used, in case no source owner in class data is provided (e.g. due to nft-transfer module).
-        let ics721_contract_info = deps
-            .querier
-            .query_wasm_contract_info(env.contract.address.to_string())?;
+    fn init_msg(&self, deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
+        let cw721_creator =
+            if let Some(creator) = CW721_CREATOR.load(deps.storage)?.map(|a| a.to_string()) {
+                creator
+            } else {
+                // NOTE: owner in class data comes from other chain and could be: 1. regular wallet, 2. contract, or 3. multisig
+                // bech32 calculation for 2. and 3. leads to unknown address
+                // therefore, we use ics721 creator as owner
+                let ics721_contract_info = deps
+                    .querier
+                    .query_wasm_contract_info(env.contract.address.to_string())?;
+                ics721_contract_info.creator
+            };
         // use by default ClassId, in case there's no class data with name and symbol
         let mut instantiate_msg = sg721::InstantiateMsg {
             name: class.id.clone().into(),
@@ -50,10 +56,7 @@ impl Ics721Execute for SgIcs721Contract {
             minter: env.contract.address.to_string(),
             // creator: cw721_admin, // TODO: once sg721 migrates to cw721 v19, use cw721_admin for setting creator
             collection_info: sg721::CollectionInfo {
-                // source owner could be: 1. regular wallet, 2. contract, or 3. multisig
-                // bech32 calculation for 2. and 3. leads to unknown address
-                // therefore, we use ics721 creator as owner
-                creator: ics721_contract_info.creator,
+                creator: cw721_creator,
                 description: "".to_string(),
                 // use Stargaze icon as placeholder
                 image: STARGAZE_ICON_PLACEHOLDER.to_string(),

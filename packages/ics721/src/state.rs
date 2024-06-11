@@ -9,25 +9,11 @@ use ics721_types::token_types::{Class, ClassId, TokenId};
 /// The code ID we will use for instantiating new cw721s.
 pub const CW721_CODE_ID: Item<u64> = Item::new("a");
 
-/// The incoming proxy that this contract is handling incoming IbcPackets from, if any.
-pub const INCOMING_PROXY: Item<Option<Addr>> = Item::new("k");
 /// The outgoing proxy that this contract is receiving NFTs from, if any.
 pub const OUTGOING_PROXY: Item<Option<Addr>> = Item::new("b");
 
 /// Manages contract pauses.
 pub const PO: PauseOrchestrator = PauseOrchestrator::new("c", "d");
-
-/// Maps classID (from NonFungibleTokenPacketData) to the cw721
-/// contract we have instantiated for that classID.
-/// NOTE: legacy stores with keys `e` and `f` are no longer used.
-pub const CLASS_ID_AND_NFT_CONTRACT_INFO: IndexedMap<&str, ClassIdInfo, ClassIdInfoIndexes> =
-    IndexedMap::new(
-        "m",
-        ClassIdInfoIndexes {
-            class_id: UniqueIndex::new(|d| d.class_id.clone(), "class_id_info__class_id"),
-            address: UniqueIndex::new(|d| d.address.clone(), "class_id_info__address"),
-        },
-    );
 
 /// Maps between classIDs and classs. We need to keep this state
 /// ourselves as cw721 contracts do not have class-level metadata.
@@ -46,13 +32,31 @@ pub const INCOMING_CLASS_TOKEN_TO_CHANNEL: Map<(ClassId, TokenId), String> = Map
 /// it's source chain, the metadata is removed from the map.
 pub const TOKEN_METADATA: Map<(ClassId, TokenId), Option<Binary>> = Map::new("j");
 
+/// The incoming proxy that this contract is handling incoming IbcPackets from, if any.
+pub const INCOMING_PROXY: Item<Option<Addr>> = Item::new("k");
+
 /// The admin address for instantiating new cw721 contracts. In case of None, contract is immutable.
-pub const ADMIN_USED_FOR_CW721: Item<Option<Addr>> = Item::new("l");
+pub const CW721_ADMIN: Item<Option<Addr>> = Item::new("l");
+
+/// Maps classID (from NonFungibleTokenPacketData) to the cw721
+/// contract we have instantiated for that classID.
+/// NOTE: legacy stores with keys `e` and `f` are no longer used.
+pub const CLASS_ID_AND_NFT_CONTRACT_INFO: IndexedMap<&str, ClassIdInfo, ClassIdInfoIndexes> =
+    IndexedMap::new(
+        "m",
+        ClassIdInfoIndexes {
+            class_id: UniqueIndex::new(|d| d.class_id.clone(), "class_id_info__class_id"),
+            address: UniqueIndex::new(|d| d.address.clone(), "class_id_info__address"),
+        },
+    );
 
 /// The optional contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).
 /// So length must be shorter than 32. For example, Injective has 20 length address.
 /// Bug: https://github.com/CosmWasm/cosmwasm/issues/2155
 pub const CONTRACT_ADDR_LENGTH: Item<u32> = Item::new("n");
+
+/// The creator address for instantiating new cw721 contracts. In case of None, sender (=ics721) is used.
+pub const CW721_CREATOR: Item<Option<Addr>> = Item::new("o");
 
 #[derive(Deserialize, Debug, PartialEq)]
 pub struct UniversalAllNftInfoResponse {
