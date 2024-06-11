@@ -1,13 +1,19 @@
 use cosmwasm_schema::cw_serde;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{Binary, Deps, DepsMut, Empty, Env, MessageInfo, Response};
 use cw2::set_contract_version;
-use cw721_base::{msg, ContractError, Extension};
+use cw721_base::{
+    error::ContractError, msg, DefaultOptionalCollectionExtension,
+    DefaultOptionalCollectionExtensionMsg, DefaultOptionalNftExtension,
+    DefaultOptionalNftExtensionMsg,
+};
 use cw_storage_plus::Item;
 
-pub type ExecuteMsg = msg::ExecuteMsg<Extension, Empty>;
-pub type QueryMsg = msg::QueryMsg<Empty>;
+pub type ExecuteMsg =
+    msg::ExecuteMsg<DefaultOptionalNftExtensionMsg, DefaultOptionalCollectionExtensionMsg, Empty>;
+pub type QueryMsg =
+    msg::QueryMsg<DefaultOptionalNftExtension, DefaultOptionalCollectionExtension, Empty>;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -36,10 +42,12 @@ pub fn instantiate(
         deps.branch(),
         env,
         info,
-        msg::InstantiateMsg {
+        msg::InstantiateMsg::<DefaultOptionalCollectionExtensionMsg> {
             name: msg.name,
             symbol: msg.symbol,
             minter: Some(msg.minter),
+            creator: None,
+            collection_info_extension: None,
             withdraw_address: None,
         },
     )?;
@@ -71,6 +79,6 @@ pub fn execute(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
     cw721_base::entry::query(deps, env, msg)
 }

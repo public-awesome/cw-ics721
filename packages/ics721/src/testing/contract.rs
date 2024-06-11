@@ -5,8 +5,11 @@ use cosmwasm_std::{
     to_json_binary, Addr, ContractResult, CosmosMsg, DepsMut, Empty, IbcMsg, IbcTimeout, Order,
     QuerierResult, Response, StdResult, SubMsg, Timestamp, WasmQuery,
 };
-use cw721::{AllNftInfoResponse, NftInfoResponse, NumTokensResponse};
-use cw721_base::QueryMsg;
+use cw721::{
+    msg::{AllNftInfoResponse, NftInfoResponse, NumTokensResponse},
+    DefaultOptionalCollectionExtension, DefaultOptionalNftExtension,
+};
+use cw721_base::msg::QueryMsg;
 use cw_cii::ContractInstantiateInfo;
 use cw_ownable::Ownership;
 use cw_storage_plus::Map;
@@ -20,8 +23,8 @@ use crate::{
         Ics721Query,
     },
     state::{
-        CollectionData, ADMIN_USED_FOR_CW721, CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH,
-        CW721_CODE_ID, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
+        CollectionData, CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_ADMIN, CW721_CODE_ID,
+        CW721_CREATOR, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
     },
     utils::get_collection_data,
 };
@@ -36,6 +39,8 @@ const CLASS_ID_1: &str = "some/class/id1";
 const CLASS_ID_2: &str = "some/class/id2";
 const OWNER_ADDR: &str = "owner";
 const ADMIN_ADDR: &str = "admin";
+const CW721_ADMIN_ADDR: &str = "cw721_admin";
+const CW721_CREATOR_ADDR: &str = "cw721_creator";
 const PAUSER_ADDR: &str = "pauser";
 
 #[derive(Default)]
@@ -85,8 +90,34 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
         cosmwasm_std::WasmQuery::Smart {
             contract_addr: _,
             msg,
-        } => match from_json::<cw721_base::msg::QueryMsg<Empty>>(&msg).unwrap() {
+        } => match from_json::<
+            cw721_base::msg::QueryMsg<
+                DefaultOptionalNftExtension,
+                DefaultOptionalCollectionExtension,
+                Empty,
+            >,
+        >(&msg)
+        .unwrap()
+        {
+            #[allow(deprecated)]
+            QueryMsg::Minter {} => QuerierResult::Ok(ContractResult::Ok(
+                to_json_binary(&Ownership::<Addr> {
+                    owner: Some(Addr::unchecked(OWNER_ADDR)),
+                    pending_owner: None,
+                    pending_expiry: None,
+                })
+                .unwrap(),
+            )),
+            #[allow(deprecated)]
             QueryMsg::Ownership {} => QuerierResult::Ok(ContractResult::Ok(
+                to_json_binary(&Ownership::<Addr> {
+                    owner: Some(Addr::unchecked(OWNER_ADDR)),
+                    pending_owner: None,
+                    pending_expiry: None,
+                })
+                .unwrap(),
+            )),
+            QueryMsg::GetMinterOwnership {} => QuerierResult::Ok(ContractResult::Ok(
                 to_json_binary(&Ownership::<Addr> {
                     owner: Some(Addr::unchecked(OWNER_ADDR)),
                     pending_owner: None,
@@ -96,7 +127,7 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
             )),
             QueryMsg::AllNftInfo { .. } => QuerierResult::Ok(ContractResult::Ok(
                 to_json_binary(&AllNftInfoResponse::<Option<Empty>> {
-                    access: cw721::OwnerOfResponse {
+                    access: cw721::msg::OwnerOfResponse {
                         owner: MOCK_CONTRACT_ADDR.to_string(),
                         approvals: vec![],
                     },
@@ -107,10 +138,26 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
                 })
                 .unwrap(),
             )),
+            #[allow(deprecated)]
             QueryMsg::ContractInfo {} => QuerierResult::Ok(ContractResult::Ok(
-                to_json_binary(&cw721::ContractInfoResponse {
+                to_json_binary(&cw721::msg::CollectionInfoAndExtensionResponse::<
+                    DefaultOptionalCollectionExtension,
+                > {
                     name: "name".to_string(),
                     symbol: "symbol".to_string(),
+                    extension: DefaultOptionalCollectionExtension::default(),
+                    updated_at: Timestamp::default(),
+                })
+                .unwrap(),
+            )),
+            QueryMsg::GetCollectionInfoAndExtension {} => QuerierResult::Ok(ContractResult::Ok(
+                to_json_binary(&cw721::msg::CollectionInfoAndExtensionResponse::<
+                    DefaultOptionalCollectionExtension,
+                > {
+                    name: "name".to_string(),
+                    symbol: "symbol".to_string(),
+                    extension: DefaultOptionalCollectionExtension::default(),
+                    updated_at: Timestamp::default(),
                 })
                 .unwrap(),
             )),
@@ -138,9 +185,9 @@ fn mock_querier_v016(query: &WasmQuery) -> QuerierResult {
         cosmwasm_std::WasmQuery::Smart {
             contract_addr: _,
             msg,
-        } => match from_json::<cw721_base::msg::QueryMsg<Empty>>(&msg).unwrap() {
+        } => match from_json::<cw721_base_016::msg::QueryMsg<Empty>>(&msg).unwrap() {
             // unwrap using latest (not old) cw721-base, since it is backwards compatible
-            cw721_base::msg::QueryMsg::Minter {} => QuerierResult::Ok(ContractResult::Ok(
+            cw721_base_016::msg::QueryMsg::Minter {} => QuerierResult::Ok(ContractResult::Ok(
                 to_json_binary(
                     // return v016 response
                     &cw721_base_016::msg::MinterResponse {
@@ -149,30 +196,34 @@ fn mock_querier_v016(query: &WasmQuery) -> QuerierResult {
                 )
                 .unwrap(),
             )),
-            cw721_base::msg::QueryMsg::AllNftInfo { .. } => QuerierResult::Ok(ContractResult::Ok(
-                to_json_binary(
-                    // return v016 response
-                    &cw721_016::AllNftInfoResponse::<Option<Empty>> {
-                        access: cw721_016::OwnerOfResponse {
-                            owner: MOCK_CONTRACT_ADDR.to_string(),
-                            approvals: vec![],
+            cw721_base_016::msg::QueryMsg::AllNftInfo { .. } => {
+                QuerierResult::Ok(ContractResult::Ok(
+                    to_json_binary(
+                        // return v016 response
+                        &cw721_016::AllNftInfoResponse::<Option<Empty>> {
+                            access: cw721_016::OwnerOfResponse {
+                                owner: MOCK_CONTRACT_ADDR.to_string(),
+                                approvals: vec![],
+                            },
+                            info: cw721_016::NftInfoResponse {
+                                token_uri: Some("https://moonphase.is/image.svg".to_string()),
+                                extension: None,
+                            },
                         },
-                        info: cw721_016::NftInfoResponse {
-                            token_uri: Some("https://moonphase.is/image.svg".to_string()),
-                            extension: None,
-                        },
-                    },
-                )
-                .unwrap(),
-            )),
-            QueryMsg::ContractInfo {} => QuerierResult::Ok(ContractResult::Ok(
-                to_json_binary(&cw721_016::ContractInfoResponse {
-                    name: "name".to_string(),
-                    symbol: "symbol".to_string(),
-                })
-                .unwrap(),
-            )),
-            QueryMsg::NumTokens {} => QuerierResult::Ok(ContractResult::Ok(
+                    )
+                    .unwrap(),
+                ))
+            }
+            cw721_base_016::msg::QueryMsg::ContractInfo {} => {
+                QuerierResult::Ok(ContractResult::Ok(
+                    to_json_binary(&cw721_016::ContractInfoResponse {
+                        name: "name".to_string(),
+                        symbol: "symbol".to_string(),
+                    })
+                    .unwrap(),
+                ))
+            }
+            cw721_base_016::msg::QueryMsg::NumTokens {} => QuerierResult::Ok(ContractResult::Ok(
                 to_json_binary(&cw721_016::NumTokensResponse { count: 1 }).unwrap(),
             )),
             _ => QuerierResult::Err(cosmwasm_std::SystemError::Unknown {}), // throws error for Ownership query
@@ -503,7 +554,8 @@ fn instantiate_msg(
         incoming_proxy,
         outgoing_proxy,
         pauser: Some(PAUSER_ADDR.to_string()),
-        cw721_admin: Some(ADMIN_ADDR.to_string()),
+        cw721_admin: Some(CW721_ADMIN_ADDR.to_string()),
+        cw721_creator: Some(CW721_CREATOR_ADDR.to_string()),
         contract_addr_length: None,
     }
 }
@@ -552,7 +604,8 @@ fn test_instantiate() {
         ))
         .add_attribute("method", "instantiate")
         .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string())
-        .add_attribute("cw721_admin", ADMIN_ADDR)
+        .add_attribute("cw721_admin", CW721_ADMIN_ADDR)
+        .add_attribute("cw721_creator", CW721_CREATOR_ADDR)
         .add_attribute("contract_addr_length", "20");
     assert_eq!(response, expected_response);
     assert_eq!(CW721_CODE_ID.load(&deps.storage).unwrap(), 0);
@@ -565,8 +618,12 @@ fn test_instantiate() {
     );
     assert!(!PO.paused.load(&deps.storage).unwrap());
     assert_eq!(
-        ADMIN_USED_FOR_CW721.load(&deps.storage).unwrap(),
-        Some(Addr::unchecked(ADMIN_ADDR.to_string()))
+        CW721_ADMIN.load(&deps.storage).unwrap(),
+        Some(Addr::unchecked(CW721_ADMIN_ADDR.to_string()))
+    );
+    assert_eq!(
+        CW721_CREATOR.load(&deps.storage).unwrap(),
+        Some(Addr::unchecked(CW721_CREATOR_ADDR.to_string()))
     );
     assert_eq!(CONTRACT_ADDR_LENGTH.load(&deps.storage).unwrap(), 20);
 }
@@ -586,6 +643,7 @@ fn test_migrate() {
         incoming_proxy: Some("incoming".to_string()),
         cw721_base_code_id: Some(1),
         cw721_admin: Some("some_other_admin".to_string()),
+        cw721_creator: Some("some_other_creator".to_string()),
         contract_addr_length: Some(20),
     };
 
@@ -640,7 +698,7 @@ fn test_migrate() {
     );
     assert_eq!(CW721_CODE_ID.load(&deps.storage).unwrap(), 1);
     assert_eq!(
-        ADMIN_USED_FOR_CW721.load(&deps.storage).unwrap(),
+        CW721_ADMIN.load(&deps.storage).unwrap(),
         Some(Addr::unchecked("some_other_admin"))
     );
     assert_eq!(CONTRACT_ADDR_LENGTH.load(&deps.storage).unwrap(), 20);
@@ -652,10 +710,10 @@ fn test_migrate() {
     assert_eq!(nft_contract_and_class_id_list[1].1, NFT_CONTRACT_2);
     // test query and indexers for class id and addr are working
     let nft_contract_1 =
-        query_nft_contract_for_class_id(&deps.storage, CLASS_ID_1.to_string()).unwrap();
+        query_nft_contract_for_class_id(&deps.storage, CLASS_ID_1.to_string().into()).unwrap();
     assert_eq!(nft_contract_1, Some(Addr::unchecked(NFT_CONTRACT_1)));
     let nft_contract_2 =
-        query_nft_contract_for_class_id(&deps.storage, CLASS_ID_2.to_string()).unwrap();
+        query_nft_contract_for_class_id(&deps.storage, CLASS_ID_2.to_string().into()).unwrap();
     assert_eq!(nft_contract_2, Some(Addr::unchecked(NFT_CONTRACT_2)));
     let class_id_1 =
         query_class_id_for_nft_contract(deps.as_ref(), NFT_CONTRACT_1.to_string()).unwrap();

@@ -42,7 +42,7 @@ pub struct InstantiateMsg {
 #[allow(clippy::large_enum_variant)] // `data` field is a bit large
                                      // for clippy's taste.
 pub enum ExecuteMsg {
-    ReceiveNft(cw721::Cw721ReceiveMsg),
+    ReceiveNft(cw721::receiver::Cw721ReceiveMsg),
     Ics721ReceiveCallback(ics721_types::types::Ics721ReceiveCallbackMsg),
     Ics721AckCallback(ics721_types::types::Ics721AckCallbackMsg),
     SendNft {

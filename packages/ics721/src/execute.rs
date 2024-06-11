@@ -2,7 +2,11 @@ use std::fmt::Debug;
 
 use cosmwasm_std::{
     from_json, to_json_binary, Addr, Binary, ContractInfoResponse, Deps, DepsMut, Empty, Env,
-    IbcMsg, MessageInfo, Order, Response, StdResult, SubMsg, WasmMsg,
+    Event, IbcMsg, MessageInfo, Order, Response, StdResult, SubMsg, WasmMsg,
+};
+use cw721::{
+    DefaultOptionalCollectionExtension, DefaultOptionalCollectionExtensionMsg,
+    DefaultOptionalNftExtension, DefaultOptionalNftExtensionMsg,
 };
 use cw_storage_plus::Map;
 use ics721_types::{
@@ -24,8 +28,8 @@ use crate::{
         query_nft_contract_for_class_id, query_nft_contracts,
     },
     state::{
-        ClassIdInfo, CollectionData, UniversalAllNftInfoResponse, ADMIN_USED_FOR_CW721,
-        CLASS_ID_AND_NFT_CONTRACT_INFO, CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_CODE_ID,
+        ClassIdInfo, CollectionData, UniversalAllNftInfoResponse, CLASS_ID_AND_NFT_CONTRACT_INFO,
+        CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_ADMIN, CW721_CODE_ID, CW721_CREATOR,
         INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
         OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
@@ -68,9 +72,17 @@ where
             ));
         }
 
-        ADMIN_USED_FOR_CW721.save(
+        CW721_ADMIN.save(
             deps.storage,
             &msg.cw721_admin
+                .as_ref()
+                .map(|h| deps.api.addr_validate(h))
+                .transpose()?,
+        )?;
+
+        CW721_CREATOR.save(
+            deps.storage,
+            &msg.cw721_creator
                 .as_ref()
                 .map(|h| deps.api.addr_validate(h))
                 .transpose()?,
@@ -89,8 +101,29 @@ where
             .add_attribute("cw721_code_id", msg.cw721_base_code_id.to_string())
             .add_attribute(
                 "cw721_admin",
-                msg.cw721_admin
-                    .map_or_else(|| "immutable".to_string(), |or| or),
+                msg.cw721_admin.map_or_else(
+                    || "immutable".to_string(),
+                    |or| {
+                        if or.is_empty() {
+                            "immutable".to_string()
+                        } else {
+                            or
+                        }
+                    },
+                ),
+            )
+            .add_attribute(
+                "cw721_creator",
+                msg.cw721_creator.map_or_else(
+                    || "none".to_string(),
+                    |or| {
+                        if or.is_empty() {
+                            "none".to_string()
+                        } else {
+                            or
+                        }
+                    },
+                ),
             )
             .add_attribute(
                 "contract_addr_length",
@@ -107,7 +140,7 @@ where
     ) -> Result<Response<T>, ContractError> {
         PO.error_if_paused(deps.storage)?;
         match msg {
-            ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+            ExecuteMsg::ReceiveNft(cw721::receiver::Cw721ReceiveMsg {
                 sender,
                 token_id,
                 msg,
@@ -157,7 +190,7 @@ where
         let token_id = TokenId::new(token_id);
         let child_class_id = ClassId::new(child_class_id);
         let child_collection = deps.api.addr_validate(&child_collection)?;
-        match query_nft_contract_for_class_id(deps.storage, child_class_id.to_string())? {
+        match query_nft_contract_for_class_id(deps.storage, child_class_id.clone())? {
             Some(cw721_addr) => {
                 if cw721_addr != child_collection {
                     return Err(ContractError::NoNftContractMatch {
@@ -185,7 +218,11 @@ where
             .querier
             .query_wasm_smart(
                 child_collection.clone(),
-                &cw721::Cw721QueryMsg::AllNftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::AllNftInfo {
                     token_id: token_id.clone().into(),
                     include_expired: None,
                 },
@@ -206,7 +243,11 @@ where
             // note: this requires approval from recipient, or recipient burns it himself
             let burn_msg = WasmMsg::Execute {
                 contract_addr: child_collection.to_string(),
-                msg: to_json_binary(&cw721::Cw721ExecuteMsg::Burn {
+                msg: to_json_binary(&cw721::msg::Cw721ExecuteMsg::<
+                    DefaultOptionalNftExtensionMsg,
+                    DefaultOptionalCollectionExtensionMsg,
+                    Empty,
+                >::Burn {
                     token_id: token_id.clone().into(),
                 })?,
                 funds: vec![],
@@ -240,7 +281,7 @@ where
         // check given home class id and home collection is the same as stored in the contract
         let home_class_id = ClassId::new(home_class_id);
         let home_collection = deps.api.addr_validate(&home_collection)?;
-        match query_nft_contract_for_class_id(deps.storage, home_class_id.to_string())? {
+        match query_nft_contract_for_class_id(deps.storage, home_class_id.clone())? {
             Some(cw721_addr) => {
                 if cw721_addr != home_collection {
                     return Err(ContractError::NoNftContractMatch {
@@ -268,7 +309,11 @@ where
             .querier
             .query_wasm_smart(
                 home_collection.clone(),
-                &cw721::Cw721QueryMsg::AllNftInfo {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::AllNftInfo {
                     token_id: token_id.clone().into(),
                     include_expired: None,
                 },
@@ -284,7 +329,11 @@ where
             // transfer NFT
             let transfer_msg = WasmMsg::Execute {
                 contract_addr: home_collection.to_string(),
-                msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                msg: to_json_binary(&cw721::msg::Cw721ExecuteMsg::<
+                    DefaultOptionalNftExtensionMsg,
+                    DefaultOptionalCollectionExtensionMsg,
+                    Empty,
+                >::TransferNft {
                     recipient: recipient.to_string(),
                     token_id: token_id.clone().into(),
                 })?,
@@ -401,7 +450,11 @@ where
         // make sure NFT is escrowed by ics721
         let UniversalAllNftInfoResponse { access, info } = deps.querier.query_wasm_smart(
             nft_contract,
-            &cw721::Cw721QueryMsg::AllNftInfo {
+            &cw721::msg::Cw721QueryMsg::<
+                DefaultOptionalNftExtension,
+                DefaultOptionalCollectionExtension,
+                Empty,
+            >::AllNftInfo {
                 token_id: token_id.clone().into(),
                 include_expired: None,
             },
@@ -524,15 +577,23 @@ where
             msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::Mint {
                 class_id: class.id.clone(),
                 receiver,
-                tokens,
+                tokens: tokens.clone(),
             }))?,
             funds: vec![],
         };
 
-        let instantiate = self.create_instantiate_msg(deps, &env, class.clone())?;
+        let (class_id_info, instantiate) =
+            self.create_instantiate_msg(deps, &env, class.clone())?;
+
+        let token_ids = format!("{:?}", tokens);
+        let event = Event::new("ics721_receive_create_vouchers")
+            .add_attribute("class_id", class_id_info.class_id)
+            .add_attribute("nft_contract", class_id_info.address)
+            .add_attribute("token_ids", token_ids);
 
         Ok(Response::<T>::default()
             .add_attribute("method", "callback_create_vouchers")
+            .add_event(event)
             .add_submessages(instantiate)
             .add_message(mint))
     }
@@ -542,9 +603,11 @@ where
         deps: DepsMut,
         env: &Env,
         class: Class,
-    ) -> Result<Vec<SubMsg<T>>, ContractError> {
-        if CLASS_ID_AND_NFT_CONTRACT_INFO.has(deps.storage, class.id.to_string().as_str()) {
-            Ok(vec![])
+    ) -> Result<(ClassIdInfo, Vec<SubMsg<T>>), ContractError> {
+        let maybe_class_id_info =
+            CLASS_ID_AND_NFT_CONTRACT_INFO.may_load(deps.as_ref().storage, &class.id)?;
+        if let Some(nft_contract) = maybe_class_id_info {
+            Ok((nft_contract, vec![]))
         } else {
             let class_id = ClassId::new(class.id.clone());
             let cw721_code_id = CW721_CODE_ID.load(deps.storage)?;
@@ -569,12 +632,10 @@ where
             };
             CLASS_ID_AND_NFT_CONTRACT_INFO.save(deps.storage, &class.id, &class_id_info)?;
 
-            let admin = ADMIN_USED_FOR_CW721
-                .load(deps.storage)?
-                .map(|a| a.to_string());
+            let cw721_admin = CW721_ADMIN.load(deps.storage)?.map(|a| a.to_string());
             let message = SubMsg::<T>::reply_on_success(
                 WasmMsg::Instantiate2 {
-                    admin,
+                    admin: cw721_admin,
                     code_id: cw721_code_id,
                     msg: self.init_msg(deps.as_ref(), env, &class)?,
                     funds: vec![],
@@ -586,24 +647,28 @@ where
                 },
                 INSTANTIATE_CW721_REPLY_ID,
             );
-            Ok(vec![message])
+            Ok((class_id_info, vec![message]))
         }
     }
 
     /// Default implementation using `cw721_base::msg::InstantiateMsg`
     fn init_msg(&self, deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
+        let cw721_creator = CW721_CREATOR.load(deps.storage)?.map(|a| a.to_string());
         // use ics721 creator for withdraw address
         let ContractInfoResponse { creator, .. } = deps
             .querier
             .query_wasm_contract_info(env.contract.address.to_string())?;
 
         // use by default ClassId, in case there's no class data with name and symbol
-        let mut instantiate_msg = cw721_base::msg::InstantiateMsg {
-            name: class.id.clone().into(),
-            symbol: class.id.clone().into(),
-            minter: Some(env.contract.address.to_string()),
-            withdraw_address: Some(creator),
-        };
+        let mut instantiate_msg =
+            cw721_base::msg::InstantiateMsg::<DefaultOptionalCollectionExtensionMsg> {
+                name: class.id.clone().into(),
+                symbol: class.id.clone().into(),
+                minter: Some(env.contract.address.to_string()),
+                creator: cw721_creator,
+                collection_info_extension: None,
+                withdraw_address: Some(creator),
+            };
 
         // use collection data for setting name and symbol
         let collection_data = class
@@ -629,15 +694,27 @@ where
         let VoucherRedemption { class, token_ids } = redeem;
         let nft_contract = load_nft_contract_for_class_id(deps.storage, class.id.to_string())?;
         let receiver = deps.api.addr_validate(&receiver)?;
+
+        let token_ids_string = format!("{:?}", token_ids);
+        let event = Event::new("ics721_receive_redeem_vouchers")
+            .add_attribute("class_id", class.id)
+            .add_attribute("nft_contract", nft_contract.clone())
+            .add_attribute("token_ids", token_ids_string);
+
         Ok(Response::default()
             .add_attribute("method", "callback_redeem_vouchers")
+            .add_event(event)
             .add_messages(
                 token_ids
                     .into_iter()
                     .map(|token_id| {
                         Ok(WasmMsg::Execute {
                             contract_addr: nft_contract.to_string(),
-                            msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                            msg: to_json_binary(&cw721::msg::Cw721ExecuteMsg::<
+                                DefaultOptionalNftExtensionMsg,
+                                DefaultOptionalCollectionExtensionMsg,
+                                Empty,
+                            >::TransferNft {
                                 recipient: receiver.to_string(),
                                 token_id: token_id.into(),
                             })?,
@@ -668,11 +745,15 @@ where
                 // Also note that this is set for every token, regardless of if data is None.
                 TOKEN_METADATA.save(deps.storage, (class_id.clone(), id.clone()), &data)?;
 
-                let msg = cw721_base::msg::ExecuteMsg::<Empty, Empty>::Mint {
+                let msg = cw721_base::msg::ExecuteMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::Mint {
                     token_id: id.into(),
                     token_uri: uri,
                     owner: receiver.to_string(),
-                    extension: Empty::default(),
+                    extension: None,
                 };
                 Ok(WasmMsg::Execute {
                     contract_addr: nft_contract.to_string(),
@@ -722,6 +803,7 @@ where
                 outgoing_proxy,
                 cw721_base_code_id,
                 cw721_admin,
+                cw721_creator,
                 contract_addr_length,
             } => {
                 // disables incoming proxy if none is provided!
@@ -746,10 +828,19 @@ where
                 }
                 if let Some(cw721_admin) = cw721_admin.clone() {
                     if cw721_admin.is_empty() {
-                        ADMIN_USED_FOR_CW721.save(deps.storage, &None)?;
+                        CW721_ADMIN.save(deps.storage, &None)?;
                     } else {
-                        ADMIN_USED_FOR_CW721
+                        CW721_ADMIN
                             .save(deps.storage, &Some(deps.api.addr_validate(&cw721_admin)?))?;
+                    }
+                }
+
+                if let Some(cw721_creator) = cw721_creator.clone() {
+                    if cw721_creator.is_empty() {
+                        CW721_CREATOR.save(deps.storage, &None)?;
+                    } else {
+                        CW721_CREATOR
+                            .save(deps.storage, &Some(deps.api.addr_validate(&cw721_creator)?))?;
                     }
                 }
 
@@ -781,6 +872,19 @@ where
                             |or| {
                                 if or.is_empty() {
                                     "immutable".to_string()
+                                } else {
+                                    or
+                                }
+                            },
+                        ),
+                    )
+                    .add_attribute(
+                        "cw721_creator",
+                        cw721_creator.map_or_else(
+                            || "none".to_string(),
+                            |or| {
+                                if or.is_empty() {
+                                    "none".to_string()
                                 } else {
                                     or
                                 }

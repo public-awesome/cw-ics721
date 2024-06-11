@@ -67,7 +67,7 @@ func (suite *AdversarialTestSuite) SetupTest() {
 		resp := chain.StoreCodeFile("../artifacts/ics721_base.wasm")
 		require.Equal(suite.T(), uint64(1), resp.CodeID)
 
-		resp = chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+		resp = chain.StoreCodeFile("../external-wasms/cw721_base_v0.19.0.wasm")
 		require.Equal(suite.T(), uint64(2), resp.CodeID)
 
 		resp = chain.StoreCodeFile("../artifacts/ics721_base_tester.wasm")
@@ -245,7 +245,7 @@ func (suite *AdversarialTestSuite) TestInvalidOnMineValidOnTheirs() {
 	ics721Nft(suite.T(), suite.chainA, suite.pathAC, suite.coordinator, chainACw721, "bad kid 1", suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainC.SenderAccount.GetAddress(), "")
 
 	err = suite.chainA.SmartQuery(chainACw721, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: suite.tokenIdA}}, &OwnerOfResponse{})
-	require.ErrorContains(suite.T(), err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
+	require.ErrorContains(suite.T(), err, "cw721::state::NftInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
 
 	// Send the NFT back, this time setting new metadata for the
 	// class ID.
@@ -478,7 +478,7 @@ func (suite *AdversarialTestSuite) TestMetadataForwarding() {
 	require.ErrorContains(
 		suite.T(),
 		err,
-		"cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found",
+		"cw721::state::NftInfo<core::option::Option<cw721::state::NftExtension>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found",
 	)
 
 	// Check that token metadata was cleared.

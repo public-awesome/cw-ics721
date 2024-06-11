@@ -43,9 +43,9 @@ func (suite *TransferTestSuite) SetupTest() {
 	require.Equal(suite.T(), uint64(1), chainBStoreResp.CodeID)
 
 	// Store the cw721 contract.
-	chainAStoreResp = suite.chainA.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	chainAStoreResp = suite.chainA.StoreCodeFile("../external-wasms/cw721_base_v0.19.0.wasm")
 	require.Equal(suite.T(), uint64(2), chainAStoreResp.CodeID)
-	chainBStoreResp = suite.chainB.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	chainBStoreResp = suite.chainB.StoreCodeFile("../external-wasms/cw721_base_v0.19.0.wasm")
 	require.Equal(suite.T(), uint64(2), chainBStoreResp.CodeID)
 
 	instantiateICS721 := InstantiateICS721Bridge{
@@ -263,7 +263,7 @@ func TestIBC(t *testing.T) {
 func instantiateBridge(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAddress {
 	// Store the contracts.
 	bridgeresp := chain.StoreCodeFile("../artifacts/ics721_base.wasm")
-	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.19.0.wasm")
 
 	// Instantiate the ICS721 contract.
 	instantiateICS721 := InstantiateICS721Bridge{
@@ -278,7 +278,7 @@ func instantiateBridge(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAdd
 }
 
 func instantiateCw721(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAddress {
-	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.19.0.wasm")
 	cw721Instantiate := InstantiateCw721{
 		"bad/kids",
 		"bad/kids",
@@ -489,7 +489,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	// contract "is this burned" so we just query and make sure it
 	// now errors with a storage load failure.
 	err := chainA.SmartQuery(chainANftDerivative, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &OwnerOfResponse{})
-	require.ErrorContains(t, err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
+	require.ErrorContains(t, err, "cw721::state::NftInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
 
 	// NFT should belong to chainC sender on chain C.
 	ownerC = queryGetOwnerOf(t, chainC, chainCNft, "bad kid 1")
@@ -505,7 +505,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 
 	// Burned on C.
 	err = chainC.SmartQuery(chainCNft, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &OwnerOfResponse{})
-	require.ErrorContains(t, err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
+	require.ErrorContains(t, err, "cw721::state::NftInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
 
 	// B -> A
 	path = getPath(1, 0)
@@ -517,7 +517,7 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 
 	// Burned on chain B.
 	err = chainB.SmartQuery(chainBNft, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &OwnerOfResponse{})
-	require.ErrorContains(t, err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
+	require.ErrorContains(t, err, "cw721::state::NftInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
 
 	// Hooray! We have completed the journey between three
 	// identical blockchains using our ICS721 contract.
@@ -573,7 +573,7 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 
 	// Make sure the NFT was burned on chain B
 	err = suite.chainB.SmartQuery(chainBNft, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &OwnerOfResponse{})
-	require.ErrorContains(suite.T(), err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
+	require.ErrorContains(suite.T(), err, "cw721::state::NftInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
 
 	// Make another account on chain B and transfer to the new account.
 	anotherAcount := CreateAndFundAccount(suite.T(), suite.chainB, 19)
@@ -591,7 +591,7 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 
 	// Make sure it was burned on B.
 	err = suite.chainB.SmartQuery(chainBNft, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &OwnerOfResponse{})
-	require.ErrorContains(suite.T(), err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
+	require.ErrorContains(suite.T(), err, "cw721::state::NftInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
 
 	// Make sure it is owned by the correct address on A.
 	resp := OwnerOfResponse{}
@@ -612,9 +612,9 @@ func TestCloseRejected(t *testing.T) {
 	require.Equal(t, uint64(1), chainBStoreResp.CodeID)
 
 	// Store the cw721 contract.
-	chainAStoreResp = chainA.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	chainAStoreResp = chainA.StoreCodeFile("../external-wasms/cw721_base_v0.19.0.wasm")
 	require.Equal(t, uint64(2), chainAStoreResp.CodeID)
-	chainBStoreResp = chainB.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	chainBStoreResp = chainB.StoreCodeFile("../external-wasms/cw721_base_v0.19.0.wasm")
 	require.Equal(t, uint64(2), chainBStoreResp.CodeID)
 
 	// Store the cw721_base contract.

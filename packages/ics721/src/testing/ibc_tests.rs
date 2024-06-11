@@ -16,14 +16,14 @@ use crate::{
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
     query::Ics721Query,
-    state::{ClassIdInfo, CollectionData, CLASS_ID_AND_NFT_CONTRACT_INFO, PO},
+    state::{ClassIdInfo, CollectionData, CLASS_ID_AND_NFT_CONTRACT_INFO, CW721_CODE_ID, PO},
     utils::get_collection_data,
     ContractError,
 };
 use ics721_types::{
     ibc_types::NonFungibleTokenPacketData,
-    token_types::{ClassId, TokenId},
-    types::{Ics721Callbacks, ReceiverExecuteMsg},
+    token_types::{Class, ClassId, TokenId},
+    types::{Ics721Callbacks, Ics721Memo, ReceiverExecuteMsg},
 };
 
 const CONTRACT_PORT: &str = "wasm.address1";
@@ -32,9 +32,11 @@ const CONNECTION_ID: &str = "connection-2";
 const CHANNEL_ID: &str = "channel-1";
 const DEFAULT_TIMEOUT: u64 = 42; // Seconds.
 
-const ADDR1: &str = "addr1";
+const ADDR_ICS721: &str = "addr_ics721";
 const RELAYER_ADDR: &str = "relayer";
-const CW721_CODE_ID: u64 = 0;
+const CW721_BASE_CODE_ID: u64 = 0;
+const ADDR_CW721: &str = "addr_cw721";
+const ADDR_NFT_RECEIVER: &str = "nft_receiver";
 
 #[derive(Default)]
 pub struct Ics721Contract {}
@@ -47,6 +49,13 @@ impl Ics721Execute<Empty> for Ics721Contract {
 }
 impl Ics721Ibc<Empty> for Ics721Contract {}
 impl Ics721Query for Ics721Contract {}
+
+#[cw_serde]
+pub struct CallbackData {
+    pub token_id: String,
+    /// NFT owner on source chain, on ack this sender also receives a POAP
+    pub sender: String,
+}
 
 fn mock_channel(channel_id: &str) -> IbcChannel {
     IbcChannel::new(
@@ -80,6 +89,24 @@ fn mock_packet(data: Binary) -> IbcPacket {
     )
 }
 
+fn create_memo(
+    sender: String,
+    token_id: String,
+    ack_callback_addr: Option<String>,
+    receive_callback_addr: Option<String>,
+) -> Ics721Memo {
+    let callback_data = Some(to_json_binary(&CallbackData { sender, token_id }).unwrap());
+    let callbacks = Ics721Callbacks {
+        ack_callback_data: callback_data.clone(),
+        ack_callback_addr,
+        receive_callback_data: callback_data,
+        receive_callback_addr,
+    };
+    Ics721Memo {
+        callbacks: Some(callbacks),
+    }
+}
+
 fn add_channel(mut deps: DepsMut, env: Env, channel_id: &str) {
     let channel = mock_channel(channel_id);
     let open_msg = IbcChannelOpenMsg::new_init(channel.clone());
@@ -106,11 +133,12 @@ fn add_channel(mut deps: DepsMut, env: Env, channel_id: &str) {
 
 fn do_instantiate(deps: DepsMut, env: Env, sender: &str) -> StdResult<Response> {
     let msg = InstantiateMsg {
-        cw721_base_code_id: CW721_CODE_ID,
+        cw721_base_code_id: CW721_BASE_CODE_ID,
         incoming_proxy: None,
         outgoing_proxy: None,
         pauser: None,
         cw721_admin: None,
+        cw721_creator: None,
         contract_addr_length: None,
     };
     Ics721Contract::default().instantiate(deps, env, mock_info(sender, &[]), msg)
@@ -231,7 +259,7 @@ fn test_ibc_channel_open() {
     let env = mock_env();
 
     // Instantiate the contract
-    do_instantiate(deps.as_mut(), env.clone(), ADDR1).unwrap();
+    do_instantiate(deps.as_mut(), env.clone(), ADDR_ICS721).unwrap();
 
     // Add channel calls open and connect valid
     add_channel(deps.as_mut(), env, "channel-1");
@@ -244,7 +272,7 @@ fn test_ibc_channel_open_ordered_channel() {
     let env = mock_env();
 
     // Instantiate the contract
-    do_instantiate(deps.as_mut(), env.clone(), ADDR1).unwrap();
+    do_instantiate(deps.as_mut(), env.clone(), ADDR_ICS721).unwrap();
 
     let channel_id = "channel-1";
     let channel = IbcChannel::new(
@@ -274,7 +302,7 @@ fn test_ibc_channel_open_invalid_version() {
     let env = mock_env();
 
     // Instantiate the contract
-    do_instantiate(deps.as_mut(), env.clone(), ADDR1).unwrap();
+    do_instantiate(deps.as_mut(), env.clone(), ADDR_ICS721).unwrap();
 
     let channel_id = "channel-1";
     let channel = IbcChannel::new(
@@ -304,7 +332,7 @@ fn test_ibc_channel_open_invalid_version_counterparty() {
     let env = mock_env();
 
     // Instantiate the contract
-    do_instantiate(deps.as_mut(), env.clone(), ADDR1).unwrap();
+    do_instantiate(deps.as_mut(), env.clone(), ADDR_ICS721).unwrap();
 
     let channel_id = "channel-1";
     let channel = IbcChannel::new(
@@ -336,7 +364,7 @@ fn test_ibc_channel_connect() {
     let env = mock_env();
 
     // Instantiate the contract
-    do_instantiate(deps.as_mut(), env.clone(), ADDR1).unwrap();
+    do_instantiate(deps.as_mut(), env.clone(), ADDR_ICS721).unwrap();
 
     // Add channel calls open and connect valid
     add_channel(deps.as_mut(), env, "channel-1");
@@ -349,7 +377,7 @@ fn test_ibc_channel_connect_ordered_channel() {
     let env = mock_env();
 
     // Instantiate the contract
-    do_instantiate(deps.as_mut(), env.clone(), ADDR1).unwrap();
+    do_instantiate(deps.as_mut(), env.clone(), ADDR_ICS721).unwrap();
 
     let channel_id = "channel-1";
     let channel = IbcChannel::new(
@@ -379,7 +407,7 @@ fn test_ibc_channel_connect_invalid_version() {
     let env = mock_env();
 
     // Instantiate the contract
-    do_instantiate(deps.as_mut(), env.clone(), ADDR1).unwrap();
+    do_instantiate(deps.as_mut(), env.clone(), ADDR_ICS721).unwrap();
 
     let channel_id = "channel-1";
     let channel = IbcChannel::new(
@@ -409,7 +437,7 @@ fn test_ibc_channel_connect_invalid_version_counterparty() {
     let env = mock_env();
 
     // Instantiate the contract
-    do_instantiate(deps.as_mut(), env.clone(), ADDR1).unwrap();
+    do_instantiate(deps.as_mut(), env.clone(), ADDR_ICS721).unwrap();
 
     let channel_id = "channel-1";
     let channel = IbcChannel::new(
@@ -437,22 +465,51 @@ fn test_ibc_channel_connect_invalid_version_counterparty() {
 
 #[test]
 fn test_ibc_packet_receive() {
-    let data = to_json_binary(&NonFungibleTokenPacketData {
-        class_id: ClassId::new("id"),
-        class_uri: None,
-        class_data: None,
-        token_ids: vec![TokenId::new("1")],
-        token_uris: None,
-        token_data: None,
-        sender: "violet".to_string(),
-        receiver: "blue".to_string(),
-        memo: None,
-    })
-    .unwrap();
-    let ibc_packet = mock_packet(data);
-    let packet = IbcPacketReceiveMsg::new(ibc_packet.clone(), Addr::unchecked(RELAYER_ADDR));
     let mut deps = mock_dependencies();
     let env = mock_env();
+    crate::state::CW721_CODE_ID
+        .save(deps.as_mut().storage, &0)
+        .unwrap();
+    let class_id = ClassId::new(ADDR_CW721);
+    let class = Class {
+        id: class_id.clone(),
+        // There is no collection-level uri nor data in the
+        // cw721 specification so we set those values to
+        // `None` for local, cw721 NFTs.
+        uri: None,
+        data: None,
+    };
+    let sender = "violet";
+    let token_id = "1";
+    let memo = create_memo(sender.to_string(), token_id.to_string(), None, None);
+    let memo_string = Some(Binary::to_base64(&to_json_binary(&memo).unwrap()));
+    let nft_packet = NonFungibleTokenPacketData {
+        class_id,
+        class_uri: None,
+        class_data: None,
+        token_ids: vec![TokenId::new(token_id.to_string())],
+        token_uris: None,
+        token_data: None,
+        sender: sender.to_string(),
+        receiver: ADDR_NFT_RECEIVER.to_string(),
+        memo: memo_string,
+    };
+    let data = to_json_binary(&nft_packet).unwrap();
+    let ibc_packet = mock_packet(data);
+    let class_id_info = ClassIdInfo {
+        class_id: ClassId::new(format!(
+            "{}/{}/{}",
+            ibc_packet.dest.port_id,
+            ibc_packet.dest.channel_id,
+            class.id.clone()
+        )),
+        address: Addr::unchecked(ADDR_CW721),
+    };
+    CLASS_ID_AND_NFT_CONTRACT_INFO
+        .save(deps.as_mut().storage, &class.id, &class_id_info)
+        .unwrap();
+
+    let packet = IbcPacketReceiveMsg::new(ibc_packet.clone(), Addr::unchecked(RELAYER_ADDR));
     PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
     let response = Ics721Contract::default()
         .ibc_packet_receive(deps.as_mut(), env, packet)
@@ -475,9 +532,9 @@ fn test_ibc_packet_receive() {
     assert!(conjunction_msg.is_some());
 
     let operands = conjunction_msg.unwrap();
-    assert_eq!(operands.len(), 2);
+    assert_eq!(operands.len(), 3);
 
-    let add_incoming_msg = operands[1].clone();
+    let add_incoming_msg = operands[2].clone();
     match add_incoming_msg {
         WasmMsg::Execute { msg, .. } => {
             match from_json::<ExecuteMsg>(msg).ok() {
@@ -493,7 +550,7 @@ fn test_ibc_packet_receive() {
                             // assert there is only one class token to channel entry
                             let class_id = format!(
                                 "{}/{}/{}",
-                                ibc_packet.dest.port_id, ibc_packet.dest.channel_id, "id"
+                                ibc_packet.dest.port_id, ibc_packet.dest.channel_id, ADDR_CW721
                             );
                             assert_eq!(
                                 class_token_to_channel_list,
@@ -504,7 +561,30 @@ fn test_ibc_packet_receive() {
                     },
                     _ => panic!("unexpected execute msg"),
                 },
-                _ => panic!("no callback msg"),
+                _ => panic!("not a callback msg"),
+            }
+        }
+        _ => panic!("unexpected wasm msg"),
+    }
+
+    let receive_callback_msg = operands[1].clone();
+    match receive_callback_msg {
+        WasmMsg::Execute {
+            contract_addr,
+            msg,
+            funds: _,
+        } => {
+            assert_eq!(contract_addr, ADDR_NFT_RECEIVER);
+            match from_json::<ReceiverExecuteMsg>(msg).ok() {
+                Some(ReceiverExecuteMsg::Ics721ReceiveCallback(msg)) => {
+                    assert_eq!(msg.nft_contract, ADDR_CW721);
+                    assert_eq!(msg.original_packet, nft_packet);
+                    assert_eq!(
+                        msg.msg,
+                        memo.callbacks.unwrap().receive_callback_data.unwrap()
+                    );
+                }
+                _ => panic!("unexpected execute msg"),
             }
         }
         _ => panic!("unexpected wasm msg"),
@@ -539,6 +619,22 @@ fn test_ibc_packet_receive_invalid_packet_data() {
 
 #[test]
 fn test_ibc_packet_receive_emits_memo() {
+    let mut deps = mock_dependencies();
+    CW721_CODE_ID
+        .save(&mut deps.storage, &CW721_BASE_CODE_ID)
+        .unwrap();
+    let dest_class_id = format!("{}/{}/{}", CONTRACT_PORT, CHANNEL_ID, "id");
+    CLASS_ID_AND_NFT_CONTRACT_INFO
+        .save(
+            &mut deps.storage,
+            &ClassId::new(dest_class_id.clone()),
+            &ClassIdInfo {
+                class_id: ClassId::new(dest_class_id),
+                address: Addr::unchecked("cosmos2contract"),
+            },
+        )
+        .unwrap();
+
     let data = to_json_binary(&NonFungibleTokenPacketData {
         class_id: ClassId::new("id"),
         class_uri: None,
@@ -547,17 +643,17 @@ fn test_ibc_packet_receive_emits_memo() {
         token_uris: None,
         token_data: None,
         sender: "violet".to_string(),
-        receiver: "blue".to_string(),
+        receiver: ADDR_NFT_RECEIVER.to_string(),
         memo: Some("memo".to_string()),
     })
     .unwrap();
     let packet = IbcPacketReceiveMsg::new(mock_packet(data), Addr::unchecked(RELAYER_ADDR));
-    let mut deps = mock_dependencies();
     let env = mock_env();
     PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
     let res = Ics721Contract::default()
         .ibc_packet_receive(deps.as_mut(), env, packet)
         .unwrap();
+    println!(">>>>>>>>>>> memo: {:?}", res.attributes);
     assert!(res.attributes.contains(&Attribute {
         key: "ics721_memo".to_string(),
         value: "memo".to_string()
@@ -700,6 +796,22 @@ fn test_no_receive_when_paused() {
 
 #[test]
 fn test_different_memo_ignored() {
+    let mut deps = mock_dependencies();
+    CW721_CODE_ID
+        .save(&mut deps.storage, &CW721_BASE_CODE_ID)
+        .unwrap();
+    let dest_class_id = format!("{}/{}/{}", CONTRACT_PORT, CHANNEL_ID, "id");
+    CLASS_ID_AND_NFT_CONTRACT_INFO
+        .save(
+            &mut deps.storage,
+            &ClassId::new(dest_class_id.clone()),
+            &ClassIdInfo {
+                class_id: ClassId::new(dest_class_id),
+                address: Addr::unchecked("cosmos2contract"),
+            },
+        )
+        .unwrap();
+
     #[cw_serde]
     struct DifferentMemo {
         different: Option<Ics721Callbacks>,
@@ -715,7 +827,7 @@ fn test_different_memo_ignored() {
         token_uris: None,
         token_data: None,
         sender: "violet".to_string(),
-        receiver: "blue".to_string(),
+        receiver: ADDR_NFT_RECEIVER.to_string(),
         memo: Some(
             to_json_binary(&DifferentMemo {
                 different: Some(Ics721Callbacks {
@@ -732,7 +844,6 @@ fn test_different_memo_ignored() {
     };
     let ibc_packet = mock_packet(to_json_binary(&data).unwrap());
     let packet = IbcPacketReceiveMsg::new(ibc_packet, Addr::unchecked(RELAYER_ADDR));
-    let mut deps = mock_dependencies();
     let env = mock_env();
     PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
 
@@ -768,7 +879,7 @@ fn test_ibc_packet_not_json_memo() {
         token_uris: None,
         token_data: None,
         sender: "violet".to_string(),
-        receiver: "blue".to_string(),
+        receiver: ADDR_NFT_RECEIVER.to_string(),
         memo: None,
     };
 

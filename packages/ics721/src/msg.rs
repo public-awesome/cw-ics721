@@ -31,6 +31,8 @@ pub struct InstantiateMsg {
     pub pauser: Option<String>,
     /// The admin address for instantiating new cw721 contracts. In case of None, contract is immutable.
     pub cw721_admin: Option<String>,
+    /// The creator address for instantiating new cw721 contracts. In case of None, sender (=ics721) is used.
+    pub cw721_creator: Option<String>,
     /// The optional contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).
     pub contract_addr_length: Option<u32>,
 }
@@ -39,7 +41,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     /// Receives a NFT to be IBC transfered away. The `msg` field must
     /// be a binary encoded `IbcOutgoingMsg`.
-    ReceiveNft(cw721::Cw721ReceiveMsg),
+    ReceiveNft(cw721::receiver::Cw721ReceiveMsg),
 
     /// Pauses the ICS721 contract. Only the pauser may call this. In pausing
     /// the contract, the pauser burns the right to do so again.
@@ -125,6 +127,14 @@ pub enum QueryMsg {
     #[returns(Option<::cosmwasm_std::Addr>)]
     NftContract { class_id: String },
 
+    /// Returns predictable NFT contract using instantiate2. If no
+    /// cw721_code_id is provided, default cw721_code_id from storage is used.
+    #[returns(::cosmwasm_std::Addr)]
+    GetInstantiate2NftContract {
+        class_id: String,
+        cw721_code_id: Option<u64>,
+    },
+
     /// Gets the class level metadata URI for the provided
     /// class_id. If there is no metadata, returns None. Returns
     /// `Option<Class>`.
@@ -137,7 +147,7 @@ pub enum QueryMsg {
     /// Gets the owner of the NFT identified by CLASS_ID and
     /// TOKEN_ID. Errors if no such NFT exists. Returns
     /// `cw721::OwnerOfResonse`.
-    #[returns(::cw721::OwnerOfResponse)]
+    #[returns(::cw721::msg::OwnerOfResponse)]
     Owner { class_id: String, token_id: String },
 
     /// Gets the address that may pause this contract if one is set.
@@ -163,6 +173,10 @@ pub enum QueryMsg {
     /// Gets the admin address for instantiating new cw721 contracts. In case of None, contract is immutable.
     #[returns(Option<Option<::cosmwasm_std::Addr>>)]
     Cw721Admin {},
+
+    /// Gets the creators address for instantiating new cw721 contracts. In case of None, sender (creator) is sender.
+    #[returns(Option<Option<::cosmwasm_std::Addr>>)]
+    Cw721Creator {},
 
     /// Gets the contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).
     #[returns(Option<u32>)]
@@ -218,6 +232,8 @@ pub enum MigrateMsg {
         cw721_base_code_id: Option<u64>,
         /// The admin address for instantiating new cw721 contracts. In case of "", contract is immutable.
         cw721_admin: Option<String>,
+        /// The creator address for instantiating new cw721 contracts. In case of "", None is set, in that case sender (ics721) is creator.
+        cw721_creator: Option<String>,
         /// The optional contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).
         contract_addr_length: Option<u32>,
     },
