@@ -1,6 +1,6 @@
-package e2e_test
+package test_suite
 
-// The `Class` type as defined in `token_types.rs` and returned by the
+// Class The `Class` type as defined in `token_types.rs` and returned by the
 // `class_metadata { class_id }` query.
 type Class struct {
 	ID   string  `json:"id"`
@@ -8,7 +8,7 @@ type Class struct {
 	Data *string `json:"data"`
 }
 
-// The `Token` type as defined in `token_types.rs` and returned by the
+// Token The `Token` type as defined in `token_types.rs` and returned by the
 // `token_metadata { class_id, token_id }` query.
 type Token struct {
 	ID   string  `json:"id"`
@@ -24,17 +24,25 @@ type ModuleInstantiateInfo struct {
 }
 
 type InstantiateICS721Bridge struct {
-	CW721CodeID uint64                 `json:"cw721_base_code_id"`
-	OutgoingProxy       *ModuleInstantiateInfo `json:"outgoing_proxy"`
-	IncomingProxy       *ModuleInstantiateInfo `json:"incoming_proxy"`
-	Pauser      *string                `json:"pauser"`
+	CW721CodeID   uint64                 `json:"cw721_base_code_id"`
+	OutgoingProxy *ModuleInstantiateInfo `json:"outgoing_proxy"`
+	IncomingProxy *ModuleInstantiateInfo `json:"incoming_proxy"`
+	Pauser        *string                `json:"pauser"`
 }
 
-type InstantiateCw721 struct {
+// InstantiateCw721v18 v18 introduced the withdraw_address field
+type InstantiateCw721v18 struct {
+	Name            string  `json:"name"`
+	Symbol          string  `json:"symbol"`
+	Minter          string  `json:"minter"`
+	WithdrawAddress *string `json:"withdraw_address"`
+}
+
+// InstantiateCw721v16 valid for v17 too
+type InstantiateCw721v16 struct {
 	Name   string `json:"name"`
 	Symbol string `json:"symbol"`
 	Minter string `json:"minter"`
-	WithdrawAddress *string `json:"withdraw_address"`
 }
 
 type InstantiateBridgeTester struct {
@@ -44,15 +52,15 @@ type InstantiateBridgeTester struct {
 
 type OwnerOfResponse struct {
 	Owner string `json:"owner"`
-	// There is also an approvals field here but we don't care
-	// about it so we just don't unmarshal.
+	// There is also an approvals field here, but we don't care
+	// about it, so we just don't unmarshal.
 }
 
 type TesterResponse struct {
 	Owner *string `json:"owner"`
 }
 
-// Owner query for ICS721 contract.
+// OwnerQueryData Owner query for ICS721 contract.
 type OwnerQueryData struct {
 	TokenID string `json:"token_id"`
 	ClassID string `json:"class_id"`
@@ -61,7 +69,7 @@ type OwnerQuery struct {
 	Owner OwnerQueryData `json:"owner"`
 }
 
-// ICS721 contract query for obtaining a NFT contract address given a class ID.
+// NftContractQueryData ICS721 contract query for obtaining a NFT contract address given a class ID.
 type NftContractQueryData struct {
 	ClassID string `json:"class_id"`
 }
@@ -76,7 +84,7 @@ type NftContractsQuery struct {
 	NftContracts NftContractsQueryData `json:"nft_contracts"`
 }
 
-// Query for getting class ID given NFT contract.
+// ClassIdQueryData Query for getting class ID given NFT contract.
 type ClassIdQueryData struct {
 	Contract string `json:"contract"`
 }
@@ -84,7 +92,7 @@ type ClassIdQuery struct {
 	ClassIdForNFTContract ClassIdQueryData `json:"class_id"`
 }
 
-// Query for getting metadata for a class ID from the ICS721 contract.
+// ClassMetadataQueryData Query for getting metadata for a class ID from the ICS721 contract.
 type ClassMetadataQueryData struct {
 	ClassId string `json:"class_id"`
 }
@@ -92,7 +100,7 @@ type ClassMetadataQuery struct {
 	Metadata ClassMetadataQueryData `json:"class_metadata"`
 }
 
-// Query for getting token metadata.
+// TokenMetadataQueryData Query for getting token metadata.
 type TokenMetadataQueryData struct {
 	ClassId string `json:"class_id"`
 	TokenId string `json:"token_id"`
@@ -101,7 +109,7 @@ type TokenMetadataQuery struct {
 	Metadata TokenMetadataQueryData `json:"token_metadata"`
 }
 
-// Owner query for cw721 contract.
+// OwnerOfQueryData Owner query for cw721 contract.
 type OwnerOfQueryData struct {
 	TokenID string `json:"token_id"`
 }
@@ -123,7 +131,7 @@ type TesterNftContractQuery struct {
 	GetNftContract EmptyData `json:"get_nft_contract"`
 }
 
-// cw721 contract info query.
+// ContractInfoQueryData cw721 contract info query.
 type ContractInfoQueryData struct{}
 type ContractInfoQuery struct {
 	ContractInfo ContractInfoQueryData `json:"contract_info"`
@@ -133,13 +141,13 @@ type ContractInfoResponse struct {
 	Symbol string `json:"symbol"`
 }
 
-// Query for getting last ACK from tester contract.
+// LastAckQueryData Query for getting last ACK from tester contract.
 type LastAckQueryData struct{}
 type LastAckQuery struct {
 	LastAck LastAckQueryData `json:"last_ack"`
 }
 
-// cw721 token info query
+// NftInfoQueryData cw721 token info query
 type NftInfoQueryData struct {
 	TokenID string `json:"token_id"`
 }

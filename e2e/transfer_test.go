@@ -1,8 +1,10 @@
-package e2e_test
+package e2e
 
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/public-awesome/ics721/e2e/test_suite"
 
 	b64 "encoding/base64"
 	"fmt"
@@ -30,11 +32,15 @@ type TransferTestSuite struct {
 	chainBBridge sdk.AccAddress
 }
 
+func TestTransfer(t *testing.T) {
+	suite.Run(t, new(TransferTestSuite))
+}
+
 func (suite *TransferTestSuite) SetupTest() {
 	suite.coordinator = wasmibctesting.NewCoordinator(suite.T(), 2)
 	suite.chainA = suite.coordinator.GetChain(wasmibctesting.GetChainID(0))
 	suite.chainB = suite.coordinator.GetChain(wasmibctesting.GetChainID(1))
-	// suite.coordinator.CommitBlock(suite.chainA, suite.chainB)
+	// test_suite.coordinator.CommitBlock(test_suite.chainA, test_suite.chainB)
 
 	// Store the ICS721 contract.
 	chainAStoreResp := suite.chainA.StoreCodeFile("../artifacts/ics721_base.wasm")
@@ -48,12 +54,12 @@ func (suite *TransferTestSuite) SetupTest() {
 	chainBStoreResp = suite.chainB.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
 	require.Equal(suite.T(), uint64(2), chainBStoreResp.CodeID)
 
-	instantiateICS721 := InstantiateICS721Bridge{
-		2,
+	instantiateICS721 := test_suite.InstantiateICS721Bridge{
+		CW721CodeID: 2,
 		// no pauser nor proxy by default.
-		nil,
-		nil,
-		nil,
+		OutgoingProxy: nil,
+		IncomingProxy: nil,
+		Pauser:        nil,
 	}
 	instantiateICS721Raw, err := json.Marshal(instantiateICS721)
 	require.NoError(suite.T(), err)
@@ -68,8 +74,8 @@ func (suite *TransferTestSuite) TestEstablishConnection() {
 		sourcePortID      = suite.chainA.ContractInfo(suite.chainABridge).IBCPortID
 		counterpartPortID = suite.chainB.ContractInfo(suite.chainBBridge).IBCPortID
 	)
-	// suite.coordinator.CommitBlock(suite.chainA, suite.chainB)
-	// suite.coordinator.UpdateTime()
+	// test_suite.coordinator.CommitBlock(test_suite.chainA, test_suite.chainB)
+	// test_suite.coordinator.UpdateTime()
 
 	require.Equal(suite.T(), suite.chainA.CurrentHeader.Time, suite.chainB.CurrentHeader.Time)
 	path := wasmibctesting.NewPath(suite.chainA, suite.chainB)
@@ -111,11 +117,11 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	suite.coordinator.CreateChannels(path)
 
 	// Instantiate a cw721 to send on chain A.
-	cw721Instantiate := InstantiateCw721{
-		"bad/kids",
-		"bad/kids",
-		suite.chainA.SenderAccount.GetAddress().String(),
-		nil,
+	cw721Instantiate := test_suite.InstantiateCw721v18{
+		Name:            "bad/kids",
+		Symbol:          "bad/kids",
+		Minter:          suite.chainA.SenderAccount.GetAddress().String(),
+		WithdrawAddress: nil,
 	}
 	instantiateRaw, err := json.Marshal(cw721Instantiate)
 	require.NoError(suite.T(), err)
@@ -150,9 +156,9 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	suite.T().Logf("chain a sender: %s", suite.chainA.SenderAccount.GetAddress().String())
 	// Check that the NFT has been transfered away from the sender
 	// on chain A.
-	resp := OwnerOfResponse{}
-	ownerOfQuery := OwnerOfQuery{
-		OwnerOf: OwnerOfQueryData{
+	resp := test_suite.OwnerOfResponse{}
+	ownerOfQuery := test_suite.OwnerOfQuery{
+		OwnerOf: test_suite.OwnerOfQueryData{
 			TokenID: "1",
 		},
 	}
@@ -163,8 +169,8 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	chainBClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, cw721.String())
 
 	// Check that the receiver on the receiving chain now owns the NFT.
-	getOwnerQuery := OwnerQuery{
-		Owner: OwnerQueryData{
+	getOwnerQuery := test_suite.OwnerQuery{
+		Owner: test_suite.OwnerQueryData{
 			TokenID: "1",
 			ClassID: chainBClassID,
 		},
@@ -174,8 +180,8 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	require.Equal(suite.T(), suite.chainB.SenderAccount.GetAddress().String(), resp.Owner)
 
 	// Get the address of the instantiated cw721.
-	getClassQuery := NftContractQuery{
-		NftContractForClassId: NftContractQueryData{
+	getClassQuery := test_suite.NftContractQuery{
+		NftContractForClassId: test_suite.NftContractQueryData{
 			ClassID: chainBClassID,
 		},
 	}
@@ -186,8 +192,8 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	suite.T().Logf("Chain B cw721: %s", chainBCw721)
 
 	// Check that the classID for the contract has been set properly.
-	getClassIDQuery := ClassIdQuery{
-		ClassIdForNFTContract: ClassIdQueryData{
+	getClassIDQuery := test_suite.ClassIdQuery{
+		ClassIdForNFTContract: test_suite.ClassIdQueryData{
 			Contract: chainBCw721,
 		},
 	}
@@ -198,13 +204,13 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 
 	// Check that the contract info for the instantiated cw721 was
 	// set correctly.
-	contractInfo := ContractInfoResponse{}
-	contractInfoQuery := ContractInfoQuery{
-		ContractInfo: ContractInfoQueryData{},
+	contractInfo := test_suite.ContractInfoResponse{}
+	contractInfoQuery := test_suite.ContractInfoQuery{
+		ContractInfo: test_suite.ContractInfoQueryData{},
 	}
 	err = suite.chainB.SmartQuery(chainBCw721, contractInfoQuery, &contractInfo)
 	require.NoError(suite.T(), err)
-	require.Equal(suite.T(), ContractInfoResponse{
+	require.Equal(suite.T(), test_suite.ContractInfoResponse{
 		Name:   "bad/kids",
 		Symbol: "bad/kids",
 	}, contractInfo)
@@ -234,8 +240,8 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 
 	// Check that the GetClass query returns what we expect for
 	// local NFTs.
-	getClassQuery = NftContractQuery{
-		NftContractForClassId: NftContractQueryData{
+	getClassQuery = test_suite.NftContractQuery{
+		NftContractForClassId: test_suite.NftContractQueryData{
 			ClassID: cw721.String(),
 		},
 	}
@@ -254,131 +260,22 @@ func (suite *TransferTestSuite) TestIBCSendNFT() {
 	require.ErrorContains(suite.T(), err, "wasm, code: 9: query wasm contract failed")
 }
 
-func TestIBC(t *testing.T) {
-	suite.Run(t, new(TransferTestSuite))
+func TestSendBetweenThreeIdenticalChainsV16(t *testing.T) {
+	runTestSendBetweenThreeIdenticalChains(t, 16)
 }
 
-// Instantiates a ICS721 contract on CHAIN. Returns the address of the
-// instantiated contract.
-func instantiateBridge(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAddress {
-	// Store the contracts.
-	bridgeresp := chain.StoreCodeFile("../artifacts/ics721_base.wasm")
-	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
-
-	// Instantiate the ICS721 contract.
-	instantiateICS721 := InstantiateICS721Bridge{
-		cw721resp.CodeID,
-		nil,
-		nil,
-		nil,
-	}
-	instantiateICS721Raw, err := json.Marshal(instantiateICS721)
-	require.NoError(t, err)
-	return chain.InstantiateContract(bridgeresp.CodeID, instantiateICS721Raw)
+func TestSendBetweenThreeIdenticalChainsV17(t *testing.T) {
+	runTestSendBetweenThreeIdenticalChains(t, 17)
 }
 
-func instantiateCw721(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAddress {
-	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
-	cw721Instantiate := InstantiateCw721{
-		"bad/kids",
-		"bad/kids",
-		chain.SenderAccount.GetAddress().String(),
-		nil,
-	}
-	instantiateRaw, err := json.Marshal(cw721Instantiate)
-	require.NoError(t, err)
-	return chain.InstantiateContract(cw721resp.CodeID, instantiateRaw)
-}
-
-func mintNFT(t *testing.T, chain *wasmibctesting.TestChain, cw721 string, id string, receiver sdk.AccAddress) {
-	_, err := chain.SendMsgs(&wasmtypes.MsgExecuteContract{
-		// Sender account is the minter in our test universe.
-		Sender:   chain.SenderAccount.GetAddress().String(),
-		Contract: cw721,
-		Msg:      []byte(fmt.Sprintf(`{ "mint": { "token_id": "%s", "owner": "%s" } }`, id, receiver.String())),
-		Funds:    []sdk.Coin{},
-	})
-	require.NoError(t, err)
-}
-
-func transferNft(t *testing.T, chain *wasmibctesting.TestChain, nft, token_id string, sender, receiver sdk.AccAddress) {
-	_, err := chain.SendMsgs(&wasmtypes.MsgExecuteContract{
-		Sender:   sender.String(),
-		Contract: nft,
-		Msg:      []byte(fmt.Sprintf(`{"transfer_nft": { "recipient": "%s", "token_id": "%s" }}`, receiver, token_id)),
-		Funds:    []sdk.Coin{},
-	})
-	require.NoError(t, err)
-}
-
-func getCw721SendIbcAwayMessage(path *wasmibctesting.Path, coordinator *wasmibctesting.Coordinator, tokenId string, bridge, receiver sdk.AccAddress, timeout int64, memo string) string {
-	memo = parseOptional(memo)
-	ibcAway := fmt.Sprintf(`{ "receiver": "%s", "channel_id": "%s", "timeout": { "timestamp": "%d" }, "memo": %s }`, receiver.String(), path.EndpointA.ChannelID, timeout, memo)
-	ibcAwayEncoded := b64.StdEncoding.EncodeToString([]byte(ibcAway))
-	return fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "%s", "msg": "%s" } }`, bridge, tokenId, ibcAwayEncoded)
-}
-
-func ics721Nft(t *testing.T, chain *wasmibctesting.TestChain, path *wasmibctesting.Path, coordinator *wasmibctesting.Coordinator, nft string, token_id string, bridge, sender, receiver sdk.AccAddress, memo string) *sdk.Result { // Send the NFT away.
-	res, err := chain.SendMsgs(&wasmtypes.MsgExecuteContract{
-		Sender:   sender.String(),
-		Contract: nft,
-		Msg:      []byte(getCw721SendIbcAwayMessage(path, coordinator, token_id, bridge, receiver, coordinator.CurrentTime.UnixNano()+1000000000000, memo)),
-		Funds:    []sdk.Coin{},
-	})
-	require.NoError(t, err)
-	coordinator.RelayAndAckPendingPackets(path)
-	return res
-}
-
-func queryGetNftForClass(t *testing.T, chain *wasmibctesting.TestChain, bridge, classID string) string {
-	getClassQuery := NftContractQuery{
-		NftContractForClassId: NftContractQueryData{
-			ClassID: classID,
-		},
-	}
-	cw721 := ""
-	err := chain.SmartQuery(bridge, getClassQuery, &cw721)
-	require.NoError(t, err)
-	return cw721
-}
-
-func queryGetNftContracts(t *testing.T, chain *wasmibctesting.TestChain, bridge string) [][]string {
-	getClassQuery := NftContractsQuery{
-		NftContracts: NftContractsQueryData{},
-	}
-	var cw721 [][]string
-	err := chain.SmartQuery(bridge, getClassQuery, &cw721)
-	require.NoError(t, err)
-	return cw721
-}
-
-func queryGetOwnerOf(t *testing.T, chain *wasmibctesting.TestChain, nft string, token_id string) string {
-	resp := OwnerOfResponse{}
-	ownerOfQuery := OwnerOfQuery{
-		OwnerOf: OwnerOfQueryData{
-			TokenID: token_id,
-		},
-	}
-	err := chain.SmartQuery(nft, ownerOfQuery, &resp)
-	require.NoError(t, err)
-	return resp.Owner
-}
-
-func queryGetOwnerOfErr(t *testing.T, chain *wasmibctesting.TestChain, nft string, token_id string) error {
-	resp := OwnerOfResponse{}
-	ownerOfQuery := OwnerOfQuery{
-		OwnerOf: OwnerOfQueryData{
-			TokenID: token_id,
-		},
-	}
-	err := chain.SmartQuery(nft, ownerOfQuery, &resp)
-	return err
+func TestSendBetweenThreeIdenticalChainsV18(t *testing.T) {
+	runTestSendBetweenThreeIdenticalChains(t, 18)
 }
 
 // Builds three identical chains A, B, and C then sends along the path
 // A -> B -> C -> A -> C -> B -> A. If this works, likely most other
 // things do too. :)
-func TestSendBetweenThreeIdenticalChains(t *testing.T) {
+func runTestSendBetweenThreeIdenticalChains(t *testing.T, version int) {
 	coordinator := wasmibctesting.NewCoordinator(t, 3)
 
 	chainA := coordinator.GetChain(wasmibctesting.GetChainID(0))
@@ -386,12 +283,12 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 	chainC := coordinator.GetChain(wasmibctesting.GetChainID(2))
 
 	// Chains are identical, so only one ICS721 contract address.
-	bridge := instantiateBridge(t, chainA)
-	instantiateBridge(t, chainB)
-	instantiateBridge(t, chainC)
+	bridge := test_suite.InstantiateBridge(t, chainA)
+	test_suite.InstantiateBridge(t, chainB)
+	test_suite.InstantiateBridge(t, chainC)
 
-	chainANft := instantiateCw721(t, chainA).String()
-	mintNFT(t, chainA, chainANft, "bad kid 1", chainA.SenderAccount.GetAddress())
+	chainANft := test_suite.InstantiateCw721(t, chainA, version).String()
+	test_suite.MintNFT(t, chainA, chainANft, "bad kid 1", chainA.SenderAccount.GetAddress())
 
 	type Connection struct {
 		Start int
@@ -434,89 +331,94 @@ func TestSendBetweenThreeIdenticalChains(t *testing.T) {
 
 	// A -> B
 	path := getPath(0, 1)
-	ics721Nft(t, chainA, path, coordinator, chainANft, "bad kid 1", bridge, chainA.SenderAccount.GetAddress(), chainB.SenderAccount.GetAddress(), "")
+	test_suite.Ics721TransferNft(t, chainA, path, coordinator, chainANft, "bad kid 1", bridge, chainA.SenderAccount.GetAddress(), chainB.SenderAccount.GetAddress(), "")
+
+	// After Sending NFT via ICS721 "bridge" contract, check that the NFT is escrowed by ICS721 on chain A.
+	chainANftOwner := test_suite.QueryGetOwnerOf(t, chainA, chainANft, "bad kid 1")
+	require.Equal(t, chainANftOwner, bridge.String())
 
 	// Check that chain B received the NFT.
 	chainBClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, chainANft)
-	chainBNft := queryGetNftForClass(t, chainB, bridge.String(), chainBClassID)
+	chainBNft := test_suite.QueryGetNftForClass(t, chainB, bridge.String(), chainBClassID)
 	t.Logf("chain B cw721: %s", chainBNft)
+	// require.NotEqual(chainBNft, "", "NFT address on chain B is empty")
 
-	ownerB := queryGetOwnerOf(t, chainB, chainBNft, "bad kid 1")
+	ownerB := test_suite.QueryGetOwnerOf(t, chainB, chainBNft, "bad kid 1")
 	require.Equal(t, chainB.SenderAccount.GetAddress().String(), ownerB)
 
 	// Make sure chain A has the NFT in its ICS721 contract.
-	ownerA := queryGetOwnerOf(t, chainA, chainANft, "bad kid 1")
+	ownerA := test_suite.QueryGetOwnerOf(t, chainA, chainANft, "bad kid 1")
 	require.Equal(t, ownerA, bridge.String())
 
 	// B -> C
 	path = getPath(1, 2)
-	ics721Nft(t, chainB, path, coordinator, chainBNft, "bad kid 1", bridge, chainB.SenderAccount.GetAddress(), chainC.SenderAccount.GetAddress(), "")
+	test_suite.Ics721TransferNft(t, chainB, path, coordinator, chainBNft, "bad kid 1", bridge, chainB.SenderAccount.GetAddress(), chainC.SenderAccount.GetAddress(), "")
 
 	chainCClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, chainBClassID)
-	chainCNft := queryGetNftForClass(t, chainC, bridge.String(), chainCClassID)
+	chainCNft := test_suite.QueryGetNftForClass(t, chainC, bridge.String(), chainCClassID)
 	t.Logf("chain C cw721: %s", chainCNft)
 
-	ownerC := queryGetOwnerOf(t, chainC, chainCNft, "bad kid 1")
+	ownerC := test_suite.QueryGetOwnerOf(t, chainC, chainCNft, "bad kid 1")
 	require.Equal(t, chainC.SenderAccount.GetAddress().String(), ownerC)
 
 	// Make sure the NFT is locked in the ICS721 contract on chain B.
-	ownerB = queryGetOwnerOf(t, chainB, chainBNft, "bad kid 1")
+	ownerB = test_suite.QueryGetOwnerOf(t, chainB, chainBNft, "bad kid 1")
 	require.Equal(t, bridge.String(), ownerB)
 
 	// C -> A
 	path = getPath(2, 0)
-	ics721Nft(t, chainC, path, coordinator, chainCNft, "bad kid 1", bridge, chainC.SenderAccount.GetAddress(), chainA.SenderAccount.GetAddress(), "")
+	test_suite.Ics721TransferNft(t, chainC, path, coordinator, chainCNft, "bad kid 1", bridge, chainC.SenderAccount.GetAddress(), chainA.SenderAccount.GetAddress(), "")
 	chainAClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, chainCClassID)
 	// This is a derivative and not actually the original chain A nft.
-	chainANftDerivative := queryGetNftForClass(t, chainA, bridge.String(), chainAClassID)
+	chainANftDerivative := test_suite.QueryGetNftForClass(t, chainA, bridge.String(), chainAClassID)
 	require.NotEqual(t, chainANft, chainANftDerivative)
 	t.Logf("chain A cw721 derivative: %s", chainANftDerivative)
 
-	ownerA = queryGetOwnerOf(t, chainA, chainANftDerivative, "bad kid 1")
+	ownerA = test_suite.QueryGetOwnerOf(t, chainA, chainANftDerivative, "bad kid 1")
 	require.Equal(t, chainA.SenderAccount.GetAddress().String(), ownerA)
 
 	// Make sure that the NFT is held in the ICS721 contract now.
-	ownerC = queryGetOwnerOf(t, chainC, chainCNft, "bad kid 1")
+	ownerC = test_suite.QueryGetOwnerOf(t, chainC, chainCNft, "bad kid 1")
 	require.Equal(t, bridge.String(), ownerC)
 
 	// Now, lets unwind the stack.
 
 	// A -> C
 	path = getPath(0, 2)
-	ics721Nft(t, chainA, path, coordinator, chainANftDerivative, "bad kid 1", bridge, chainA.SenderAccount.GetAddress(), chainC.SenderAccount.GetAddress(), "")
+	test_suite.Ics721TransferNft(t, chainA, path, coordinator, chainANftDerivative, "bad kid 1", bridge, chainA.SenderAccount.GetAddress(), chainC.SenderAccount.GetAddress(), "")
 
 	// NFT should now be burned on chain A. We can't ask the
 	// contract "is this burned" so we just query and make sure it
 	// now errors with a storage load failure.
-	err := chainA.SmartQuery(chainANftDerivative, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &OwnerOfResponse{})
+	err := chainA.SmartQuery(chainANftDerivative, test_suite.OwnerOfQuery{OwnerOf: test_suite.OwnerOfQueryData{TokenID: "bad kid 1"}}, &test_suite.OwnerOfResponse{})
 	require.ErrorContains(t, err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
 
 	// NFT should belong to chainC sender on chain C.
-	ownerC = queryGetOwnerOf(t, chainC, chainCNft, "bad kid 1")
+	ownerC = test_suite.QueryGetOwnerOf(t, chainC, chainCNft, "bad kid 1")
 	require.Equal(t, chainC.SenderAccount.GetAddress().String(), ownerC)
 
 	// C -> B
 	path = getPath(2, 1)
-	ics721Nft(t, chainC, path, coordinator, chainCNft, "bad kid 1", bridge, chainC.SenderAccount.GetAddress(), chainB.SenderAccount.GetAddress(), "")
+	test_suite.Ics721TransferNft(t, chainC, path, coordinator, chainCNft, "bad kid 1", bridge, chainC.SenderAccount.GetAddress(), chainB.SenderAccount.GetAddress(), "")
 
 	// Received on B.
-	ownerB = queryGetOwnerOf(t, chainB, chainBNft, "bad kid 1")
+	ownerB = test_suite.QueryGetOwnerOf(t, chainB, chainBNft, "bad kid 1")
 	require.Equal(t, chainB.SenderAccount.GetAddress().String(), ownerB)
 
 	// Burned on C.
-	err = chainC.SmartQuery(chainCNft, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &OwnerOfResponse{})
+	err = chainC.SmartQuery(chainCNft, test_suite.OwnerOfQuery{OwnerOf: test_suite.OwnerOfQueryData{TokenID: "bad kid 1"}}, &test_suite.OwnerOfResponse{})
 	require.ErrorContains(t, err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
 
 	// B -> A
 	path = getPath(1, 0)
-	ics721Nft(t, chainB, path, coordinator, chainBNft, "bad kid 1", bridge, chainB.SenderAccount.GetAddress(), chainA.SenderAccount.GetAddress(), "")
+	test_suite.Ics721TransferNft(t, chainB, path, coordinator, chainBNft, "bad kid 1", bridge, chainB.SenderAccount.GetAddress(), chainA.SenderAccount.GetAddress(), "")
 
 	// Received on chain A.
-	ownerA = queryGetOwnerOf(t, chainA, chainANft, "bad kid 1")
+	ownerA = test_suite.QueryGetOwnerOf(t, chainA, chainANft, "bad kid 1")
 	require.Equal(t, chainA.SenderAccount.GetAddress().String(), ownerA)
 
 	// Burned on chain B.
-	err = chainB.SmartQuery(chainBNft, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &OwnerOfResponse{})
+	err = chainB.SmartQuery(chainBNft, test_suite.OwnerOfQuery{OwnerOf: test_suite.OwnerOfQueryData{TokenID: "bad kid 1"}}, &test_suite.OwnerOfResponse{})
 	require.ErrorContains(t, err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
 
 	// Hooray! We have completed the journey between three
@@ -543,26 +445,26 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 	suite.coordinator.SetupConnections(path)
 	suite.coordinator.CreateChannels(path)
 
-	chainANft := instantiateCw721(suite.T(), suite.chainA)
-	mintNFT(suite.T(), suite.chainA, chainANft.String(), "bad kid 1", suite.chainA.SenderAccount.GetAddress())
+	chainANft := test_suite.InstantiateCw721(suite.T(), suite.chainA, 18)
+	test_suite.MintNFT(suite.T(), suite.chainA, chainANft.String(), "bad kid 1", suite.chainA.SenderAccount.GetAddress())
 
-	ics721Nft(suite.T(), suite.chainA, path, suite.coordinator, chainANft.String(), "bad kid 1", suite.chainABridge, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress(), "")
+	test_suite.Ics721TransferNft(suite.T(), suite.chainA, path, suite.coordinator, chainANft.String(), "bad kid 1", suite.chainABridge, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress(), "")
 
 	chainBClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, chainANft)
-	chainBNft := queryGetNftForClass(suite.T(), suite.chainB, suite.chainBBridge.String(), chainBClassID)
+	chainBNft := test_suite.QueryGetNftForClass(suite.T(), suite.chainB, suite.chainBBridge.String(), chainBClassID)
 
 	// Generate a new account and transfer the NFT to it.  For
 	// reasons entirely beyond me, the first account we create
 	// has an account number of ten. The second has 18.
-	newAccount := CreateAndFundAccount(suite.T(), suite.chainB, 18)
-	transferNft(suite.T(), suite.chainB, chainBNft, "bad kid 1", suite.chainB.SenderAccount.GetAddress(), newAccount.Address)
+	newAccount := test_suite.CreateAndFundAccount(suite.T(), suite.chainB, 18)
+	test_suite.TransferNft(suite.T(), suite.chainB, chainBNft, "bad kid 1", suite.chainB.SenderAccount.GetAddress(), newAccount.Address)
 
 	// IBC away the transfered NFT.
 	ibcAway := fmt.Sprintf(`{ "receiver": "%s", "channel_id": "%s", "timeout": { "timestamp": "%d" } }`, suite.chainA.SenderAccount.GetAddress().String(), path.EndpointB.ChannelID, suite.coordinator.CurrentTime.UnixNano()+1000000000000)
 	ibcAwayEncoded := b64.StdEncoding.EncodeToString([]byte(ibcAway))
 
 	// Send the NFT away.
-	_, err := SendMsgsFromAccount(suite.T(), suite.chainB, newAccount, &wasmtypes.MsgExecuteContract{
+	_, err := test_suite.SendMsgsFromAccount(suite.T(), suite.chainB, newAccount, &wasmtypes.MsgExecuteContract{
 		Sender:   newAccount.Address.String(),
 		Contract: chainBNft,
 		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "bad kid 1", "msg": "%s" } }`, suite.chainBBridge.String(), ibcAwayEncoded)),
@@ -572,15 +474,15 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 	suite.coordinator.RelayAndAckPendingPackets(path.Invert())
 
 	// Make sure the NFT was burned on chain B
-	err = suite.chainB.SmartQuery(chainBNft, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &OwnerOfResponse{})
+	err = suite.chainB.SmartQuery(chainBNft, test_suite.OwnerOfQuery{OwnerOf: test_suite.OwnerOfQueryData{TokenID: "bad kid 1"}}, &test_suite.OwnerOfResponse{})
 	require.ErrorContains(suite.T(), err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
 
 	// Make another account on chain B and transfer to the new account.
-	anotherAcount := CreateAndFundAccount(suite.T(), suite.chainB, 19)
-	ics721Nft(suite.T(), suite.chainA, path, suite.coordinator, chainANft.String(), "bad kid 1", suite.chainABridge, suite.chainA.SenderAccount.GetAddress(), anotherAcount.Address, "")
+	anotherAcount := test_suite.CreateAndFundAccount(suite.T(), suite.chainB, 19)
+	test_suite.Ics721TransferNft(suite.T(), suite.chainA, path, suite.coordinator, chainANft.String(), "bad kid 1", suite.chainABridge, suite.chainA.SenderAccount.GetAddress(), anotherAcount.Address, "")
 
 	// Transfer it back to chain A using this new account.
-	_, err = SendMsgsFromAccount(suite.T(), suite.chainB, anotherAcount, &wasmtypes.MsgExecuteContract{
+	_, err = test_suite.SendMsgsFromAccount(suite.T(), suite.chainB, anotherAcount, &wasmtypes.MsgExecuteContract{
 		Sender:   anotherAcount.Address.String(),
 		Contract: chainBNft,
 		Msg:      []byte(fmt.Sprintf(`{ "send_nft": { "contract": "%s", "token_id": "bad kid 1", "msg": "%s" } }`, suite.chainBBridge.String(), ibcAwayEncoded)),
@@ -590,12 +492,12 @@ func (suite *TransferTestSuite) TestMultipleAddressesInvolved() {
 	suite.coordinator.RelayAndAckPendingPackets(path.Invert())
 
 	// Make sure it was burned on B.
-	err = suite.chainB.SmartQuery(chainBNft, OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &OwnerOfResponse{})
+	err = suite.chainB.SmartQuery(chainBNft, test_suite.OwnerOfQuery{OwnerOf: test_suite.OwnerOfQueryData{TokenID: "bad kid 1"}}, &test_suite.OwnerOfResponse{})
 	require.ErrorContains(suite.T(), err, "cw721_base::state::TokenInfo<core::option::Option<cosmwasm_std::results::empty::Empty>>; key: [00, 06, 74, 6F, 6B, 65, 6E, 73, 62, 61, 64, 20, 6B, 69, 64, 20, 31] not found")
 
 	// Make sure it is owned by the correct address on A.
-	resp := OwnerOfResponse{}
-	err = suite.chainA.SmartQuery(chainANft.String(), OwnerOfQuery{OwnerOf: OwnerOfQueryData{TokenID: "bad kid 1"}}, &resp)
+	resp := test_suite.OwnerOfResponse{}
+	err = suite.chainA.SmartQuery(chainANft.String(), test_suite.OwnerOfQuery{OwnerOf: test_suite.OwnerOfQueryData{TokenID: "bad kid 1"}}, &resp)
 	require.NoError(suite.T(), err)
 	require.Equal(suite.T(), resp.Owner, suite.chainA.SenderAccount.GetAddress().String())
 }
@@ -618,11 +520,11 @@ func TestCloseRejected(t *testing.T) {
 	require.Equal(t, uint64(2), chainBStoreResp.CodeID)
 
 	// Store the cw721_base contract.
-	instantiateICS721 := InstantiateICS721Bridge{
-		2,
-		nil,
-		nil,
-		nil,
+	instantiateICS721 := test_suite.InstantiateICS721Bridge{
+		CW721CodeID:   2,
+		OutgoingProxy: nil,
+		IncomingProxy: nil,
+		Pauser:        nil,
 	}
 	instantiateICS721Raw, err := json.Marshal(instantiateICS721)
 	require.NoError(t, err)
@@ -658,7 +560,7 @@ func TestCloseRejected(t *testing.T) {
 
 	// For this version we are account number 17. Why not 10? Why
 	// not 1? These are some of the world's great mysteries.
-	newAccount := CreateAndFundAccount(t, chainA, 17)
+	newAccount := test_suite.CreateAndFundAccount(t, chainA, 17)
 
 	// Make sure ChanCloseInit is rejected.
 	msg := channeltypes.NewMsgChannelCloseInit(path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID, newAccount.Address.String())
@@ -728,8 +630,8 @@ func (suite *TransferTestSuite) TestPacketTimeoutCausesRefund() {
 	suite.coordinator.SetupConnections(path)
 	suite.coordinator.CreateChannels(path)
 
-	cw721 := instantiateCw721(suite.T(), suite.chainA)
-	mintNFT(suite.T(), suite.chainA, cw721.String(), "bad kid 1", suite.chainA.SenderAccount.GetAddress())
+	cw721 := test_suite.InstantiateCw721(suite.T(), suite.chainA, 18)
+	test_suite.MintNFT(suite.T(), suite.chainA, cw721.String(), "bad kid 1", suite.chainA.SenderAccount.GetAddress())
 
 	// IBC away message that will expire in one second.
 	ibcAway := fmt.Sprintf(`{ "receiver": "%s", "channel_id": "%s", "timeout": { "timestamp": "%d" } }`, suite.chainB.SenderAccount.GetAddress().String(), path.EndpointA.ChannelID, suite.coordinator.CurrentTime.UnixNano()+1000000)
@@ -745,7 +647,7 @@ func (suite *TransferTestSuite) TestPacketTimeoutCausesRefund() {
 	suite.coordinator.TimeoutPendingPackets(path)
 
 	// NFTs should be returned to sender on packet timeout.
-	owner := queryGetOwnerOf(suite.T(), suite.chainA, cw721.String(), "bad kid 1")
+	owner := test_suite.QueryGetOwnerOf(suite.T(), suite.chainA, cw721.String(), "bad kid 1")
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), owner)
 }
 
@@ -772,8 +674,8 @@ func (suite *TransferTestSuite) TestRefundOnAckFail() {
 	suite.coordinator.SetupConnections(path)
 	suite.coordinator.CreateChannels(path)
 
-	chainANft := instantiateCw721(suite.T(), suite.chainA)
-	mintNFT(suite.T(), suite.chainA, chainANft.String(), "bad kid 1", suite.chainA.SenderAccount.GetAddress())
+	chainANft := test_suite.InstantiateCw721(suite.T(), suite.chainA, 18)
+	test_suite.MintNFT(suite.T(), suite.chainA, chainANft.String(), "bad kid 1", suite.chainA.SenderAccount.GetAddress())
 
 	// Send the NFT, but use an invalid address in the receiver
 	// field. This will cause processing to fail. The counterparty
@@ -794,10 +696,10 @@ func (suite *TransferTestSuite) TestRefundOnAckFail() {
 	suite.coordinator.RelayAndAckPendingPackets(path)
 
 	chainBClassID := fmt.Sprintf(`%s/%s/%s`, path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID, chainANft)
-	chainBNft := queryGetNftForClass(suite.T(), suite.chainB, suite.chainBBridge.String(), chainBClassID)
+	chainBNft := test_suite.QueryGetNftForClass(suite.T(), suite.chainB, suite.chainBBridge.String(), chainBClassID)
 	require.Equal(suite.T(), chainBNft, "")
 
 	// Check that the NFT was returned to the sender due to the failure.
-	ownerA := queryGetOwnerOf(suite.T(), suite.chainA, chainANft.String(), "bad kid 1")
+	ownerA := test_suite.QueryGetOwnerOf(suite.T(), suite.chainA, chainANft.String(), "bad kid 1")
 	require.Equal(suite.T(), suite.chainA.SenderAccount.GetAddress().String(), ownerA)
 }
