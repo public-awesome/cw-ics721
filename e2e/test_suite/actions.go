@@ -76,20 +76,20 @@ func MintNFT(t *testing.T, chain *wasmibctesting.TestChain, cw721 string, id str
 	require.NoError(t, err)
 }
 
-func TransferNft(t *testing.T, chain *wasmibctesting.TestChain, nft, tokenId string, sender, receiver sdk.AccAddress) {
+func TransferNft(t *testing.T, chain *wasmibctesting.TestChain, nftContract string, tokenId string, sender, receiver sdk.AccAddress) {
 	_, err := chain.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   sender.String(),
-		Contract: nft,
+		Contract: nftContract,
 		Msg:      []byte(fmt.Sprintf(`{"transfer_nft": { "recipient": "%s", "token_id": "%s" }}`, receiver, tokenId)),
 		Funds:    []sdk.Coin{},
 	})
 	require.NoError(t, err)
 }
 
-func Ics721TransferNft(t *testing.T, chain *wasmibctesting.TestChain, path *wasmibctesting.Path, coordinator *wasmibctesting.Coordinator, nft string, tokenId string, bridge, sender, receiver sdk.AccAddress, memo string) *sdk.Result { // Send the NFT away.
+func Ics721TransferNft(t *testing.T, chain *wasmibctesting.TestChain, path *wasmibctesting.Path, coordinator *wasmibctesting.Coordinator, nftContract string, tokenId string, bridge, sender, receiver sdk.AccAddress, memo string) *sdk.Result { // Send the NFT away.
 	res, err := chain.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   sender.String(),
-		Contract: nft,
+		Contract: nftContract,
 		Msg:      []byte(GetCw721SendIbcAwayMessage(path, coordinator, tokenId, bridge, receiver, coordinator.CurrentTime.UnixNano()+1000000000000, memo)),
 		Funds:    []sdk.Coin{},
 	})
@@ -98,8 +98,8 @@ func Ics721TransferNft(t *testing.T, chain *wasmibctesting.TestChain, path *wasm
 	return res
 }
 
-func SendIcsFromChainToChain(t *testing.T, coordinator *wasmibctesting.Coordinator, sourceChain *wasmibctesting.TestChain, sourceBridge sdk.AccAddress, sourceTester sdk.AccAddress, destinationTester sdk.AccAddress, path *wasmibctesting.Path, endpoint *wasmibctesting.Endpoint, nft, tokenId, memo string, relay bool) {
-	msg := fmt.Sprintf(`{ "send_nft": {"cw721": "%s", "ics721": "%s", "token_id": "%s", "recipient":"%s", "channel_id":"%s", "memo":"%s"}}`, nft, sourceBridge.String(), tokenId, destinationTester.String(), endpoint.ChannelID, memo)
+func SendIcsFromChainToChain(t *testing.T, coordinator *wasmibctesting.Coordinator, sourceChain *wasmibctesting.TestChain, sourceBridge sdk.AccAddress, sourceTester sdk.AccAddress, destinationTester sdk.AccAddress, path *wasmibctesting.Path, endpoint *wasmibctesting.Endpoint, nftContract string, tokenId string, memo string, relay bool) {
+	msg := fmt.Sprintf(`{ "send_nft": {"cw721": "%s", "ics721": "%s", "token_id": "%s", "recipient":"%s", "channel_id":"%s", "memo":"%s"}}`, nftContract, sourceBridge.String(), tokenId, destinationTester.String(), endpoint.ChannelID, memo)
 	_, err := sourceChain.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   sourceChain.SenderAccount.GetAddress().String(),
 		Contract: sourceTester.String(),

@@ -34,26 +34,26 @@ func QueryGetNftContracts(t *testing.T, chain *wasmibctesting.TestChain, bridge 
 	return cw721
 }
 
-func QueryGetOwnerOf(t *testing.T, chain *wasmibctesting.TestChain, nft string, tokenId string) string {
+func QueryGetOwnerOf(t *testing.T, chain *wasmibctesting.TestChain, nftContract string, tokenId string) string {
 	resp := OwnerOfResponse{}
 	ownerOfQuery := OwnerOfQuery{
 		OwnerOf: OwnerOfQueryData{
 			TokenID: tokenId,
 		},
 	}
-	err := chain.SmartQuery(nft, ownerOfQuery, &resp)
+	err := chain.SmartQuery(nftContract, ownerOfQuery, &resp)
 	require.NoError(t, err)
 	return resp.Owner
 }
 
-func QueryGetOwnerOfErr(t *testing.T, chain *wasmibctesting.TestChain, nft string, tokenId string) error {
+func QueryGetOwnerOfErr(t *testing.T, chain *wasmibctesting.TestChain, nftContract string, tokenId string) error {
 	resp := OwnerOfResponse{}
 	ownerOfQuery := OwnerOfQuery{
 		OwnerOf: OwnerOfQueryData{
 			TokenID: tokenId,
 		},
 	}
-	err := chain.SmartQuery(nft, ownerOfQuery, &resp)
+	err := chain.SmartQuery(nftContract, ownerOfQuery, &resp)
 	return err
 }
 
