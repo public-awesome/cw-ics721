@@ -10,6 +10,18 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+func NftCallbackSent() string {
+	return b64.StdEncoding.EncodeToString([]byte(`{ "nft_sent": {}}`))
+}
+
+func NftCallbackReceived() string {
+	return b64.StdEncoding.EncodeToString([]byte(`{ "nft_received": {}}`))
+}
+
+func NftCallbackFailed() string {
+	return b64.StdEncoding.EncodeToString([]byte(`{ "fail_callback": {}}`))
+}
+
 func ParseOptional(memo string) string {
 	r := ""
 	if memo != "" {

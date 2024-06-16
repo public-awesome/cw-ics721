@@ -98,6 +98,23 @@ func Ics721TransferNft(t *testing.T, chain *wasmibctesting.TestChain, path *wasm
 	return res
 }
 
+func SendIcsFromChainToChain(t *testing.T, coordinator *wasmibctesting.Coordinator, sourceChain *wasmibctesting.TestChain, sourceBridge sdk.AccAddress, sourceTester sdk.AccAddress, destinationTester sdk.AccAddress, path *wasmibctesting.Path, endpoint *wasmibctesting.Endpoint, nft, tokenId, memo string, relay bool) {
+	msg := fmt.Sprintf(`{ "send_nft": {"cw721": "%s", "ics721": "%s", "token_id": "%s", "recipient":"%s", "channel_id":"%s", "memo":"%s"}}`, nft, sourceBridge.String(), tokenId, destinationTester.String(), endpoint.ChannelID, memo)
+	_, err := sourceChain.SendMsgs(&wasmtypes.MsgExecuteContract{
+		Sender:   sourceChain.SenderAccount.GetAddress().String(),
+		Contract: sourceTester.String(),
+		Msg:      []byte(msg),
+		Funds:    []sdk.Coin{},
+	})
+	require.NoError(t, err)
+
+	if relay {
+		coordinator.UpdateTime()
+		coordinator.RelayAndAckPendingPackets(path)
+		coordinator.UpdateTime()
+	}
+}
+
 // CreateAndFundAccount Creates and funds a new account for CHAIN. ACCOUNT_NUMBER is the
 // number of accounts that have been previously created on CHAIN.
 func CreateAndFundAccount(t *testing.T, chain *wasmibctesting.TestChain, accountNumber uint64) Account {
