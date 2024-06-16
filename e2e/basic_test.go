@@ -31,19 +31,7 @@ func (suite *BasicTestSuite) SetupTest() {
 	suite.chainA = suite.coordinator.GetChain(wasmibctesting.GetChainID(0))
 }
 
-func (suite *BasicTestSuite) TestStoreCodeIcs721() {
-	// Store the ICS721 contract.
-	chainAStoreResp := suite.chainA.StoreCodeFile("../artifacts/ics721_base.wasm")
-	require.Equal(suite.T(), uint64(1), chainAStoreResp.CodeID)
-}
-
-func (suite *BasicTestSuite) TestStoreCodeCw721() {
-	// Store the cw721 contract.
-	chainAStoreResp := suite.chainA.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
-	require.Equal(suite.T(), uint64(1), chainAStoreResp.CodeID)
-}
-
-func (suite *BasicTestSuite) TestStoreCodeBoth() {
+func (suite *BasicTestSuite) TestStoreCodes() {
 	// Store the ICS721 contract.
 	chainAStoreResp := suite.chainA.StoreCodeFile("../artifacts/ics721_base.wasm")
 	require.Equal(suite.T(), uint64(1), chainAStoreResp.CodeID)
@@ -53,14 +41,10 @@ func (suite *BasicTestSuite) TestStoreCodeBoth() {
 	require.Equal(suite.T(), uint64(2), chainAStoreResp.CodeID)
 }
 
-func (suite *BasicTestSuite) TestStoreCodeBothInstantiateIcs721() {
+func (suite *BasicTestSuite) TestInstantiateIcs721() {
 	// Store the ICS721 contract.
 	chainAStoreResp := suite.chainA.StoreCodeFile("../artifacts/ics721_base.wasm")
 	require.Equal(suite.T(), uint64(1), chainAStoreResp.CodeID)
-
-	// Store the cw721 contract.
-	chainAStoreResp = suite.chainA.StoreCodeFile("../artifacts/ics721_base.wasm")
-	require.Equal(suite.T(), uint64(2), chainAStoreResp.CodeID)
 
 	// Instantiate the ICS721 contract.
 	instantiateICS721 := test_suite.InstantiateICS721Bridge{
