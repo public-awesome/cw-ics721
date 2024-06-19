@@ -18,12 +18,34 @@ import (
 	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 )
 
+func StoreCodes(t *testing.T, chain *wasmibctesting.TestChain, bridge *sdk.AccAddress) {
+	resp := chain.StoreCodeFile("../artifacts/ics721_base.wasm")
+	require.Equal(t, uint64(1), resp.CodeID)
+
+	resp = chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	require.Equal(t, uint64(2), resp.CodeID)
+
+	resp = chain.StoreCodeFile("../artifacts/ics721_base_tester.wasm")
+	require.Equal(t, uint64(3), resp.CodeID)
+
+	instantiateBridge := InstantiateICS721Bridge{
+		CW721CodeID:   2,
+		OutgoingProxy: nil,
+		IncomingProxy: nil,
+		Pauser:        nil,
+	}
+	instantiateBridgeRaw, err := json.Marshal(instantiateBridge)
+	require.NoError(t, err)
+
+	*bridge = chain.InstantiateContract(1, instantiateBridgeRaw)
+}
+
 // InstantiateBridge Instantiates a ICS721 contract on CHAIN. Returns the address of the
 // instantiated contract.
 func InstantiateBridge(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAddress {
 	// Store the contracts.
 	bridgeresp := chain.StoreCodeFile("../artifacts/ics721_base.wasm")
-	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm") // TODO: This should be a parameter to allow future releases to be tested.
+	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
 
 	// Instantiate the ICS721 contract.
 	instantiateICS721 := InstantiateICS721Bridge{
@@ -63,6 +85,18 @@ func InstantiateCw721(t *testing.T, chain *wasmibctesting.TestChain, version int
 
 	require.NoError(t, err)
 	return chain.InstantiateContract(cw721resp.CodeID, instantiateRaw)
+}
+
+// MigrateWIthUpdate Migrates the ICS721 contract on CHAIN to use a different CW721 contract code ID
+func MigrateWIthUpdate(t *testing.T, chain *wasmibctesting.TestChain, ics721 string, codeId, cw721BaseCodeId uint64) {
+	_, err := chain.SendMsgs(&wasmtypes.MsgMigrateContract{
+		// Sender account is the minter in our test universe.
+		Sender:   chain.SenderAccount.GetAddress().String(),
+		Contract: ics721,
+		CodeID:   codeId,
+		Msg:      []byte(fmt.Sprintf(`{ "with_update": { "cw721_base_code_id": %d } }`, cw721BaseCodeId)),
+	})
+	require.NoError(t, err)
 }
 
 func MintNFT(t *testing.T, chain *wasmibctesting.TestChain, cw721 string, id string, receiver sdk.AccAddress) {

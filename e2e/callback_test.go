@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -197,9 +196,9 @@ func (suite *CallbackTestSuite) SetupTest() {
 }
 
 func (suite *CallbackTestSuite) TestSuccessfulTransfer() {
-	memo := callbackMemo(nftCallbackSent(), "", nftCallbackReceived(), "")
+	memo := test_suite.CreateCallbackMemo(test_suite.NftCallbackSent(), "", test_suite.NftCallbackReceived(), "")
+
 	// A -> B token_id 2
-	//sendIcsFromChainAToB(suite, suite.cw721A.String(), "2", memo, true)
 	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, true)
 
 	// Query the owner of NFT on cw721
@@ -220,7 +219,7 @@ func (suite *CallbackTestSuite) TestSuccessfulTransfer() {
 }
 
 func (suite *CallbackTestSuite) TestSuccessfulTransferWithReceivers() {
-	memo := callbackMemo(nftCallbackSent(), suite.testerA.String(), nftCallbackReceived(), suite.testerB.String())
+	memo := test_suite.CreateCallbackMemo(test_suite.NftCallbackSent(), suite.testerA.String(), test_suite.NftCallbackReceived(), suite.testerB.String())
 
 	// Send NFT to chain B
 	test_suite.Ics721TransferNft(suite.T(), suite.chainA, suite.pathAB, suite.coordinator, suite.cw721A.String(), "3", suite.bridgeA, suite.chainA.SenderAccount.GetAddress(), suite.chainB.SenderAccount.GetAddress(), memo)
@@ -243,7 +242,7 @@ func (suite *CallbackTestSuite) TestSuccessfulTransferWithReceivers() {
 }
 
 func (suite *CallbackTestSuite) TestTimeoutTransfer() {
-	memo := callbackMemo(nftCallbackSent(), "", nftCallbackReceived(), "")
+	memo := test_suite.CreateCallbackMemo(test_suite.NftCallbackSent(), "", test_suite.NftCallbackReceived(), "")
 	// A -> B token_id 2
 	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, false)
 
@@ -270,7 +269,7 @@ func (suite *CallbackTestSuite) TestTimeoutTransfer() {
 }
 
 func (suite *CallbackTestSuite) TestFailedCallbackTransfer() {
-	memo := callbackMemo(nftCallbackSent(), "", nftCallbackFailed(), "")
+	memo := test_suite.CreateCallbackMemo(test_suite.NftCallbackSent(), "", test_suite.NftCallbackFailed(), "")
 	// A -> B token_id 2
 	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, true)
 
@@ -294,7 +293,7 @@ func (suite *CallbackTestSuite) TestFailedCallbackTransfer() {
 
 func (suite *CallbackTestSuite) TestFailedCallbackOnAck() {
 	// Transfer to chain B
-	memo := callbackMemo("", "", "", "")
+	memo := test_suite.CreateCallbackMemo("", "", "", "")
 	// A -> B token_id 2
 	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, true)
 
@@ -302,7 +301,7 @@ func (suite *CallbackTestSuite) TestFailedCallbackOnAck() {
 	// We fail the ack callback and see if the NFT was burned or not
 	// Because the transfer should be successful even if the ack callback is failing
 	// we make sure that the NFT was burned on chain B, and that the owner is correct on chain A
-	memo = callbackMemo(nftCallbackFailed(), "", "", "")
+	memo = test_suite.CreateCallbackMemo(test_suite.NftCallbackFailed(), "", "", "")
 	// B -> A token_id 2
 	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainB, suite.bridgeB, suite.testerB, suite.testerA, suite.pathAB.Invert(), suite.pathAB.EndpointB, suite.cw721B.String(), "2", memo, true)
 
@@ -319,7 +318,7 @@ func (suite *CallbackTestSuite) TestFailedCallbackOnAck() {
 }
 
 func (suite *CallbackTestSuite) TestMultipleChainsTransfers() {
-	confirmNftContracts := func(ackChain *wasmibctesting.TestChain, receiveChain *wasmibctesting.TestChain, testerAck string, testerReceive string, expectAck string, expectReceive string) {
+	confirmNftContracts := func(ackChain *wasmibctesting.TestChain, receiveChain *wasmibctesting.TestChain, testerAck, testerReceive, expectAck, expectReceive string) {
 		ackContract := test_suite.QueryTesterNftContract(suite.T(), ackChain, testerAck)
 		require.Equal(suite.T(), ackContract, expectAck)
 
@@ -327,7 +326,7 @@ func (suite *CallbackTestSuite) TestMultipleChainsTransfers() {
 		require.Equal(suite.T(), receiveContract, expectReceive)
 	}
 
-	memo := callbackMemo(nftCallbackSent(), "", nftCallbackReceived(), "")
+	memo := test_suite.CreateCallbackMemo(test_suite.NftCallbackSent(), "", test_suite.NftCallbackReceived(), "")
 
 	// A -> B token_id 2
 	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, true)
@@ -394,25 +393,4 @@ func (suite *CallbackTestSuite) TestMultipleChainsTransfers() {
 	require.Error(suite.T(), err)
 	err = test_suite.QueryGetOwnerOfErr(suite.T(), suite.chainC, ACCw721, "4")
 	require.Error(suite.T(), err)
-}
-
-func callbackMemo(srcCallback, srcReceiver, dstCallback, dstReceiver string) string {
-	srcCallback = test_suite.ParseOptional(srcCallback)
-	srcReceiver = test_suite.ParseOptional(srcReceiver)
-	dstCallback = test_suite.ParseOptional(dstCallback)
-	dstReceiver = test_suite.ParseOptional(dstReceiver)
-	memo := fmt.Sprintf(`{ "callbacks": { "ack_callback_data": %s, "ack_callback_addr": %s, "receive_callback_data": %s, "receive_callback_addr": %s } }`, srcCallback, srcReceiver, dstCallback, dstReceiver)
-	return b64.StdEncoding.EncodeToString([]byte(memo))
-}
-
-func nftCallbackSent() string {
-	return b64.StdEncoding.EncodeToString([]byte(`{ "nft_sent": {}}`))
-}
-
-func nftCallbackReceived() string {
-	return b64.StdEncoding.EncodeToString([]byte(`{ "nft_received": {}}`))
-}
-
-func nftCallbackFailed() string {
-	return b64.StdEncoding.EncodeToString([]byte(`{ "fail_callback": {}}`))
 }

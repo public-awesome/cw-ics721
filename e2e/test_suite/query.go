@@ -59,12 +59,12 @@ func QueryGetOwnerOfErr(t *testing.T, chain *wasmibctesting.TestChain, nftContra
 
 // Tester queries and Tester responses
 
-func QueryTesterSent(t *testing.T, chain *wasmibctesting.TestChain, tester string) string {
+func QueryTesterSent(t *testing.T, chain *wasmibctesting.TestChain, contractAddress string) string {
 	resp := TesterResponse{}
 	testerSentQuery := TesterSentQuery{
 		GetSentCallback: EmptyData{},
 	}
-	err := chain.SmartQuery(tester, testerSentQuery, &resp)
+	err := chain.SmartQuery(contractAddress, testerSentQuery, &resp)
 	require.NoError(t, err)
 	return *resp.Owner
 }
@@ -97,8 +97,6 @@ func QueryTesterReceivedErr(_ *testing.T, chain *wasmibctesting.TestChain, teste
 	err := chain.SmartQuery(tester, testerReceivedQuery, &resp)
 	return err
 }
-
-// TODO Renamce Run to Query and remove redundancies
 
 func RunQueryEmpty(t *testing.T, ctx sdk.Context, app *app.App,
 	instantiateRes *wasmtypes.MsgInstantiateContractResponse, creator Account, queryMsgRaw []byte) {
