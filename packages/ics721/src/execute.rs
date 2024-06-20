@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use cosmwasm_std::{
     from_json, to_json_binary, Addr, Binary, ContractInfoResponse, Deps, DepsMut, Empty, Env,
-    IbcMsg, MessageInfo, Order, Response, StdResult, SubMsg, WasmMsg,
+    Event, IbcMsg, MessageInfo, Order, Response, StdResult, SubMsg, WasmMsg,
 };
 use cw_storage_plus::Map;
 use ics721_types::{
@@ -157,7 +157,7 @@ where
         let token_id = TokenId::new(token_id);
         let child_class_id = ClassId::new(child_class_id);
         let child_collection = deps.api.addr_validate(&child_collection)?;
-        match query_nft_contract_for_class_id(deps.storage, child_class_id.to_string())? {
+        match query_nft_contract_for_class_id(deps.storage, child_class_id.clone())? {
             Some(cw721_addr) => {
                 if cw721_addr != child_collection {
                     return Err(ContractError::NoNftContractMatch {
@@ -240,7 +240,7 @@ where
         // check given home class id and home collection is the same as stored in the contract
         let home_class_id = ClassId::new(home_class_id);
         let home_collection = deps.api.addr_validate(&home_collection)?;
-        match query_nft_contract_for_class_id(deps.storage, home_class_id.to_string())? {
+        match query_nft_contract_for_class_id(deps.storage, home_class_id.clone())? {
             Some(cw721_addr) => {
                 if cw721_addr != home_collection {
                     return Err(ContractError::NoNftContractMatch {
@@ -524,15 +524,23 @@ where
             msg: to_json_binary(&ExecuteMsg::Callback(CallbackMsg::Mint {
                 class_id: class.id.clone(),
                 receiver,
-                tokens,
+                tokens: tokens.clone(),
             }))?,
             funds: vec![],
         };
 
-        let instantiate = self.create_instantiate_msg(deps, &env, class.clone())?;
+        let (class_id_info, instantiate) =
+            self.create_instantiate_msg(deps, &env, class.clone())?;
+
+        let token_ids = format!("{:?}", tokens);
+        let event = Event::new("ics721_receive_create_vouchers")
+            .add_attribute("class_id", class_id_info.class_id)
+            .add_attribute("nft_contract", class_id_info.address)
+            .add_attribute("token_ids", token_ids);
 
         Ok(Response::<T>::default()
             .add_attribute("method", "callback_create_vouchers")
+            .add_event(event)
             .add_submessages(instantiate)
             .add_message(mint))
     }
@@ -542,9 +550,11 @@ where
         deps: DepsMut,
         env: &Env,
         class: Class,
-    ) -> Result<Vec<SubMsg<T>>, ContractError> {
-        if CLASS_ID_AND_NFT_CONTRACT_INFO.has(deps.storage, class.id.to_string().as_str()) {
-            Ok(vec![])
+    ) -> Result<(ClassIdInfo, Vec<SubMsg<T>>), ContractError> {
+        let maybe_class_id_info =
+            CLASS_ID_AND_NFT_CONTRACT_INFO.may_load(deps.as_ref().storage, &class.id)?;
+        if let Some(nft_contract) = maybe_class_id_info {
+            Ok((nft_contract, vec![]))
         } else {
             let class_id = ClassId::new(class.id.clone());
             let cw721_code_id = CW721_CODE_ID.load(deps.storage)?;
@@ -586,7 +596,7 @@ where
                 },
                 INSTANTIATE_CW721_REPLY_ID,
             );
-            Ok(vec![message])
+            Ok((class_id_info, vec![message]))
         }
     }
 
@@ -629,8 +639,16 @@ where
         let VoucherRedemption { class, token_ids } = redeem;
         let nft_contract = load_nft_contract_for_class_id(deps.storage, class.id.to_string())?;
         let receiver = deps.api.addr_validate(&receiver)?;
+
+        let token_ids_string = format!("{:?}", token_ids);
+        let event = Event::new("ics721_receive_redeem_vouchers")
+            .add_attribute("class_id", class.id)
+            .add_attribute("nft_contract", nft_contract.clone())
+            .add_attribute("token_ids", token_ids_string);
+
         Ok(Response::default()
             .add_attribute("method", "callback_redeem_vouchers")
+            .add_event(event)
             .add_messages(
                 token_ids
                     .into_iter()

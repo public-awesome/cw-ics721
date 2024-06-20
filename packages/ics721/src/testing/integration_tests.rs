@@ -101,7 +101,7 @@ fn execute(
     Ics721Contract::default().execute(deps, env, info, msg)
 }
 
-fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
     Ics721Contract::default().query(deps, env, msg)
 }
 

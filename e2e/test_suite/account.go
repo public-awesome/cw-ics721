@@ -1,4 +1,4 @@
-package e2e_test
+package test_suite
 
 import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"

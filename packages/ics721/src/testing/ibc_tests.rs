@@ -16,7 +16,7 @@ use crate::{
     ibc_helpers::{ack_fail, ack_success, try_get_ack_error},
     msg::{CallbackMsg, ExecuteMsg, InstantiateMsg, QueryMsg},
     query::Ics721Query,
-    state::{ClassIdInfo, CollectionData, CLASS_ID_AND_NFT_CONTRACT_INFO, PO},
+    state::{ClassIdInfo, CollectionData, CLASS_ID_AND_NFT_CONTRACT_INFO, CW721_CODE_ID, PO},
     utils::get_collection_data,
     ContractError,
 };
@@ -34,7 +34,7 @@ const DEFAULT_TIMEOUT: u64 = 42; // Seconds.
 
 const ADDR1: &str = "addr1";
 const RELAYER_ADDR: &str = "relayer";
-const CW721_CODE_ID: u64 = 0;
+const CW721_BASE_CODE_ID: u64 = 0;
 
 #[derive(Default)]
 pub struct Ics721Contract {}
@@ -106,7 +106,7 @@ fn add_channel(mut deps: DepsMut, env: Env, channel_id: &str) {
 
 fn do_instantiate(deps: DepsMut, env: Env, sender: &str) -> StdResult<Response> {
     let msg = InstantiateMsg {
-        cw721_base_code_id: CW721_CODE_ID,
+        cw721_base_code_id: CW721_BASE_CODE_ID,
         incoming_proxy: None,
         outgoing_proxy: None,
         pauser: None,
@@ -437,6 +437,22 @@ fn test_ibc_channel_connect_invalid_version_counterparty() {
 
 #[test]
 fn test_ibc_packet_receive() {
+    let mut deps = mock_dependencies();
+    CW721_CODE_ID
+        .save(&mut deps.storage, &CW721_BASE_CODE_ID)
+        .unwrap();
+    let dest_class_id = format!("{}/{}/{}", CONTRACT_PORT, CHANNEL_ID, "id");
+    CLASS_ID_AND_NFT_CONTRACT_INFO
+        .save(
+            &mut deps.storage,
+            &ClassId::new(dest_class_id.clone()),
+            &ClassIdInfo {
+                class_id: ClassId::new(dest_class_id),
+                address: Addr::unchecked("cosmos2contract"),
+            },
+        )
+        .unwrap();
+
     let data = to_json_binary(&NonFungibleTokenPacketData {
         class_id: ClassId::new("id"),
         class_uri: None,
@@ -451,7 +467,6 @@ fn test_ibc_packet_receive() {
     .unwrap();
     let ibc_packet = mock_packet(data);
     let packet = IbcPacketReceiveMsg::new(ibc_packet.clone(), Addr::unchecked(RELAYER_ADDR));
-    let mut deps = mock_dependencies();
     let env = mock_env();
     PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
     let response = Ics721Contract::default()
@@ -539,6 +554,22 @@ fn test_ibc_packet_receive_invalid_packet_data() {
 
 #[test]
 fn test_ibc_packet_receive_emits_memo() {
+    let mut deps = mock_dependencies();
+    CW721_CODE_ID
+        .save(&mut deps.storage, &CW721_BASE_CODE_ID)
+        .unwrap();
+    let dest_class_id = format!("{}/{}/{}", CONTRACT_PORT, CHANNEL_ID, "id");
+    CLASS_ID_AND_NFT_CONTRACT_INFO
+        .save(
+            &mut deps.storage,
+            &ClassId::new(dest_class_id.clone()),
+            &ClassIdInfo {
+                class_id: ClassId::new(dest_class_id),
+                address: Addr::unchecked("cosmos2contract"),
+            },
+        )
+        .unwrap();
+
     let data = to_json_binary(&NonFungibleTokenPacketData {
         class_id: ClassId::new("id"),
         class_uri: None,
@@ -552,12 +583,12 @@ fn test_ibc_packet_receive_emits_memo() {
     })
     .unwrap();
     let packet = IbcPacketReceiveMsg::new(mock_packet(data), Addr::unchecked(RELAYER_ADDR));
-    let mut deps = mock_dependencies();
     let env = mock_env();
     PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
     let res = Ics721Contract::default()
         .ibc_packet_receive(deps.as_mut(), env, packet)
         .unwrap();
+    println!(">>>>>>>>>>> memo: {:?}", res.attributes);
     assert!(res.attributes.contains(&Attribute {
         key: "ics721_memo".to_string(),
         value: "memo".to_string()
@@ -700,6 +731,22 @@ fn test_no_receive_when_paused() {
 
 #[test]
 fn test_different_memo_ignored() {
+    let mut deps = mock_dependencies();
+    CW721_CODE_ID
+        .save(&mut deps.storage, &CW721_BASE_CODE_ID)
+        .unwrap();
+    let dest_class_id = format!("{}/{}/{}", CONTRACT_PORT, CHANNEL_ID, "id");
+    CLASS_ID_AND_NFT_CONTRACT_INFO
+        .save(
+            &mut deps.storage,
+            &ClassId::new(dest_class_id.clone()),
+            &ClassIdInfo {
+                class_id: ClassId::new(dest_class_id),
+                address: Addr::unchecked("cosmos2contract"),
+            },
+        )
+        .unwrap();
+
     #[cw_serde]
     struct DifferentMemo {
         different: Option<Ics721Callbacks>,
@@ -732,7 +779,6 @@ fn test_different_memo_ignored() {
     };
     let ibc_packet = mock_packet(to_json_binary(&data).unwrap());
     let packet = IbcPacketReceiveMsg::new(ibc_packet, Addr::unchecked(RELAYER_ADDR));
-    let mut deps = mock_dependencies();
     let env = mock_env();
     PO.set_pauser(&mut deps.storage, &deps.api, None).unwrap();
 

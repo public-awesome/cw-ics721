@@ -125,6 +125,14 @@ pub enum QueryMsg {
     #[returns(Option<::cosmwasm_std::Addr>)]
     NftContract { class_id: String },
 
+    /// Returns predictable NFT contract using instantiate2. If no
+    /// cw721_code_id is provided, default cw721_code_id from storage is used.
+    #[returns(::cosmwasm_std::Addr)]
+    GetInstantiate2NftContract {
+        class_id: String,
+        cw721_code_id: Option<u64>,
+    },
+
     /// Gets the class level metadata URI for the provided
     /// class_id. If there is no metadata, returns None. Returns
     /// `Option<Class>`.

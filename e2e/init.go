@@ -1,4 +1,4 @@
-package e2e_test
+package e2e
 
 import (
 	wasmd "github.com/CosmWasm/wasmd/app"
@@ -7,5 +7,4 @@ import (
 func init() {
 	// override default gas
 	wasmd.DefaultGas = 3_000_000
-
 }

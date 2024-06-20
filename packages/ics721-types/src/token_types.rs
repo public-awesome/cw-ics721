@@ -79,6 +79,12 @@ impl From<ClassId> for String {
     }
 }
 
+impl From<String> for ClassId {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
 impl From<TokenId> for String {
     fn from(t: TokenId) -> Self {
         t.0
