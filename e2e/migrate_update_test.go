@@ -50,7 +50,7 @@ func (suite *MigrateUpdateTestSuite) SetupTest() {
 		resp := chain.StoreCodeFile("../artifacts/ics721_base.wasm")
 		require.Equal(suite.T(), uint64(1), resp.CodeID)
 
-		resp = chain.StoreCodeFile("../external-wasms/cw721_base_v0.16.0.wasm")
+		resp = chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
 		require.Equal(suite.T(), uint64(2), resp.CodeID)
 
 		resp = chain.StoreCodeFile("../artifacts/ics721_base_tester.wasm")
@@ -62,10 +62,11 @@ func (suite *MigrateUpdateTestSuite) SetupTest() {
 
 		// init dummy contracts based on how much we need
 		for i := 0; i < num; i++ {
-			cw721Instantiate := test_suite.InstantiateCw721v16{
-				Name:   "bad/kids",
-				Symbol: "bad/kids",
-				Minter: suite.chainA.SenderAccount.GetAddress().String(),
+			cw721Instantiate := test_suite.InstantiateCw721v18{
+				Name:            "bad/kids",
+				Symbol:          "bad/kids",
+				Minter:          suite.chainA.SenderAccount.GetAddress().String(),
+				WithdrawAddress: nil,
 			}
 			instantiateRaw, err := json.Marshal(cw721Instantiate)
 			require.NoError(suite.T(), err)
@@ -75,10 +76,10 @@ func (suite *MigrateUpdateTestSuite) SetupTest() {
 
 		// init ics721
 		instantiateBridge := test_suite.InstantiateICS721Bridge{
-			CW721CodeID:   2,
-			OutgoingProxy: nil,
-			IncomingProxy: nil,
-			Pauser:        nil,
+			Cw721BaseCodeId: 2,
+			OutgoingProxy:   nil,
+			IncomingProxy:   nil,
+			Pauser:          nil,
 		}
 		instantiateBridgeRaw, err := json.Marshal(instantiateBridge)
 		require.NoError(suite.T(), err)
@@ -127,6 +128,7 @@ func (suite *MigrateUpdateTestSuite) SetupTest() {
 		Name:   "bad/kids",
 		Symbol: "bad/kids",
 		Minter: suite.chainA.SenderAccount.GetAddress().String(),
+		//WithdrawAddress: nil,
 	}
 	instantiateRaw, err := json.Marshal(cw721Instantiate)
 	require.NoError(suite.T(), err)
@@ -177,11 +179,11 @@ func (suite *MigrateUpdateTestSuite) TestSuccessfulTransferWithMigrateUpdate() {
 	memo := test_suite.CreateCallbackMemo(test_suite.NftCallbackSent(), "", test_suite.NftCallbackReceived(), "")
 
 	// A -> B token_id 2
-	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, true)
+	test_suite.SendNftToIcs721AndRelay(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, true)
 
 	// Query the owner of NFT on cw721
 	chainAOwner := test_suite.QueryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "2")
-	require.Equal(suite.T(), chainAOwner, suite.testerA.String())
+	require.Equal(suite.T(), chainAOwner, suite.bridgeA.String())
 	chainBOwner := test_suite.QueryGetOwnerOf(suite.T(), suite.chainB, suite.cw721B.String(), "2")
 	require.Equal(suite.T(), chainBOwner, suite.testerB.String())
 
@@ -196,10 +198,11 @@ func (suite *MigrateUpdateTestSuite) TestSuccessfulTransferWithMigrateUpdate() {
 	require.Equal(suite.T(), testerDataOwnerB, suite.testerB.String())
 
 	// Execute a migration over the ics721 but keeping the same actual code ID. We just want to pass the with_update struct changing the cw721BaseCodeId
-	test_suite.MigrateWIthUpdate(suite.T(), suite.chainA, suite.bridgeA.String(), 1, 4)
+	// In this test we are starting from v0.18.0, and we downgrade to v0.17.0 since the collection is already created with v0.18.0 and so it would be used for the transfer, not v0.17.0
+	test_suite.MigrateWithUpdate(suite.T(), suite.chainA, suite.bridgeA.String(), 1, 4)
 
-	// A -> B token_id 5
-	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "5", memo, true)
+	// A -> B token_id 3
+	test_suite.SendNftToIcs721AndRelay(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "3", memo, true)
 
 	// Query the owner of NFT on cw721
 	chainAOwner = test_suite.QueryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "3")
