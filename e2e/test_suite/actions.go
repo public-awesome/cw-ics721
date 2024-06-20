@@ -87,8 +87,8 @@ func InstantiateCw721(t *testing.T, chain *wasmibctesting.TestChain, version int
 	return chain.InstantiateContract(cw721resp.CodeID, instantiateRaw)
 }
 
-// MigrateWIthUpdate Migrates the ICS721 contract on CHAIN to use a different CW721 contract code ID
-func MigrateWIthUpdate(t *testing.T, chain *wasmibctesting.TestChain, ics721 string, codeId, cw721BaseCodeId uint64) {
+// MigrateWithUpdate Migrates the ICS721 contract on CHAIN to use a different CW721 contract code ID
+func MigrateWithUpdate(t *testing.T, chain *wasmibctesting.TestChain, ics721 string, codeId, cw721BaseCodeId uint64) {
 	_, err := chain.SendMsgs(&wasmtypes.MsgMigrateContract{
 		// Sender account is the minter in our test universe.
 		Sender:   chain.SenderAccount.GetAddress().String(),
@@ -135,7 +135,7 @@ func Ics721TransferNft(t *testing.T, chain *wasmibctesting.TestChain, path *wasm
 	return res
 }
 
-func SendIcsFromChainToChain(t *testing.T, coordinator *wasmibctesting.Coordinator, sourceChain *wasmibctesting.TestChain, sourceBridge sdk.AccAddress, sourceTester sdk.AccAddress, destinationTester sdk.AccAddress, path *wasmibctesting.Path, endpoint *wasmibctesting.Endpoint, nftContract string, tokenId string, memo string, relay bool) {
+func SendNftToIcs721AndRelay(t *testing.T, coordinator *wasmibctesting.Coordinator, sourceChain *wasmibctesting.TestChain, sourceBridge sdk.AccAddress, sourceTester sdk.AccAddress, destinationTester sdk.AccAddress, path *wasmibctesting.Path, endpoint *wasmibctesting.Endpoint, nftContract string, tokenId string, memo string, relay bool) {
 	msg := fmt.Sprintf(`{ "send_nft": {"cw721": "%s", "ics721": "%s", "token_id": "%s", "recipient":"%s", "channel_id":"%s", "memo":"%s"}}`, nftContract, sourceBridge.String(), tokenId, destinationTester.String(), endpoint.ChannelID, memo)
 	_, err := sourceChain.SendMsgs(&wasmtypes.MsgExecuteContract{
 		Sender:   sourceChain.SenderAccount.GetAddress().String(),
@@ -143,8 +143,8 @@ func SendIcsFromChainToChain(t *testing.T, coordinator *wasmibctesting.Coordinat
 		Msg:      []byte(msg),
 		Funds:    []sdk.Coin{},
 	})
+	// this checks the local send_nft to the ics721 contract succeed
 	require.NoError(t, err)
-
 	if relay {
 		coordinator.UpdateTime()
 		coordinator.RelayAndAckPendingPackets(path)

@@ -199,7 +199,7 @@ func (suite *CallbackTestSuite) TestSuccessfulTransfer() {
 	memo := test_suite.CreateCallbackMemo(test_suite.NftCallbackSent(), "", test_suite.NftCallbackReceived(), "")
 
 	// A -> B token_id 2
-	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, true)
+	test_suite.SendNftToIcs721AndRelay(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, true)
 
 	// Query the owner of NFT on cw721
 	chainAOwner := test_suite.QueryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "2")
@@ -244,7 +244,7 @@ func (suite *CallbackTestSuite) TestSuccessfulTransferWithReceivers() {
 func (suite *CallbackTestSuite) TestTimeoutTransfer() {
 	memo := test_suite.CreateCallbackMemo(test_suite.NftCallbackSent(), "", test_suite.NftCallbackReceived(), "")
 	// A -> B token_id 2
-	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, false)
+	test_suite.SendNftToIcs721AndRelay(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, false)
 
 	suite.coordinator.IncrementTimeBy(time.Second * 2001)
 	suite.coordinator.UpdateTime()
@@ -271,7 +271,7 @@ func (suite *CallbackTestSuite) TestTimeoutTransfer() {
 func (suite *CallbackTestSuite) TestFailedCallbackTransfer() {
 	memo := test_suite.CreateCallbackMemo(test_suite.NftCallbackSent(), "", test_suite.NftCallbackFailed(), "")
 	// A -> B token_id 2
-	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, true)
+	test_suite.SendNftToIcs721AndRelay(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, true)
 
 	// Query the owner of NFT on cw721
 	chainAOwner := test_suite.QueryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "2")
@@ -295,7 +295,7 @@ func (suite *CallbackTestSuite) TestFailedCallbackOnAck() {
 	// Transfer to chain B
 	memo := test_suite.CreateCallbackMemo("", "", "", "")
 	// A -> B token_id 2
-	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, true)
+	test_suite.SendNftToIcs721AndRelay(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, true)
 
 	// Transfer from B to chain A,
 	// We fail the ack callback and see if the NFT was burned or not
@@ -303,7 +303,7 @@ func (suite *CallbackTestSuite) TestFailedCallbackOnAck() {
 	// we make sure that the NFT was burned on chain B, and that the owner is correct on chain A
 	memo = test_suite.CreateCallbackMemo(test_suite.NftCallbackFailed(), "", "", "")
 	// B -> A token_id 2
-	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainB, suite.bridgeB, suite.testerB, suite.testerA, suite.pathAB.Invert(), suite.pathAB.EndpointB, suite.cw721B.String(), "2", memo, true)
+	test_suite.SendNftToIcs721AndRelay(suite.T(), suite.coordinator, suite.chainB, suite.bridgeB, suite.testerB, suite.testerA, suite.pathAB.Invert(), suite.pathAB.EndpointB, suite.cw721B.String(), "2", memo, true)
 
 	// Transfer was successful, so the owner on chain A should be the testerA
 	chainAOwner := test_suite.QueryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "2")
@@ -329,7 +329,7 @@ func (suite *CallbackTestSuite) TestMultipleChainsTransfers() {
 	memo := test_suite.CreateCallbackMemo(test_suite.NftCallbackSent(), "", test_suite.NftCallbackReceived(), "")
 
 	// A -> B token_id 2
-	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, true)
+	test_suite.SendNftToIcs721AndRelay(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerB, suite.pathAB, suite.pathAB.EndpointA, suite.cw721A.String(), "2", memo, true)
 
 	// Owner should be the bridge on chain A
 	chainAOwner := test_suite.QueryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "2")
@@ -341,7 +341,7 @@ func (suite *CallbackTestSuite) TestMultipleChainsTransfers() {
 	confirmNftContracts(suite.chainA, suite.chainB, suite.testerA.String(), suite.testerB.String(), suite.cw721A.String(), suite.cw721B.String())
 
 	// B -> C again token_id 2
-	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainB, suite.bridgeB, suite.testerB, suite.testerC, suite.pathBC, suite.pathBC.EndpointA, suite.cw721B.String(), "2", memo, true)
+	test_suite.SendNftToIcs721AndRelay(suite.T(), suite.coordinator, suite.chainB, suite.bridgeB, suite.testerB, suite.testerC, suite.pathBC, suite.pathBC.EndpointA, suite.cw721B.String(), "2", memo, true)
 
 	// Get the cw721 address on ChainC when received from ChainB
 	BCClassId := fmt.Sprintf("%s/%s/%s/%s/%s", suite.pathBC.EndpointB.ChannelConfig.PortID, suite.pathBC.EndpointB.ChannelID, suite.pathAB.EndpointB.ChannelConfig.PortID, suite.pathAB.EndpointB.ChannelID, suite.cw721A)
@@ -357,7 +357,7 @@ func (suite *CallbackTestSuite) TestMultipleChainsTransfers() {
 	confirmNftContracts(suite.chainB, suite.chainC, suite.testerB.String(), suite.testerC.String(), suite.cw721B.String(), BCCw721)
 
 	// A -> C token_id 4
-	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerC, suite.pathAC, suite.pathAC.EndpointA, suite.cw721A.String(), "4", memo, true)
+	test_suite.SendNftToIcs721AndRelay(suite.T(), suite.coordinator, suite.chainA, suite.bridgeA, suite.testerA, suite.testerC, suite.pathAC, suite.pathAC.EndpointA, suite.cw721A.String(), "4", memo, true)
 
 	// Get the cw721 address on ChainC when received from ChainB
 	ACClassId := fmt.Sprintf("%s/%s/%s", suite.pathAC.EndpointB.ChannelConfig.PortID, suite.pathAC.EndpointB.ChannelID, suite.cw721A)
@@ -371,14 +371,14 @@ func (suite *CallbackTestSuite) TestMultipleChainsTransfers() {
 
 	// Let send back all NFTs to Chain A
 	// C -> A token_id 4
-	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainC, suite.bridgeC, suite.testerC, suite.testerA, suite.pathAC.Invert(), suite.pathAC.EndpointB, ACCw721, "4", memo, true)
+	test_suite.SendNftToIcs721AndRelay(suite.T(), suite.coordinator, suite.chainC, suite.bridgeC, suite.testerC, suite.testerA, suite.pathAC.Invert(), suite.pathAC.EndpointB, ACCw721, "4", memo, true)
 	confirmNftContracts(suite.chainC, suite.chainA, suite.testerC.String(), suite.testerA.String(), ACCw721, suite.cw721A.String())
 
 	// C -> B token_id 2
-	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainC, suite.bridgeC, suite.testerC, suite.testerB, suite.pathBC.Invert(), suite.pathBC.EndpointB, BCCw721, "2", memo, true)
+	test_suite.SendNftToIcs721AndRelay(suite.T(), suite.coordinator, suite.chainC, suite.bridgeC, suite.testerC, suite.testerB, suite.pathBC.Invert(), suite.pathBC.EndpointB, BCCw721, "2", memo, true)
 	confirmNftContracts(suite.chainC, suite.chainB, suite.testerC.String(), suite.testerB.String(), BCCw721, suite.cw721B.String())
 	// B -> A again token_id 2
-	test_suite.SendIcsFromChainToChain(suite.T(), suite.coordinator, suite.chainB, suite.bridgeB, suite.testerB, suite.testerA, suite.pathAB.Invert(), suite.pathAB.EndpointB, suite.cw721B.String(), "2", memo, true)
+	test_suite.SendNftToIcs721AndRelay(suite.T(), suite.coordinator, suite.chainB, suite.bridgeB, suite.testerB, suite.testerA, suite.pathAB.Invert(), suite.pathAB.EndpointB, suite.cw721B.String(), "2", memo, true)
 	confirmNftContracts(suite.chainB, suite.chainA, suite.testerB.String(), suite.testerA.String(), suite.cw721B.String(), suite.cw721A.String())
 
 	chainAOwner1 := test_suite.QueryGetOwnerOf(suite.T(), suite.chainA, suite.cw721A.String(), "2")
