@@ -29,10 +29,10 @@ func StoreCodes(t *testing.T, chain *wasmibctesting.TestChain, bridge *sdk.AccAd
 	require.Equal(t, uint64(3), resp.CodeID)
 
 	instantiateBridge := InstantiateICS721Bridge{
-		CW721CodeID:   2,
-		OutgoingProxy: nil,
-		IncomingProxy: nil,
-		Pauser:        nil,
+		Cw721BaseCodeId: 2,
+		OutgoingProxy:   nil,
+		IncomingProxy:   nil,
+		Pauser:          nil,
 	}
 	instantiateBridgeRaw, err := json.Marshal(instantiateBridge)
 	require.NoError(t, err)
@@ -49,10 +49,10 @@ func InstantiateBridge(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAdd
 
 	// Instantiate the ICS721 contract.
 	instantiateICS721 := InstantiateICS721Bridge{
-		CW721CodeID:   cw721resp.CodeID,
-		OutgoingProxy: nil,
-		IncomingProxy: nil,
-		Pauser:        nil,
+		Cw721BaseCodeId: cw721resp.CodeID,
+		OutgoingProxy:   nil,
+		IncomingProxy:   nil,
+		Pauser:          nil,
 	}
 	instantiateICS721Raw, err := json.Marshal(instantiateICS721)
 	require.NoError(t, err)
@@ -128,7 +128,10 @@ func Ics721TransferNft(t *testing.T, chain *wasmibctesting.TestChain, path *wasm
 		Funds:    []sdk.Coin{},
 	})
 	require.NoError(t, err)
-	coordinator.RelayAndAckPendingPackets(path)
+	err = coordinator.RelayAndAckPendingPackets(path)
+	if err != nil {
+		return nil
+	}
 	return res
 }
 

@@ -48,7 +48,7 @@ func (suite *BasicTestSuite) TestInstantiateIcs721() {
 
 	// Instantiate the ICS721 contract.
 	instantiateICS721 := test_suite.InstantiateICS721Bridge{
-		CW721CodeID: 1,
+		Cw721BaseCodeId: 1,
 		// no pauser nor proxy by default.
 		OutgoingProxy: nil,
 		IncomingProxy: nil,

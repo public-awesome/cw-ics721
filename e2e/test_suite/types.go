@@ -24,10 +24,10 @@ type ModuleInstantiateInfo struct {
 }
 
 type InstantiateICS721Bridge struct {
-	CW721CodeID   uint64                 `json:"cw721_base_code_id"`
-	OutgoingProxy *ModuleInstantiateInfo `json:"outgoing_proxy"`
-	IncomingProxy *ModuleInstantiateInfo `json:"incoming_proxy"`
-	Pauser        *string                `json:"pauser"`
+	Cw721BaseCodeId uint64                 `json:"cw721_base_code_id"`
+	OutgoingProxy   *ModuleInstantiateInfo `json:"outgoing_proxy"`
+	IncomingProxy   *ModuleInstantiateInfo `json:"incoming_proxy"`
+	Pauser          *string                `json:"pauser"`
 }
 
 // InstantiateCw721v18 v18 introduced the withdraw_address field

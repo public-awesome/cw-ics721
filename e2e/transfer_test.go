@@ -55,7 +55,7 @@ func (suite *TransferTestSuite) SetupTest() {
 	require.Equal(suite.T(), uint64(2), chainBStoreResp.CodeID)
 
 	instantiateICS721 := test_suite.InstantiateICS721Bridge{
-		CW721CodeID: 2,
+		Cw721BaseCodeId: 2,
 		// no pauser nor proxy by default.
 		OutgoingProxy: nil,
 		IncomingProxy: nil,
@@ -521,10 +521,10 @@ func TestCloseRejected(t *testing.T) {
 
 	// Store the cw721_base contract.
 	instantiateICS721 := test_suite.InstantiateICS721Bridge{
-		CW721CodeID:   2,
-		OutgoingProxy: nil,
-		IncomingProxy: nil,
-		Pauser:        nil,
+		Cw721BaseCodeId: 2,
+		OutgoingProxy:   nil,
+		IncomingProxy:   nil,
+		Pauser:          nil,
 	}
 	instantiateICS721Raw, err := json.Marshal(instantiateICS721)
 	require.NoError(t, err)

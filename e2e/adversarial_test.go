@@ -75,10 +75,10 @@ func (suite *AdversarialTestSuite) SetupTest() {
 		require.Equal(suite.T(), uint64(3), resp.CodeID)
 
 		instantiateBridge := test_suite.InstantiateICS721Bridge{
-			CW721CodeID:   2,
-			OutgoingProxy: nil,
-			IncomingProxy: nil,
-			Pauser:        nil,
+			Cw721BaseCodeId: 2,
+			OutgoingProxy:   nil,
+			IncomingProxy:   nil,
+			Pauser:          nil,
 		}
 		instantiateBridgeRaw, err := json.Marshal(instantiateBridge)
 		require.NoError(suite.T(), err)

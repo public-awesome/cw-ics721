@@ -80,10 +80,10 @@ func (suite *CallbackTestSuite) SetupTest() {
 
 		// init ics721
 		instantiateBridge := test_suite.InstantiateICS721Bridge{
-			CW721CodeID:   2,
-			OutgoingProxy: nil,
-			IncomingProxy: nil,
-			Pauser:        nil,
+			Cw721BaseCodeId: 2,
+			OutgoingProxy:   nil,
+			IncomingProxy:   nil,
+			Pauser:          nil,
 		}
 		instantiateBridgeRaw, err := json.Marshal(instantiateBridge)
 		require.NoError(suite.T(), err)
