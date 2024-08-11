@@ -107,7 +107,7 @@ where
     ) -> Result<Response<T>, ContractError> {
         PO.error_if_paused(deps.storage)?;
         match msg {
-            ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+            ExecuteMsg::ReceiveNft(cw721::receiver::Cw721ReceiveMsg {
                 sender,
                 token_id,
                 msg,
@@ -185,7 +185,7 @@ where
             .querier
             .query_wasm_smart(
                 child_collection.clone(),
-                &cw721::Cw721QueryMsg::AllNftInfo {
+                &cw721_metadata_onchain::QueryMsg::AllNftInfo {
                     token_id: token_id.clone().into(),
                     include_expired: None,
                 },
@@ -206,7 +206,7 @@ where
             // note: this requires approval from recipient, or recipient burns it himself
             let burn_msg = WasmMsg::Execute {
                 contract_addr: child_collection.to_string(),
-                msg: to_json_binary(&cw721::Cw721ExecuteMsg::Burn {
+                msg: to_json_binary(&cw721_metadata_onchain::ExecuteMsg::Burn {
                     token_id: token_id.clone().into(),
                 })?,
                 funds: vec![],
@@ -268,7 +268,7 @@ where
             .querier
             .query_wasm_smart(
                 home_collection.clone(),
-                &cw721::Cw721QueryMsg::AllNftInfo {
+                &cw721_metadata_onchain::QueryMsg::AllNftInfo {
                     token_id: token_id.clone().into(),
                     include_expired: None,
                 },
@@ -284,7 +284,7 @@ where
             // transfer NFT
             let transfer_msg = WasmMsg::Execute {
                 contract_addr: home_collection.to_string(),
-                msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                msg: to_json_binary(&cw721_metadata_onchain::ExecuteMsg::TransferNft {
                     recipient: recipient.to_string(),
                     token_id: token_id.clone().into(),
                 })?,
@@ -401,7 +401,7 @@ where
         // make sure NFT is escrowed by ics721
         let UniversalAllNftInfoResponse { access, info } = deps.querier.query_wasm_smart(
             nft_contract,
-            &cw721::Cw721QueryMsg::AllNftInfo {
+            &cw721_metadata_onchain::QueryMsg::AllNftInfo {
                 token_id: token_id.clone().into(),
                 include_expired: None,
             },
@@ -608,9 +608,11 @@ where
             .query_wasm_contract_info(env.contract.address.to_string())?;
 
         // use by default ClassId, in case there's no class data with name and symbol
-        let mut instantiate_msg = cw721_base::msg::InstantiateMsg {
+        let mut instantiate_msg = cw721_metadata_onchain::InstantiateMsg {
             name: class.id.clone().into(),
             symbol: class.id.clone().into(),
+            collection_info_extension: None, // TODO consider class data in NonFungibleTokenPacketData
+            creator: Some(creator.clone()),  // TODO maybe better using cw721 admin?
             minter: Some(env.contract.address.to_string()),
             withdraw_address: Some(creator),
         };
@@ -655,10 +657,12 @@ where
                     .map(|token_id| {
                         Ok(WasmMsg::Execute {
                             contract_addr: nft_contract.to_string(),
-                            msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
-                                recipient: receiver.to_string(),
-                                token_id: token_id.into(),
-                            })?,
+                            msg: to_json_binary(
+                                &cw721_metadata_onchain::ExecuteMsg::TransferNft {
+                                    recipient: receiver.to_string(),
+                                    token_id: token_id.into(),
+                                },
+                            )?,
                             funds: vec![],
                         })
                     })
@@ -686,11 +690,11 @@ where
                 // Also note that this is set for every token, regardless of if data is None.
                 TOKEN_METADATA.save(deps.storage, (class_id.clone(), id.clone()), &data)?;
 
-                let msg = cw721_base::msg::ExecuteMsg::<Empty, Empty>::Mint {
+                let msg = cw721_metadata_onchain::ExecuteMsg::Mint {
                     token_id: id.into(),
                     token_uri: uri,
                     owner: receiver.to_string(),
-                    extension: Empty::default(),
+                    extension: None, // TODO consider token data in NonFungibleTokenPacketData
                 };
                 Ok(WasmMsg::Execute {
                     contract_addr: nft_contract.to_string(),

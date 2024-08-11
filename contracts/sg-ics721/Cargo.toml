@@ -31,7 +31,8 @@ cw-multi-test = { workspace = true }
 cw-pause-once = { workspace = true }
 cw-storage-plus = { workspace = true }
 cw721 = { workspace = true}
+cw721-018 = { workspace = true}
 cw-ics721-incoming-proxy-base = { workspace = true }
 cw-ics721-outgoing-proxy-rate-limit = { workspace = true }
-cw721-base = { workspace = true}
+cw721-base-018 = { workspace = true}
 sha2 = { workspace = true }

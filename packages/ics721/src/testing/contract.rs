@@ -5,8 +5,13 @@ use cosmwasm_std::{
     to_json_binary, Addr, ContractResult, CosmosMsg, DepsMut, Empty, IbcMsg, IbcTimeout, Order,
     QuerierResult, Response, StdResult, SubMsg, Timestamp, WasmQuery,
 };
-use cw721::{AllNftInfoResponse, NftInfoResponse, NumTokensResponse};
-use cw721_base::QueryMsg;
+use cw721::{
+    msg::{
+        AllNftInfoResponse, CollectionInfoAndExtensionResponse, NftInfoResponse, NumTokensResponse,
+    },
+    DefaultOptionalCollectionExtension,
+};
+use cw721_metadata_onchain::QueryMsg;
 use cw_cii::ContractInstantiateInfo;
 use cw_ownable::Ownership;
 use cw_storage_plus::Map;
@@ -85,8 +90,16 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
         cosmwasm_std::WasmQuery::Smart {
             contract_addr: _,
             msg,
-        } => match from_json::<cw721_base::msg::QueryMsg<Empty>>(&msg).unwrap() {
-            QueryMsg::Ownership {} => QuerierResult::Ok(ContractResult::Ok(
+        } => match from_json::<cw721_metadata_onchain::QueryMsg>(&msg).unwrap() {
+            QueryMsg::GetMinterOwnership {} => QuerierResult::Ok(ContractResult::Ok(
+                to_json_binary(&Ownership::<Addr> {
+                    owner: Some(Addr::unchecked(OWNER_ADDR)),
+                    pending_owner: None,
+                    pending_expiry: None,
+                })
+                .unwrap(),
+            )),
+            QueryMsg::GetCreatorOwnership {} => QuerierResult::Ok(ContractResult::Ok(
                 to_json_binary(&Ownership::<Addr> {
                     owner: Some(Addr::unchecked(OWNER_ADDR)),
                     pending_owner: None,
@@ -96,7 +109,7 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
             )),
             QueryMsg::AllNftInfo { .. } => QuerierResult::Ok(ContractResult::Ok(
                 to_json_binary(&AllNftInfoResponse::<Option<Empty>> {
-                    access: cw721::OwnerOfResponse {
+                    access: cw721::msg::OwnerOfResponse {
                         owner: MOCK_CONTRACT_ADDR.to_string(),
                         approvals: vec![],
                     },
@@ -107,10 +120,26 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
                 })
                 .unwrap(),
             )),
+            #[allow(deprecated)]
             QueryMsg::ContractInfo {} => QuerierResult::Ok(ContractResult::Ok(
-                to_json_binary(&cw721::ContractInfoResponse {
+                to_json_binary(&CollectionInfoAndExtensionResponse::<
+                    DefaultOptionalCollectionExtension,
+                > {
                     name: "name".to_string(),
                     symbol: "symbol".to_string(),
+                    extension: None,
+                    updated_at: Timestamp::default(),
+                })
+                .unwrap(),
+            )),
+            QueryMsg::GetCollectionInfoAndExtension {} => QuerierResult::Ok(ContractResult::Ok(
+                to_json_binary(&CollectionInfoAndExtensionResponse::<
+                    DefaultOptionalCollectionExtension,
+                > {
+                    name: "name".to_string(),
+                    symbol: "symbol".to_string(),
+                    extension: None,
+                    updated_at: Timestamp::default(),
                 })
                 .unwrap(),
             )),
@@ -138,44 +167,49 @@ fn mock_querier_v016(query: &WasmQuery) -> QuerierResult {
         cosmwasm_std::WasmQuery::Smart {
             contract_addr: _,
             msg,
-        } => match from_json::<cw721_base::msg::QueryMsg<Empty>>(&msg).unwrap() {
-            // unwrap using latest (not old) cw721-base, since it is backwards compatible
-            cw721_base::msg::QueryMsg::Minter {} => QuerierResult::Ok(ContractResult::Ok(
-                to_json_binary(
-                    // return v016 response
-                    &cw721_base_016::msg::MinterResponse {
-                        minter: OWNER_ADDR.to_string(),
-                    },
-                )
-                .unwrap(),
-            )),
-            cw721_base::msg::QueryMsg::AllNftInfo { .. } => QuerierResult::Ok(ContractResult::Ok(
-                to_json_binary(
-                    // return v016 response
-                    &cw721_016::AllNftInfoResponse::<Option<Empty>> {
-                        access: cw721_016::OwnerOfResponse {
-                            owner: MOCK_CONTRACT_ADDR.to_string(),
-                            approvals: vec![],
+        } => match from_json::<cw721_base_016::QueryMsg<Empty>>(&msg) {
+            Ok(msg) => match msg {
+                // unwrap using latest (not old) cw721-base, since it is backwards compatible
+                cw721_base_016::QueryMsg::Minter {} => QuerierResult::Ok(ContractResult::Ok(
+                    to_json_binary(
+                        // return v016 response
+                        &cw721_base_016::msg::MinterResponse {
+                            minter: OWNER_ADDR.to_string(),
                         },
-                        info: cw721_016::NftInfoResponse {
-                            token_uri: Some("https://moonphase.is/image.svg".to_string()),
-                            extension: None,
-                        },
-                    },
-                )
-                .unwrap(),
-            )),
-            QueryMsg::ContractInfo {} => QuerierResult::Ok(ContractResult::Ok(
-                to_json_binary(&cw721_016::ContractInfoResponse {
-                    name: "name".to_string(),
-                    symbol: "symbol".to_string(),
-                })
-                .unwrap(),
-            )),
-            QueryMsg::NumTokens {} => QuerierResult::Ok(ContractResult::Ok(
-                to_json_binary(&cw721_016::NumTokensResponse { count: 1 }).unwrap(),
-            )),
-            _ => QuerierResult::Err(cosmwasm_std::SystemError::Unknown {}), // throws error for Ownership query
+                    )
+                    .unwrap(),
+                )),
+                cw721_base_016::QueryMsg::AllNftInfo { .. } => {
+                    QuerierResult::Ok(ContractResult::Ok(
+                        to_json_binary(
+                            // return v016 response
+                            &cw721_016::AllNftInfoResponse::<Option<Empty>> {
+                                access: cw721_016::OwnerOfResponse {
+                                    owner: MOCK_CONTRACT_ADDR.to_string(),
+                                    approvals: vec![],
+                                },
+                                info: cw721_016::NftInfoResponse {
+                                    token_uri: Some("https://moonphase.is/image.svg".to_string()),
+                                    extension: None,
+                                },
+                            },
+                        )
+                        .unwrap(),
+                    ))
+                }
+                cw721_base_016::QueryMsg::ContractInfo {} => QuerierResult::Ok(ContractResult::Ok(
+                    to_json_binary(&cw721_016::ContractInfoResponse {
+                        name: "name".to_string(),
+                        symbol: "symbol".to_string(),
+                    })
+                    .unwrap(),
+                )),
+                cw721_base_016::QueryMsg::NumTokens {} => QuerierResult::Ok(ContractResult::Ok(
+                    to_json_binary(&cw721_016::NumTokensResponse { count: 1 }).unwrap(),
+                )),
+                _ => QuerierResult::Err(cosmwasm_std::SystemError::Unknown {}), // throws error for Ownership query
+            },
+            _ => QuerierResult::Err(cosmwasm_std::SystemError::Unknown {}), // not a v016 query
         },
         cosmwasm_std::WasmQuery::ContractInfo { .. } => QuerierResult::Ok(ContractResult::Ok(
             to_json_binary(&ContractInfoResponse {

@@ -14,6 +14,7 @@ cw-storage-plus = { workspace = true }
 cw-utils = { workspace = true }
 cw721 = { workspace = true }
 cw721-base = { workspace = true, features = ["library"] }
+cw721-metadata-onchain = { workspace = true, features = ["library"] }
 cw721-base-016  = { workspace = true, features = ["library"] }
 ics721-types = { workspace = true }
 thiserror = { workspace = true }

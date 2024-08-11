@@ -142,7 +142,7 @@ where
 
                         messages.push(WasmMsg::Execute {
                             contract_addr: nft_contract.to_string(),
-                            msg: to_json_binary(&cw721::Cw721ExecuteMsg::Burn {
+                            msg: to_json_binary(&cw721_metadata_onchain::ExecuteMsg::Burn {
                                 token_id: token.into(),
                             })?,
                             funds: vec![],
@@ -212,7 +212,7 @@ where
                     .remove(deps.storage, (message.class_id.clone(), token_id.clone()));
                 Ok(WasmMsg::Execute {
                     contract_addr: nft_contract.to_string(),
-                    msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                    msg: to_json_binary(&cw721_metadata_onchain::ExecuteMsg::TransferNft {
                         recipient: sender.to_string(),
                         token_id: token_id.into(),
                     })?,

@@ -131,12 +131,12 @@ mod tests {
 
     #[test]
     fn test_universal_deserialize() {
-        let start = cw721::AllNftInfoResponse::<Coin> {
-            access: cw721::OwnerOfResponse {
+        let start = cw721::msg::AllNftInfoResponse::<Coin> {
+            access: cw721::msg::OwnerOfResponse {
                 owner: "foo".to_string(),
                 approvals: vec![],
             },
-            info: cw721::NftInfoResponse {
+            info: cw721::msg::NftInfoResponse {
                 token_uri: None,
                 extension: Coin::new(100, "ujuno"),
             },
