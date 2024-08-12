@@ -53,7 +53,7 @@ interface TestContext {
 
 const test = anyTest as TestFn<TestContext>;
 
-const WASM_FILE_CW721 = "./internal/cw721_base_v0.18.0.wasm";
+const WASM_FILE_CW721 = "./internal/cw721_metadata_onchain_v0.19.0.wasm";
 const WASM_FILE_CW721_INCOMING_PROXY = "./internal/cw721_incoming_proxy.wasm";
 const WASM_FILE_CW721_OUTGOING_PROXY =
   "./internal/cw721_outgoing_proxy_rate_limit.wasm";
@@ -97,6 +97,7 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
       instantiateMsg: {
         name: "ark",
         symbol: "ark",
+        creator: osmoClient.senderAddress,
         minter: osmoClient.senderAddress,
       },
     },
