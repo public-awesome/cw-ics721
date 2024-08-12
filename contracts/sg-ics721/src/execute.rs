@@ -49,12 +49,23 @@ impl Ics721Execute for SgIcs721Contract {
         }))
     }
 
-    fn init_msg(&self, deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
+    fn init_msg(
+        &self,
+        deps: Deps,
+        env: &Env,
+        class: &Class,
+        cw721_admin: Option<String>,
+    ) -> StdResult<Binary> {
         // ics721 creator is used, in case no source owner in class data is provided (e.g. due to nft-transfer module).
         let ContractInfoResponse { creator, admin, .. } = deps
             .querier
             .query_wasm_contract_info(env.contract.address.to_string())?;
         // use by default ClassId, in case there's no class data with name and symbol
+        let cw721_admin_or_ics721_admin_or_ics721_creator = cw721_admin
+            .clone()
+            .or_else(|| admin.clone())
+            .or_else(|| Some(creator.clone()))
+            .unwrap();
         let mut instantiate_msg = sg721::InstantiateMsg {
             name: class.id.clone().into(),
             symbol: class.id.clone().into(),
@@ -63,10 +74,10 @@ impl Ics721Execute for SgIcs721Contract {
                 // source owner could be: 1. regular wallet, 2. contract, or 3. multisig
                 // bech32 calculation for 2. and 3. leads to unknown address
                 // therefore, we use ics721 creator as owner
-                creator: creator.clone(),
+                creator: cw721_admin_or_ics721_admin_or_ics721_creator.clone(),
                 description: "".to_string(),
-                // use Stargaze icon as placeholder
-                image: STARGAZE_ICON_PLACEHOLDER.to_string(),
+                // remaining props is set below, in case there's collection data
+                image: STARGAZE_ICON_PLACEHOLDER.to_string(), // use Stargaze icon as placeholder
                 external_link: None,
                 explicit_content: None,
                 start_trading_time: None,
@@ -85,7 +96,7 @@ impl Ics721Execute for SgIcs721Contract {
             let admin_or_creator = admin.unwrap_or(creator.clone());
             if let Some(collection_info_extension_msg) =
                 collection_data.extension.map(|ext| sg721::CollectionInfo {
-                    creator: creator.clone(),
+                    creator: cw721_admin_or_ics721_admin_or_ics721_creator.clone(),
                     description: ext.description,
                     image: ext.image,
                     external_link: ext.external_link,

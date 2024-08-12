@@ -133,7 +133,7 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
                     extension: Some(CollectionExtension {
                         description: "description".to_string(),
                         explicit_content: Some(false),
-                        external_link: Some("https://ark.pass".to_string()),
+                        external_link: Some("https://interchain.arkprotocol.io".to_string()),
                         image: "https://ark.pass/image.png".to_string(),
                         royalty_info: Some(RoyaltyInfo {
                             payment_address: Addr::unchecked("payment_address".to_string()),
@@ -154,7 +154,7 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
                     extension: Some(CollectionExtension {
                         description: "description".to_string(),
                         explicit_content: Some(false),
-                        external_link: Some("https://ark.pass".to_string()),
+                        external_link: Some("https://interchain.arkprotocol.io".to_string()),
                         image: "https://ark.pass/image.png".to_string(),
                         royalty_info: Some(RoyaltyInfo {
                             payment_address: Addr::unchecked("payment_address".to_string()),
@@ -308,7 +308,7 @@ fn test_receive_nft() {
                     extension: Some(CollectionExtension {
                         description: "description".to_string(),
                         explicit_content: Some(false),
-                        external_link: Some("https://ark.pass".to_string()),
+                        external_link: Some("https://interchain.arkprotocol.io".to_string()),
                         image: "https://ark.pass/image.png".to_string(),
                         royalty_info: Some(RoyaltyInfo {
                             payment_address: Addr::unchecked("payment_address".to_string()),
@@ -565,7 +565,7 @@ fn test_receive_sets_uri() {
                 extension: Some(CollectionExtension {
                     description: "description".to_string(),
                     explicit_content: Some(false),
-                    external_link: Some("https://ark.pass".to_string()),
+                    external_link: Some("https://interchain.arkprotocol.io".to_string()),
                     image: "https://ark.pass/image.png".to_string(),
                     royalty_info: Some(RoyaltyInfo {
                         payment_address: Addr::unchecked("payment_address".to_string()),

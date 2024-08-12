@@ -381,7 +381,7 @@ impl Test {
                         collection_info_extension: Some(CollectionExtensionMsg {
                             description: Some("description".to_string()),
                             explicit_content: Some(false),
-                            external_link: Some("https://ark.pass".to_string()),
+                            external_link: Some("https://interchain.arkprotocol.io".to_string()),
                             image: Some("https://ark.pass/image.png".to_string()),
                             royalty_info: Some(RoyaltyInfoResponse {
                                 payment_address: source_cw721_owner.to_string(),
@@ -679,7 +679,9 @@ fn test_do_instantiate_and_mint_weird_data() {
                                 extension: Some(CollectionExtension {
                                     description: "description".to_string(),
                                     explicit_content: Some(false),
-                                    external_link: Some("https://ark.pass".to_string()),
+                                    external_link: Some(
+                                        "https://interchain.arkprotocol.io".to_string(),
+                                    ),
                                     image: "https://ark.pass/image.png".to_string(),
                                     royalty_info: Some(RoyaltyInfo {
                                         payment_address: collection_owner_addr,
@@ -868,7 +870,7 @@ fn test_do_instantiate_and_mint() {
         let collection_extension = Some(CollectionExtension {
             description: "description".to_string(),
             explicit_content: Some(false),
-            external_link: Some("https://ark.pass".to_string()),
+            external_link: Some("https://interchain.arkprotocol.io".to_string()),
             image: "https://ark.pass/image.png".to_string(),
             royalty_info: Some(RoyaltyInfo {
                 payment_address: collection_owner_addr.clone(),
@@ -1650,7 +1652,9 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                                 extension: Some(CollectionExtension {
                                     description: "description".to_string(),
                                     explicit_content: Some(false),
-                                    external_link: Some("https://ark.pass".to_string()),
+                                    external_link: Some(
+                                        "https://interchain.arkprotocol.io".to_string(),
+                                    ),
                                     image: "https://ark.pass/image.png".to_string(),
                                     royalty_info: Some(RoyaltyInfo {
                                         payment_address: collection_owner_addr,
@@ -1768,7 +1772,9 @@ fn test_do_instantiate_and_mint_permissions() {
                                 extension: Some(CollectionExtension {
                                     description: "description".to_string(),
                                     explicit_content: Some(false),
-                                    external_link: Some("https://ark.pass".to_string()),
+                                    external_link: Some(
+                                        "https://interchain.arkprotocol.io".to_string(),
+                                    ),
                                     image: "https://ark.pass/image.png".to_string(),
                                     royalty_info: Some(RoyaltyInfo {
                                         payment_address: Addr::unchecked(
@@ -2022,7 +2028,7 @@ fn test_receive_nft() {
             extension: Some(CollectionExtension {
                 description: "description".to_string(),
                 explicit_content: Some(false),
-                external_link: Some("https://ark.pass".to_string()),
+                external_link: Some("https://interchain.arkprotocol.io".to_string()),
                 image: "https://ark.pass/image.png".to_string(),
                 royalty_info: Some(RoyaltyInfo {
                     payment_address: test.source_cw721_owner.clone(),

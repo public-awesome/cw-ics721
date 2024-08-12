@@ -378,7 +378,7 @@ impl Test {
                         description: "description".to_string(),
                         image: STARGAZE_ICON_PLACEHOLDER.to_string(),
                         explicit_content: Some(false),
-                        external_link: Some("https://ark.pass".to_string()),
+                        external_link: Some("https://interchain.arkprotocol.io".to_string()),
                         start_trading_time: Some(Timestamp::from_seconds(42)),
                         royalty_info: Some(RoyaltyInfoResponse {
                             payment_address: source_cw721_owner.to_string(),
@@ -643,7 +643,7 @@ fn test_do_instantiate_and_mint_weird_data() {
                                 extension: Some(CollectionExtension {
                                     description: "description".to_string(),
                                     explicit_content: Some(false),
-                                    external_link: Some("https://ark.pass".to_string()),
+                                    external_link: Some("https://interchain.arkprotocol.io".to_string()),
                                     image: "https://ark.pass/image.png".to_string(),
                                     royalty_info: Some(RoyaltyInfo {
                                         payment_address: Addr::unchecked(
@@ -874,7 +874,7 @@ fn test_do_instantiate_and_mint() {
                                     extension: Some(CollectionExtension {
                                         description: "description".to_string(),
                                         explicit_content: Some(false),
-                                        external_link: Some("https://ark.pass".to_string()),
+                                        external_link: Some("https://interchain.arkprotocol.io".to_string()),
                                         image: "https://ark.pass/image.png".to_string(),
                                         royalty_info: Some(RoyaltyInfo {
                                             payment_address: Addr::unchecked(
@@ -949,11 +949,10 @@ fn test_do_instantiate_and_mint() {
         assert_eq!(
             collection_info,
             CollectionInfoResponse {
-                // creator based on owner from collection in soure chain
-                creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
+                creator: test.admin_and_pauser.clone().unwrap(),
                 description: "description".to_string(),
                 image: "https://ark.pass/image.png".to_string(),
-                external_link: Some("https://ark.pass".to_string()),
+                external_link: Some("https://interchain.arkprotocol.io".to_string()),
                 explicit_content: Some(false),
                 start_trading_time: Some(Timestamp::from_seconds(42)),
                 royalty_info: Some(RoyaltyInfoResponse {
@@ -1916,7 +1915,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                                 extension: Some(CollectionExtension {
                                     description: "description".to_string(),
                                     explicit_content: Some(false),
-                                    external_link: Some("https://ark.pass".to_string()),
+                                    external_link: Some("https://interchain.arkprotocol.io".to_string()),
                                     image: "https://ark.pass/image.png".to_string(),
                                     royalty_info: Some(RoyaltyInfo {
                                         payment_address: Addr::unchecked(
@@ -1994,11 +1993,10 @@ fn test_do_instantiate_and_mint_no_instantiate() {
     assert_eq!(
         collection_info,
         CollectionInfoResponse {
-            // creator based on owner from collection in soure chain
-            creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
+            creator: test.admin_and_pauser.clone().unwrap(),
             description: "description".to_string(),
             image: "https://ark.pass/image.png".to_string(),
-            external_link: Some("https://ark.pass".to_string()),
+            external_link: Some("https://interchain.arkprotocol.io".to_string()),
             explicit_content: Some(false),
             start_trading_time: Some(Timestamp::from_seconds(42)),
             royalty_info: Some(RoyaltyInfoResponse {
@@ -2059,7 +2057,7 @@ fn test_do_instantiate_and_mint_permissions() {
                                 extension: Some(CollectionExtension {
                                     description: "description".to_string(),
                                     explicit_content: Some(false),
-                                    external_link: Some("https://ark.pass".to_string()),
+                                    external_link: Some("https://interchain.arkprotocol.io".to_string()),
                                     image: "https://ark.pass/image.png".to_string(),
                                     royalty_info: Some(RoyaltyInfo {
                                         payment_address: Addr::unchecked(
@@ -2321,7 +2319,7 @@ fn test_receive_nft() {
         extension: Some(CollectionExtension {
             description: "description".to_string(),
             explicit_content: Some(false),
-            external_link: Some("https://ark.pass".to_string()),
+            external_link: Some("https://interchain.arkprotocol.io".to_string()),
             image: STARGAZE_ICON_PLACEHOLDER.to_string(),
             royalty_info: Some(RoyaltyInfo {
                 payment_address: test.source_cw721_owner,

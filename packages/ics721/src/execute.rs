@@ -580,14 +580,14 @@ where
             };
             CLASS_ID_AND_NFT_CONTRACT_INFO.save(deps.storage, &class.id, &class_id_info)?;
 
-            let admin = ADMIN_USED_FOR_CW721
+            let cw721_admin = ADMIN_USED_FOR_CW721
                 .load(deps.storage)?
                 .map(|a| a.to_string());
             let message = SubMsg::<T>::reply_on_success(
                 WasmMsg::Instantiate2 {
-                    admin,
+                    admin: cw721_admin.clone(),
                     code_id: cw721_code_id,
-                    msg: self.init_msg(deps.as_ref(), env, &class)?,
+                    msg: self.init_msg(deps.as_ref(), env, &class, cw721_admin)?,
                     funds: vec![],
                     // Attempting to fit the class ID in the label field
                     // can make this field too long which causes data
@@ -602,18 +602,29 @@ where
     }
 
     /// Default implementation using `cw721_base::msg::InstantiateMsg`
-    fn init_msg(&self, deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
+    fn init_msg(
+        &self,
+        deps: Deps,
+        env: &Env,
+        class: &Class,
+        cw721_admin: Option<String>,
+    ) -> StdResult<Binary> {
         // use ics721 creator for withdraw address
         let ContractInfoResponse { creator, admin, .. } = deps
             .querier
             .query_wasm_contract_info(env.contract.address.to_string())?;
 
         // use by default ClassId, in case there's no class data with name and symbol
+        let cw721_admin_or_ics721_admin_or_ics721_creator = cw721_admin
+            .clone()
+            .or_else(|| admin.clone())
+            .or_else(|| Some(creator.clone()))
+            .unwrap();
         let mut instantiate_msg = cw721_metadata_onchain::InstantiateMsg {
             name: class.id.clone().into(),
             symbol: class.id.clone().into(),
-            collection_info_extension: None, // TODO consider class data in NonFungibleTokenPacketData
-            creator: Some(creator.clone()),  // TODO maybe better using cw721 admin?
+            collection_info_extension: None, // extension is set below, in case there's collection data
+            creator: Some(cw721_admin_or_ics721_admin_or_ics721_creator.clone()), // TODO maybe better using cw721 admin?
             minter: Some(env.contract.address.to_string()),
             withdraw_address: Some(creator.clone()),
         };
@@ -626,7 +637,6 @@ where
         if let Some(collection_data) = collection_data {
             instantiate_msg.name = collection_data.name;
             instantiate_msg.symbol = collection_data.symbol;
-            let admin_or_creator = admin.unwrap_or(creator.clone());
             let collection_info_extension_msg =
                 collection_data
                     .extension
@@ -637,7 +647,7 @@ where
                         explicit_content: ext.explicit_content,
                         start_trading_time: ext.start_trading_time,
                         royalty_info: ext.royalty_info.map(|r| RoyaltyInfoResponse {
-                            payment_address: admin_or_creator, // r.payment_address cant be used, since it is from another chain
+                            payment_address: cw721_admin_or_ics721_admin_or_ics721_creator, // r.payment_address cant be used, since it is from another chain
                             share: r.share,
                         }),
                     });
