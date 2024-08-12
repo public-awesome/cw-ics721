@@ -281,6 +281,7 @@ pub struct PartialCustomCollectionData {
 
 struct Test {
     app: MockApp,
+    admin_and_pauser: Option<String>,
     // origin cw721 contract on source chain for interchain transfers to other target chains
     source_cw721_owner: Addr,
     source_cw721_id: u64,
@@ -415,6 +416,7 @@ impl Test {
 
         Self {
             app,
+            admin_and_pauser: admin,
             source_cw721_owner,
             source_cw721_id,
             source_cw721,
@@ -654,6 +656,7 @@ fn test_do_instantiate_and_mint_weird_data() {
         "wasm.{}/{}/{}",
         test.ics721, CHANNEL_TARGET_CHAIN, collection_contract_source_chain
     );
+    let collection_owner_addr = test.app.api().addr_make(COLLECTION_OWNER_SOURCE_CHAIN);
     test.app
         .execute_contract(
             test.ics721.clone(),
@@ -668,10 +671,7 @@ fn test_do_instantiate_and_mint_weird_data() {
                             to_json_binary(&CollectionData {
                                 owner: Some(
                                     // incoming collection data from source chain
-                                    test.app
-                                        .api()
-                                        .addr_make(COLLECTION_OWNER_SOURCE_CHAIN)
-                                        .to_string(),
+                                    collection_owner_addr.to_string(),
                                 ),
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
@@ -682,10 +682,8 @@ fn test_do_instantiate_and_mint_weird_data() {
                                     external_link: Some("https://ark.pass".to_string()),
                                     image: "https://ark.pass/image.png".to_string(),
                                     royalty_info: Some(RoyaltyInfo {
-                                        payment_address: Addr::unchecked(
-                                            "payment_address".to_string(),
-                                        ),
-                                        share: Decimal::one(),
+                                        payment_address: collection_owner_addr,
+                                        share: Decimal::bps(1000),
                                     }),
                                     start_trading_time: Some(Timestamp::from_seconds(42)),
                                 }),
@@ -852,13 +850,32 @@ fn test_do_instantiate_and_mint() {
     }
     // test case: instantiate cw721 with ClassData containing owner, name, and symbol
     {
-        let mut test = Test::new(false, false, None, None, cw721_base_contract(), true);
+        let mut test = Test::new(
+            false,
+            false,
+            None,
+            Some(COLLECTION_OWNER_SOURCE_CHAIN.to_string()), // admin is used for royalty payment address!
+            cw721_base_contract(),
+            true,
+        );
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id = format!(
             "wasm.{}/{}/{}",
             test.ics721, CHANNEL_TARGET_CHAIN, collection_contract_source_chain
         );
+        let collection_owner_addr = Addr::unchecked(test.admin_and_pauser.clone().unwrap());
+        let collection_extension = Some(CollectionExtension {
+            description: "description".to_string(),
+            explicit_content: Some(false),
+            external_link: Some("https://ark.pass".to_string()),
+            image: "https://ark.pass/image.png".to_string(),
+            royalty_info: Some(RoyaltyInfo {
+                payment_address: collection_owner_addr.clone(),
+                share: Decimal::bps(1000),
+            }),
+            start_trading_time: Some(Timestamp::from_seconds(42)),
+        });
         test.app
             .execute_contract(
                 test.ics721.clone(),
@@ -873,27 +890,12 @@ fn test_do_instantiate_and_mint() {
                                 to_json_binary(&CollectionData {
                                     owner: Some(
                                         // incoming collection data from source chain
-                                        test.app
-                                            .api()
-                                            .addr_make(COLLECTION_OWNER_SOURCE_CHAIN)
-                                            .to_string(),
+                                        collection_owner_addr.to_string(),
                                     ),
                                     contract_info: Default::default(),
                                     name: "ark".to_string(),
                                     symbol: "protocol".to_string(),
-                                    extension: Some(CollectionExtension {
-                                        description: "description".to_string(),
-                                        explicit_content: Some(false),
-                                        external_link: Some("https://ark.pass".to_string()),
-                                        image: "https://ark.pass/image.png".to_string(),
-                                        royalty_info: Some(RoyaltyInfo {
-                                            payment_address: Addr::unchecked(
-                                                "payment_address".to_string(),
-                                            ),
-                                            share: Decimal::one(),
-                                        }),
-                                        start_trading_time: Some(Timestamp::from_seconds(42)),
-                                    }),
+                                    extension: collection_extension.clone(),
                                     num_tokens: Some(1),
                                 })
                                 .unwrap(),
@@ -946,7 +948,7 @@ fn test_do_instantiate_and_mint() {
             CollectionInfoAndExtensionResponse {
                 name: "ark".to_string(),
                 symbol: "protocol".to_string(),
-                extension: None,
+                extension: collection_extension,
                 updated_at: contract_info.updated_at,
             }
         );
@@ -1625,6 +1627,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
     // Check calling CreateVouchers twice with same class id
     // on 2nd call it will not instantiate a new contract,
     // instead it will just mint the token on existing contract
+    let collection_owner_addr = test.app.api().addr_make(COLLECTION_OWNER_SOURCE_CHAIN);
     test.app
         .execute_contract(
             test.ics721.clone(),
@@ -1639,10 +1642,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                             to_json_binary(&CollectionData {
                                 owner: Some(
                                     // incoming collection data from source chain
-                                    test.app
-                                        .api()
-                                        .addr_make(COLLECTION_OWNER_SOURCE_CHAIN)
-                                        .to_string(),
+                                    collection_owner_addr.to_string(),
                                 ),
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
@@ -1653,10 +1653,8 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                                     external_link: Some("https://ark.pass".to_string()),
                                     image: "https://ark.pass/image.png".to_string(),
                                     royalty_info: Some(RoyaltyInfo {
-                                        payment_address: Addr::unchecked(
-                                            "payment_address".to_string(),
-                                        ),
-                                        share: Decimal::one(),
+                                        payment_address: collection_owner_addr,
+                                        share: Decimal::bps(1000),
                                     }),
                                     start_trading_time: Some(Timestamp::from_seconds(42)),
                                 }),

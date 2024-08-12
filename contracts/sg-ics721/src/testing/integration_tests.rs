@@ -276,6 +276,7 @@ pub struct PartialCustomCollectionData {
 
 struct Test {
     app: MockApp,
+    admin_and_pauser: Option<String>,
     // origin cw721 contract on source chain for interchain transfers to other target chains
     source_cw721_owner: Addr,
     source_cw721_id: u64,
@@ -353,7 +354,7 @@ impl Test {
                     incoming_proxy,
                     outgoing_proxy,
                     pauser: admin.clone(),
-                    cw721_admin: admin,
+                    cw721_admin: admin.clone(),
                     contract_addr_length: None,
                 },
                 &[],
@@ -393,6 +394,7 @@ impl Test {
 
         Self {
             app,
+            admin_and_pauser: admin,
             source_cw721_owner,
             source_cw721_id,
             source_cw721,
@@ -833,7 +835,13 @@ fn test_do_instantiate_and_mint() {
     }
     // test case: instantiate cw721 with ClassData containing owner, name, and symbol
     {
-        let mut test = Test::new(false, false, None, None, sg721_base_contract());
+        let mut test = Test::new(
+            false,
+            false,
+            None,
+            Some(COLLECTION_OWNER_SOURCE_CHAIN.to_string()), // admin is used for royalty payment address!
+            sg721_base_contract(),
+        );
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id = format!(
@@ -943,12 +951,15 @@ fn test_do_instantiate_and_mint() {
             CollectionInfoResponse {
                 // creator based on owner from collection in soure chain
                 creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
-                description: "".to_string(),
-                image: STARGAZE_ICON_PLACEHOLDER.to_string(),
-                external_link: None,
-                explicit_content: None,
-                start_trading_time: None,
-                royalty_info: None,
+                description: "description".to_string(),
+                image: "https://ark.pass/image.png".to_string(),
+                external_link: Some("https://ark.pass".to_string()),
+                explicit_content: Some(false),
+                start_trading_time: Some(Timestamp::from_seconds(42)),
+                royalty_info: Some(RoyaltyInfoResponse {
+                    payment_address: test.admin_and_pauser.unwrap(),
+                    share: Decimal::one(),
+                }),
             }
         );
 
@@ -1862,7 +1873,13 @@ fn test_do_instantiate_and_mint_2_different_collections() {
 
 #[test]
 fn test_do_instantiate_and_mint_no_instantiate() {
-    let mut test = Test::new(false, false, None, None, sg721_base_contract());
+    let mut test = Test::new(
+        false,
+        false,
+        None,
+        Some(COLLECTION_OWNER_SOURCE_CHAIN.to_string()), // admin is used for royalty payment address!
+        sg721_base_contract(),
+    );
     let collection_contract_source_chain =
         ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
     let class_id = format!(
@@ -1977,13 +1994,17 @@ fn test_do_instantiate_and_mint_no_instantiate() {
     assert_eq!(
         collection_info,
         CollectionInfoResponse {
+            // creator based on owner from collection in soure chain
             creator: test.app.api().addr_make(ICS721_CREATOR).to_string(),
-            description: "".to_string(),
-            image: STARGAZE_ICON_PLACEHOLDER.to_string(),
-            external_link: None,
-            explicit_content: None,
-            start_trading_time: None,
-            royalty_info: None,
+            description: "description".to_string(),
+            image: "https://ark.pass/image.png".to_string(),
+            external_link: Some("https://ark.pass".to_string()),
+            explicit_content: Some(false),
+            start_trading_time: Some(Timestamp::from_seconds(42)),
+            royalty_info: Some(RoyaltyInfoResponse {
+                payment_address: test.admin_and_pauser.unwrap(),
+                share: Decimal::one(),
+            }),
         }
     );
 

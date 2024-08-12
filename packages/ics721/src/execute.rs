@@ -4,6 +4,7 @@ use cosmwasm_std::{
     from_json, to_json_binary, Addr, Binary, ContractInfoResponse, Deps, DepsMut, Empty, Env,
     Event, IbcMsg, MessageInfo, Order, Response, StdResult, SubMsg, WasmMsg,
 };
+use cw721::msg::RoyaltyInfoResponse;
 use cw_storage_plus::Map;
 use ics721_types::{
     ibc_types::{IbcOutgoingMsg, IbcOutgoingProxyMsg, NonFungibleTokenPacketData},
@@ -603,7 +604,7 @@ where
     /// Default implementation using `cw721_base::msg::InstantiateMsg`
     fn init_msg(&self, deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
         // use ics721 creator for withdraw address
-        let ContractInfoResponse { creator, .. } = deps
+        let ContractInfoResponse { creator, admin, .. } = deps
             .querier
             .query_wasm_contract_info(env.contract.address.to_string())?;
 
@@ -614,7 +615,7 @@ where
             collection_info_extension: None, // TODO consider class data in NonFungibleTokenPacketData
             creator: Some(creator.clone()),  // TODO maybe better using cw721 admin?
             minter: Some(env.contract.address.to_string()),
-            withdraw_address: Some(creator),
+            withdraw_address: Some(creator.clone()),
         };
 
         // use collection data for setting name and symbol
@@ -625,6 +626,22 @@ where
         if let Some(collection_data) = collection_data {
             instantiate_msg.name = collection_data.name;
             instantiate_msg.symbol = collection_data.symbol;
+            let admin_or_creator = admin.unwrap_or(creator.clone());
+            let collection_info_extension_msg =
+                collection_data
+                    .extension
+                    .map(|ext| cw721::msg::CollectionExtensionMsg {
+                        description: Some(ext.description),
+                        image: Some(ext.image),
+                        external_link: ext.external_link,
+                        explicit_content: ext.explicit_content,
+                        start_trading_time: ext.start_trading_time,
+                        royalty_info: ext.royalty_info.map(|r| RoyaltyInfoResponse {
+                            payment_address: admin_or_creator, // r.payment_address cant be used, since it is from another chain
+                            share: r.share,
+                        }),
+                    });
+            instantiate_msg.collection_info_extension = collection_info_extension_msg;
         }
 
         to_json_binary(&instantiate_msg)

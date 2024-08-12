@@ -1,8 +1,11 @@
-use cosmwasm_std::{from_json, to_json_binary, Addr, Binary, Deps, DepsMut, Env, StdResult};
+use cosmwasm_std::{
+    from_json, to_json_binary, Addr, Binary, ContractInfoResponse, Deps, DepsMut, Env, StdResult,
+};
 use cw721::{CollectionExtension, RoyaltyInfo};
 use ics721::{execute::Ics721Execute, state::CollectionData, utils::get_collection_data};
 use ics721_types::token_types::Class;
 
+use sg721::RoyaltyInfoResponse;
 use sg721_base::msg::{CollectionInfoResponse, QueryMsg};
 
 use crate::state::{SgIcs721Contract, STARGAZE_ICON_PLACEHOLDER};
@@ -48,7 +51,7 @@ impl Ics721Execute for SgIcs721Contract {
 
     fn init_msg(&self, deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
         // ics721 creator is used, in case no source owner in class data is provided (e.g. due to nft-transfer module).
-        let ics721_contract_info = deps
+        let ContractInfoResponse { creator, admin, .. } = deps
             .querier
             .query_wasm_contract_info(env.contract.address.to_string())?;
         // use by default ClassId, in case there's no class data with name and symbol
@@ -60,7 +63,7 @@ impl Ics721Execute for SgIcs721Contract {
                 // source owner could be: 1. regular wallet, 2. contract, or 3. multisig
                 // bech32 calculation for 2. and 3. leads to unknown address
                 // therefore, we use ics721 creator as owner
-                creator: ics721_contract_info.creator,
+                creator: creator.clone(),
                 description: "".to_string(),
                 // use Stargaze icon as placeholder
                 image: STARGAZE_ICON_PLACEHOLDER.to_string(),
@@ -79,6 +82,23 @@ impl Ics721Execute for SgIcs721Contract {
         if let Some(collection_data) = collection_data {
             instantiate_msg.name = collection_data.name;
             instantiate_msg.symbol = collection_data.symbol;
+            let admin_or_creator = admin.unwrap_or(creator.clone());
+            if let Some(collection_info_extension_msg) =
+                collection_data.extension.map(|ext| sg721::CollectionInfo {
+                    creator: creator.clone(),
+                    description: ext.description,
+                    image: ext.image,
+                    external_link: ext.external_link,
+                    explicit_content: ext.explicit_content,
+                    start_trading_time: ext.start_trading_time,
+                    royalty_info: ext.royalty_info.map(|r| RoyaltyInfoResponse {
+                        payment_address: admin_or_creator, // r.payment_address cant be used, since it is from another chain
+                        share: r.share,
+                    }),
+                })
+            {
+                instantiate_msg.collection_info = collection_info_extension_msg;
+            }
         }
 
         to_json_binary(&instantiate_msg)
