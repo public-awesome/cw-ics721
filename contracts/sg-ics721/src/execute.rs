@@ -1,13 +1,14 @@
 use cosmwasm_std::{from_json, to_json_binary, Addr, Binary, Deps, DepsMut, Env, StdResult};
+use cw721::{CollectionExtension, RoyaltyInfo};
 use ics721::{execute::Ics721Execute, state::CollectionData, utils::get_collection_data};
 use ics721_types::token_types::Class;
 
 use sg721_base::msg::{CollectionInfoResponse, QueryMsg};
 
-use crate::state::{SgCollectionData, SgIcs721Contract, STARGAZE_ICON_PLACEHOLDER};
+use crate::state::{SgIcs721Contract, STARGAZE_ICON_PLACEHOLDER};
 
 impl Ics721Execute for SgIcs721Contract {
-    type ClassData = SgCollectionData;
+    type ClassData = CollectionData;
 
     /// sg-ics721 sends custom SgCollectionData, basically it extends ics721-base::state::CollectionData with additional collection_info.
     fn get_class_data(&self, deps: &DepsMut, sender: &Addr) -> StdResult<Option<Self::ClassData>> {
@@ -16,19 +17,32 @@ impl Ics721Execute for SgIcs721Contract {
             contract_info,
             name,
             symbol,
+            extension: _, // ignore extension coming from standard cw721, since sg721 has its own extension (collection info)
             num_tokens,
         } = get_collection_data(deps, sender)?;
         let collection_info: CollectionInfoResponse = deps
             .querier
             .query_wasm_smart(sender, &QueryMsg::CollectionInfo {})?;
+        let royalty_info = collection_info.royalty_info.map(|r| RoyaltyInfo {
+            payment_address: Addr::unchecked(r.payment_address),
+            share: r.share,
+        });
+        let extension = Some(CollectionExtension {
+            description: collection_info.description,
+            image: collection_info.image,
+            external_link: collection_info.external_link,
+            explicit_content: collection_info.explicit_content,
+            start_trading_time: collection_info.start_trading_time,
+            royalty_info,
+        });
 
-        Ok(Some(SgCollectionData {
+        Ok(Some(CollectionData {
             owner,
             contract_info,
             name,
             symbol,
             num_tokens,
-            collection_info: Some(collection_info),
+            extension,
         }))
     }
 

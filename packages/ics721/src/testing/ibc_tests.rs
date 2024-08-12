@@ -588,7 +588,6 @@ fn test_ibc_packet_receive_emits_memo() {
     let res = Ics721Contract::default()
         .ibc_packet_receive(deps.as_mut(), env, packet)
         .unwrap();
-    println!(">>>>>>>>>>> memo: {:?}", res.attributes);
     assert!(res.attributes.contains(&Attribute {
         key: "ics721_memo".to_string(),
         value: "memo".to_string()

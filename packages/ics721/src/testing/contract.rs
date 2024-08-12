@@ -2,14 +2,15 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     from_json,
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier, MOCK_CONTRACT_ADDR},
-    to_json_binary, Addr, ContractResult, CosmosMsg, DepsMut, Empty, IbcMsg, IbcTimeout, Order,
-    QuerierResult, Response, StdResult, SubMsg, Timestamp, WasmQuery,
+    to_json_binary, Addr, ContractResult, CosmosMsg, Decimal, DepsMut, Empty, IbcMsg, IbcTimeout,
+    Order, QuerierResult, Response, StdResult, SubMsg, Timestamp, WasmQuery,
 };
 use cw721::{
     msg::{
         AllNftInfoResponse, CollectionInfoAndExtensionResponse, NftInfoResponse, NumTokensResponse,
     },
-    DefaultOptionalCollectionExtension,
+    CollectionExtension, DefaultOptionalCollectionExtension, DefaultOptionalNftExtension,
+    NftExtension, RoyaltyInfo,
 };
 use cw721_metadata_onchain::QueryMsg;
 use cw_cii::ContractInstantiateInfo;
@@ -108,14 +109,16 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
                 .unwrap(),
             )),
             QueryMsg::AllNftInfo { .. } => QuerierResult::Ok(ContractResult::Ok(
-                to_json_binary(&AllNftInfoResponse::<Option<Empty>> {
+                to_json_binary(&AllNftInfoResponse::<DefaultOptionalNftExtension> {
                     access: cw721::msg::OwnerOfResponse {
                         owner: MOCK_CONTRACT_ADDR.to_string(),
                         approvals: vec![],
                     },
                     info: NftInfoResponse {
                         token_uri: Some("https://moonphase.is/image.svg".to_string()),
-                        extension: None,
+                        extension: Some(NftExtension {
+                            ..Default::default()
+                        }),
                     },
                 })
                 .unwrap(),
@@ -127,8 +130,18 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
                 > {
                     name: "name".to_string(),
                     symbol: "symbol".to_string(),
-                    extension: None,
-                    updated_at: Timestamp::default(),
+                    extension: Some(CollectionExtension {
+                        description: "description".to_string(),
+                        explicit_content: Some(false),
+                        external_link: Some("https://ark.pass".to_string()),
+                        image: "https://ark.pass/image.png".to_string(),
+                        royalty_info: Some(RoyaltyInfo {
+                            payment_address: Addr::unchecked("payment_address".to_string()),
+                            share: Decimal::one(),
+                        }),
+                        start_trading_time: Some(Timestamp::from_seconds(42)),
+                    }),
+                    updated_at: Timestamp::from_seconds(0),
                 })
                 .unwrap(),
             )),
@@ -138,7 +151,17 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
                 > {
                     name: "name".to_string(),
                     symbol: "symbol".to_string(),
-                    extension: None,
+                    extension: Some(CollectionExtension {
+                        description: "description".to_string(),
+                        explicit_content: Some(false),
+                        external_link: Some("https://ark.pass".to_string()),
+                        image: "https://ark.pass/image.png".to_string(),
+                        royalty_info: Some(RoyaltyInfo {
+                            payment_address: Addr::unchecked("payment_address".to_string()),
+                            share: Decimal::one(),
+                        }),
+                        start_trading_time: Some(Timestamp::from_seconds(42)),
+                    }),
                     updated_at: Timestamp::default(),
                 })
                 .unwrap(),
@@ -227,7 +250,6 @@ fn mock_querier_v016(query: &WasmQuery) -> QuerierResult {
 
 #[test]
 fn test_receive_nft() {
-    // test case: receive nft from cw721-base
     let expected_contract_info: cosmwasm_std::ContractInfoResponse = from_json(
         to_json_binary(&ContractInfoResponse {
             code_id: 0,
@@ -239,6 +261,7 @@ fn test_receive_nft() {
         .unwrap(),
     )
     .unwrap();
+    // test case: receive nft from cw721-base
     {
         let mut querier = MockQuerier::default();
         querier.update_wasm(mock_querier);
@@ -271,34 +294,48 @@ fn test_receive_nft() {
         assert_eq!(res.messages.len(), 1);
 
         let channel_id = "channel-1".to_string();
-        assert_eq!(
-            res.messages[0],
-            SubMsg::new(CosmosMsg::<Empty>::Ibc(IbcMsg::SendPacket {
-                channel_id: channel_id.clone(),
-                timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
-                data: to_json_binary(&NonFungibleTokenPacketData {
-                    class_id: ClassId::new(NFT_CONTRACT_1),
-                    class_uri: None,
-                    class_data: Some(
-                        to_json_binary(&CollectionData {
-                            owner: Some(OWNER_ADDR.to_string()),
-                            contract_info: Some(expected_contract_info.clone()),
-                            name: "name".to_string(),
-                            symbol: "symbol".to_string(),
-                            num_tokens: Some(1),
-                        })
-                        .unwrap()
-                    ),
-                    token_data: None,
-                    token_ids: vec![TokenId::new(token_id)],
-                    token_uris: Some(vec!["https://moonphase.is/image.svg".to_string()]),
-                    sender,
-                    receiver: "callum".to_string(),
-                    memo: None,
-                })
-                .unwrap()
-            }))
-        );
+        let sub_msg = res.messages[0].clone();
+        match sub_msg.msg {
+            CosmosMsg::Ibc(IbcMsg::SendPacket { data, .. }) => {
+                let packet_data: NonFungibleTokenPacketData = from_json(&data).unwrap();
+                let class_data: CollectionData =
+                    from_json(&packet_data.class_data.clone().unwrap()).unwrap();
+                let expected_class_data = CollectionData {
+                    owner: Some(OWNER_ADDR.to_string()),
+                    contract_info: Some(expected_contract_info.clone()),
+                    name: "name".to_string(),
+                    symbol: "symbol".to_string(),
+                    extension: Some(CollectionExtension {
+                        description: "description".to_string(),
+                        explicit_content: Some(false),
+                        external_link: Some("https://ark.pass".to_string()),
+                        image: "https://ark.pass/image.png".to_string(),
+                        royalty_info: Some(RoyaltyInfo {
+                            payment_address: Addr::unchecked("payment_address".to_string()),
+                            share: Decimal::one(),
+                        }),
+                        start_trading_time: Some(Timestamp::from_seconds(42)),
+                    }),
+                    num_tokens: Some(1),
+                };
+                assert_eq!(class_data, expected_class_data);
+                assert_eq!(
+                    packet_data,
+                    NonFungibleTokenPacketData {
+                        class_id: ClassId::new(NFT_CONTRACT_1),
+                        class_uri: None,
+                        class_data: Some(to_json_binary(&expected_class_data).unwrap()),
+                        token_ids: vec![TokenId::new(token_id)],
+                        token_data: None,
+                        token_uris: Some(vec!["https://moonphase.is/image.svg".to_string()]),
+                        sender,
+                        receiver: "callum".to_string(),
+                        memo: None,
+                    }
+                );
+            }
+            _ => panic!("unexpected message type"),
+        }
 
         // check outgoing classID and tokenID
         let keys = OUTGOING_CLASS_TOKEN_TO_CHANNEL
@@ -352,34 +389,38 @@ fn test_receive_nft() {
         assert_eq!(res.messages.len(), 1);
 
         let channel_id = "channel-1".to_string();
-        assert_eq!(
-            res.messages[0],
-            SubMsg::new(CosmosMsg::<Empty>::Ibc(IbcMsg::SendPacket {
-                channel_id: channel_id.clone(),
-                timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
-                data: to_json_binary(&NonFungibleTokenPacketData {
-                    class_id: ClassId::new(NFT_CONTRACT_1),
-                    class_uri: None,
-                    class_data: Some(
-                        to_json_binary(&CollectionData {
-                            owner: Some(OWNER_ADDR.to_string()),
-                            contract_info: Some(expected_contract_info),
-                            name: "name".to_string(),
-                            symbol: "symbol".to_string(),
-                            num_tokens: Some(1),
-                        })
-                        .unwrap()
-                    ),
-                    token_data: None,
-                    token_ids: vec![TokenId::new(token_id)],
-                    token_uris: Some(vec!["https://moonphase.is/image.svg".to_string()]),
-                    sender,
-                    receiver: "callum".to_string(),
-                    memo: None,
-                })
-                .unwrap()
-            }))
-        );
+        let sub_msg = res.messages[0].clone();
+        match sub_msg.msg {
+            CosmosMsg::Ibc(IbcMsg::SendPacket { data, .. }) => {
+                let packet_data: NonFungibleTokenPacketData = from_json(&data).unwrap();
+                let class_data: CollectionData =
+                    from_json(&packet_data.class_data.clone().unwrap()).unwrap();
+                let expected_class_data = CollectionData {
+                    owner: Some(OWNER_ADDR.to_string()),
+                    contract_info: Some(expected_contract_info.clone()),
+                    name: "name".to_string(),
+                    symbol: "symbol".to_string(),
+                    extension: None,
+                    num_tokens: Some(1),
+                };
+                assert_eq!(class_data, expected_class_data);
+                assert_eq!(
+                    packet_data,
+                    NonFungibleTokenPacketData {
+                        class_id: ClassId::new(NFT_CONTRACT_1),
+                        class_uri: None,
+                        class_data: Some(to_json_binary(&expected_class_data).unwrap()),
+                        token_ids: vec![TokenId::new(token_id)],
+                        token_data: None,
+                        token_uris: Some(vec!["https://moonphase.is/image.svg".to_string()]),
+                        sender,
+                        receiver: "callum".to_string(),
+                        memo: None,
+                    }
+                );
+            }
+            _ => panic!("unexpected message type"),
+        }
 
         // check outgoing classID and tokenID
         let keys = OUTGOING_CLASS_TOKEN_TO_CHANNEL
@@ -521,6 +562,17 @@ fn test_receive_sets_uri() {
                 contract_info: Some(expected_contract_info),
                 name: "name".to_string(),
                 symbol: "symbol".to_string(),
+                extension: Some(CollectionExtension {
+                    description: "description".to_string(),
+                    explicit_content: Some(false),
+                    external_link: Some("https://ark.pass".to_string()),
+                    image: "https://ark.pass/image.png".to_string(),
+                    royalty_info: Some(RoyaltyInfo {
+                        payment_address: Addr::unchecked("payment_address".to_string()),
+                        share: Decimal::one(),
+                    }),
+                    start_trading_time: Some(Timestamp::from_seconds(42)),
+                }),
                 num_tokens: Some(1),
             })
             .unwrap()

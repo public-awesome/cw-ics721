@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, schemars::JsonSchema};
-use cosmwasm_std::{Addr, Binary, ContractInfoResponse, Empty};
+use cosmwasm_std::{Addr, Binary, ContractInfoResponse, Empty, Timestamp};
+use cw721::{DefaultOptionalCollectionExtension, DefaultOptionalNftExtension};
 use cw_pause_once::PauseOrchestrator;
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
 use serde::{Deserialize, Serialize};
@@ -54,26 +55,28 @@ pub const ADMIN_USED_FOR_CW721: Item<Option<Addr>> = Item::new("l");
 /// Bug: https://github.com/CosmWasm/cosmwasm/issues/2155
 pub const CONTRACT_ADDR_LENGTH: Item<u32> = Item::new("n");
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct UniversalAllNftInfoResponse {
     pub access: UniversalOwnerOfResponse,
     pub info: UniversalNftInfoResponse,
 }
 
 /// Based on `cw721::ContractInfoResponse v0.18`
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct UniversalCollectionInfoResponse {
     pub name: String,
     pub symbol: String,
+    // new props from cw721 v19
+    pub extension: DefaultOptionalCollectionExtension,
+    /// In original response `updated_at`` is a timestamp, here we make it optional, since older versions don't have it.
+    pub updated_at: Option<Timestamp>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct UniversalNftInfoResponse {
     pub token_uri: Option<String>,
 
-    #[serde(skip_deserializing)]
-    #[allow(dead_code)]
-    extension: Empty,
+    pub extension: DefaultOptionalNftExtension,
 }
 
 /// Collection data send by ICS721 on source chain. It is an optional class data for interchain transfer to target chain.
@@ -88,12 +91,13 @@ pub struct UniversalNftInfoResponse {
 pub struct CollectionData {
     pub owner: Option<String>,
     pub contract_info: Option<ContractInfoResponse>,
+    pub num_tokens: Option<u64>,
     pub name: String,
     pub symbol: String,
-    pub num_tokens: Option<u64>,
+    pub extension: DefaultOptionalCollectionExtension,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct UniversalOwnerOfResponse {
     pub owner: String,
 
@@ -125,20 +129,23 @@ impl<'a> IndexList<ClassIdInfo> for ClassIdInfoIndexes<'a> {
 
 #[cfg(test)]
 mod tests {
-    use cosmwasm_std::{from_json, to_json_binary, Coin, Empty};
+    use cosmwasm_std::{from_json, to_json_binary};
+    use cw721::{DefaultOptionalNftExtension, NftExtension};
 
     use super::UniversalAllNftInfoResponse;
 
     #[test]
     fn test_universal_deserialize() {
-        let start = cw721::msg::AllNftInfoResponse::<Coin> {
+        let start = cw721::msg::AllNftInfoResponse::<DefaultOptionalNftExtension> {
             access: cw721::msg::OwnerOfResponse {
                 owner: "foo".to_string(),
                 approvals: vec![],
             },
             info: cw721::msg::NftInfoResponse {
                 token_uri: None,
-                extension: Coin::new(100, "ujuno"),
+                extension: Some(NftExtension {
+                    ..Default::default()
+                }),
             },
         };
         let start = to_json_binary(&start).unwrap();
@@ -146,6 +153,11 @@ mod tests {
         assert_eq!(end.access.owner, "foo".to_string());
         assert_eq!(end.access.approvals, vec![]);
         assert_eq!(end.info.token_uri, None);
-        assert_eq!(end.info.extension, Empty::default())
+        assert_eq!(
+            end.info.extension,
+            Some(NftExtension {
+                ..Default::default()
+            })
+        )
     }
 }

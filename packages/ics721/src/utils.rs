@@ -34,7 +34,12 @@ pub fn get_collection_data(deps: &DepsMut, collection: &Addr) -> StdResult<Colle
         }
     };
     let contract_info = deps.querier.query_wasm_contract_info(collection)?;
-    let UniversalCollectionInfoResponse { name, symbol } = deps.querier.query_wasm_smart(
+    let UniversalCollectionInfoResponse {
+        name,
+        symbol,
+        extension,
+        updated_at: _,
+    } = deps.querier.query_wasm_smart(
         collection,
         #[allow(deprecated)]
         // For now we use `ContractInfo` which is known across all version, whilst `GetCollectionInfoAndExtension` is only available in v0.19 and higher
@@ -47,9 +52,10 @@ pub fn get_collection_data(deps: &DepsMut, collection: &Addr) -> StdResult<Colle
     Ok(CollectionData {
         owner,
         contract_info: Some(contract_info),
+        num_tokens: Some(count),
         name,
         symbol,
-        num_tokens: Some(count),
+        extension,
     })
 }
 

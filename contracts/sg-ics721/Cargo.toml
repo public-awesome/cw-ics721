@@ -16,6 +16,7 @@ library = []
 cosmwasm-std = { workspace = true, features = ["ibc3"] }
 cosmwasm-schema = { workspace = true }
 cw2 = { workspace = true }
+cw721 = { workspace = true }
 ics721 = { workspace = true }
 ics721-types = { workspace = true }
 sg-std = { workspace = true}

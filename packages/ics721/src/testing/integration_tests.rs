@@ -2,14 +2,16 @@ use anyhow::Result;
 use bech32::{decode, encode, FromBase32, ToBase32, Variant};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    from_json, instantiate2_address, to_json_binary, Addr, Api, Binary, CanonicalAddr, Deps,
-    DepsMut, Empty, Env, GovMsg, IbcTimeout, IbcTimeoutBlock, MemoryStorage, MessageInfo,
-    RecoverPubkeyError, Reply, Response, StdError, StdResult, Storage, VerificationError, WasmMsg,
+    from_json, instantiate2_address, to_json_binary, Addr, Api, Binary, CanonicalAddr, Decimal,
+    Deps, DepsMut, Empty, Env, GovMsg, IbcTimeout, IbcTimeoutBlock, MemoryStorage, MessageInfo,
+    RecoverPubkeyError, Reply, Response, StdError, StdResult, Storage, Timestamp,
+    VerificationError, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw721::{
-    msg::CollectionInfoAndExtensionResponse, DefaultOptionalCollectionExtension,
-    DefaultOptionalNftExtension,
+    msg::{CollectionExtensionMsg, CollectionInfoAndExtensionResponse, RoyaltyInfoResponse},
+    CollectionExtension, DefaultOptionalCollectionExtension, DefaultOptionalNftExtension,
+    RoyaltyInfo,
 };
 use cw721_metadata_onchain::{InstantiateMsg as Cw721InstantiateMsg, QueryMsg as Cw721QueryMsg};
 use cw_cii::{Admin, ContractInstantiateInfo};
@@ -375,7 +377,17 @@ impl Test {
                     &Cw721InstantiateMsg {
                         name: "name".to_string(),
                         symbol: "symbol".to_string(),
-                        collection_info_extension: None,
+                        collection_info_extension: Some(CollectionExtensionMsg {
+                            description: Some("description".to_string()),
+                            explicit_content: Some(false),
+                            external_link: Some("https://ark.pass".to_string()),
+                            image: Some("https://ark.pass/image.png".to_string()),
+                            royalty_info: Some(RoyaltyInfoResponse {
+                                payment_address: source_cw721_owner.to_string(),
+                                share: Decimal::bps(1000),
+                            }),
+                            start_trading_time: Some(Timestamp::from_seconds(42)),
+                        }),
                         creator: None,
                         minter: Some(source_cw721_owner.to_string()),
                         withdraw_address: None,
@@ -664,6 +676,19 @@ fn test_do_instantiate_and_mint_weird_data() {
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
                                 symbol: "symbol".to_string(),
+                                extension: Some(CollectionExtension {
+                                    description: "description".to_string(),
+                                    explicit_content: Some(false),
+                                    external_link: Some("https://ark.pass".to_string()),
+                                    image: "https://ark.pass/image.png".to_string(),
+                                    royalty_info: Some(RoyaltyInfo {
+                                        payment_address: Addr::unchecked(
+                                            "payment_address".to_string(),
+                                        ),
+                                        share: Decimal::one(),
+                                    }),
+                                    start_trading_time: Some(Timestamp::from_seconds(42)),
+                                }),
                                 num_tokens: Some(1),
                             })
                             .unwrap(),
@@ -856,6 +881,19 @@ fn test_do_instantiate_and_mint() {
                                     contract_info: Default::default(),
                                     name: "ark".to_string(),
                                     symbol: "protocol".to_string(),
+                                    extension: Some(CollectionExtension {
+                                        description: "description".to_string(),
+                                        explicit_content: Some(false),
+                                        external_link: Some("https://ark.pass".to_string()),
+                                        image: "https://ark.pass/image.png".to_string(),
+                                        royalty_info: Some(RoyaltyInfo {
+                                            payment_address: Addr::unchecked(
+                                                "payment_address".to_string(),
+                                            ),
+                                            share: Decimal::one(),
+                                        }),
+                                        start_trading_time: Some(Timestamp::from_seconds(42)),
+                                    }),
                                     num_tokens: Some(1),
                                 })
                                 .unwrap(),
@@ -1609,6 +1647,19 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
                                 symbol: "symbol".to_string(),
+                                extension: Some(CollectionExtension {
+                                    description: "description".to_string(),
+                                    explicit_content: Some(false),
+                                    external_link: Some("https://ark.pass".to_string()),
+                                    image: "https://ark.pass/image.png".to_string(),
+                                    royalty_info: Some(RoyaltyInfo {
+                                        payment_address: Addr::unchecked(
+                                            "payment_address".to_string(),
+                                        ),
+                                        share: Decimal::one(),
+                                    }),
+                                    start_trading_time: Some(Timestamp::from_seconds(42)),
+                                }),
                                 num_tokens: Some(1),
                             })
                             .unwrap(),
@@ -1716,6 +1767,19 @@ fn test_do_instantiate_and_mint_permissions() {
                                 contract_info: Default::default(),
                                 name: "name".to_string(),
                                 symbol: "symbol".to_string(),
+                                extension: Some(CollectionExtension {
+                                    description: "description".to_string(),
+                                    explicit_content: Some(false),
+                                    external_link: Some("https://ark.pass".to_string()),
+                                    image: "https://ark.pass/image.png".to_string(),
+                                    royalty_info: Some(RoyaltyInfo {
+                                        payment_address: Addr::unchecked(
+                                            "payment_address".to_string(),
+                                        ),
+                                        share: Decimal::one(),
+                                    }),
+                                    start_trading_time: Some(Timestamp::from_seconds(42)),
+                                }),
                                 num_tokens: Some(1),
                             })
                             .unwrap(),
@@ -1929,11 +1993,11 @@ fn test_receive_nft() {
             .unwrap();
 
         // get class data (containing collection data) from response
-        let event = res.events.into_iter().find(|e| e.ty == "wasm").unwrap();
-        let class_data_attribute = event
-            .attributes
+        let event = res
+            .events
+            .clone()
             .into_iter()
-            .find(|a| a.key == "class_data")
+            .find(|e| e.ty == "wasm")
             .unwrap();
         // check collection data matches with data from source nft contract
         let expected_contract_info: cosmwasm_std::ContractInfoResponse =
@@ -1957,9 +2021,25 @@ fn test_receive_nft() {
             contract_info: Some(expected_contract_info),
             name: "name".to_string(),
             symbol: "symbol".to_string(),
+            extension: Some(CollectionExtension {
+                description: "description".to_string(),
+                explicit_content: Some(false),
+                external_link: Some("https://ark.pass".to_string()),
+                image: "https://ark.pass/image.png".to_string(),
+                royalty_info: Some(RoyaltyInfo {
+                    payment_address: test.source_cw721_owner.clone(),
+                    share: Decimal::bps(1000),
+                }),
+                start_trading_time: Some(Timestamp::from_seconds(42)),
+            }),
             num_tokens: Some(1),
         })
         .unwrap();
+        let class_data_attribute = event
+            .attributes
+            .into_iter()
+            .find(|a| a.key == "class_data")
+            .unwrap();
         assert_eq!(
             class_data_attribute.value,
             format!("{expected_collection_data:?}")
@@ -2028,6 +2108,7 @@ fn test_receive_nft() {
             contract_info: Some(expected_contract_info),
             name: "name".to_string(),
             symbol: "symbol".to_string(),
+            extension: None,
             num_tokens: Some(1),
         })
         .unwrap();
