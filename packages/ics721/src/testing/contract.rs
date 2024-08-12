@@ -297,9 +297,9 @@ fn test_receive_nft() {
         let sub_msg = res.messages[0].clone();
         match sub_msg.msg {
             CosmosMsg::Ibc(IbcMsg::SendPacket { data, .. }) => {
-                let packet_data: NonFungibleTokenPacketData = from_json(&data).unwrap();
+                let packet_data: NonFungibleTokenPacketData = from_json(data).unwrap();
                 let class_data: CollectionData =
-                    from_json(&packet_data.class_data.clone().unwrap()).unwrap();
+                    from_json(packet_data.class_data.clone().unwrap()).unwrap();
                 let expected_class_data = CollectionData {
                     owner: Some(OWNER_ADDR.to_string()),
                     contract_info: Some(expected_contract_info.clone()),
@@ -392,9 +392,9 @@ fn test_receive_nft() {
         let sub_msg = res.messages[0].clone();
         match sub_msg.msg {
             CosmosMsg::Ibc(IbcMsg::SendPacket { data, .. }) => {
-                let packet_data: NonFungibleTokenPacketData = from_json(&data).unwrap();
+                let packet_data: NonFungibleTokenPacketData = from_json(data).unwrap();
                 let class_data: CollectionData =
-                    from_json(&packet_data.class_data.clone().unwrap()).unwrap();
+                    from_json(packet_data.class_data.clone().unwrap()).unwrap();
                 let expected_class_data = CollectionData {
                     owner: Some(OWNER_ADDR.to_string()),
                     contract_info: Some(expected_contract_info.clone()),
