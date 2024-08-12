@@ -37,7 +37,7 @@ func (suite *BasicTestSuite) TestStoreCodes() {
 	require.Equal(suite.T(), uint64(1), chainAStoreResp.CodeID)
 
 	// Store the cw721 contract.
-	chainAStoreResp = suite.chainA.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	chainAStoreResp = suite.chainA.StoreCodeFile("../external-wasms/cw721_metadata_onchain_v0.19.0.wasm")
 	require.Equal(suite.T(), uint64(2), chainAStoreResp.CodeID)
 }
 

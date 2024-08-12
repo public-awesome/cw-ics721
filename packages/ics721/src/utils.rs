@@ -22,7 +22,6 @@ pub fn get_collection_data(deps: &DepsMut, collection: &Addr) -> StdResult<Colle
                 Ok(ownership) => ownership.owner.map(|a| a.to_string()),
                 Err(_) => {
                     // cw721 v0.16 and lower holds minter
-                    println!(">>> cw721 v0.16 and lower holds minter");
                     let minter_response: cw721_base_016::msg::MinterResponse =
                         deps.querier.query_wasm_smart(
                             collection,
@@ -34,9 +33,7 @@ pub fn get_collection_data(deps: &DepsMut, collection: &Addr) -> StdResult<Colle
             }
         }
     };
-    println!(">>> owner: {:?}", owner);
     let contract_info = deps.querier.query_wasm_contract_info(collection)?;
-    println!(">>> contract_info: {:?}", contract_info);
     let UniversalCollectionInfoResponse { name, symbol } = deps.querier.query_wasm_smart(
         collection,
         #[allow(deprecated)]

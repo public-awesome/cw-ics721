@@ -22,7 +22,7 @@ func StoreCodes(t *testing.T, chain *wasmibctesting.TestChain, bridge *sdk.AccAd
 	resp := chain.StoreCodeFile("../artifacts/ics721_base.wasm")
 	require.Equal(t, uint64(1), resp.CodeID)
 
-	resp = chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	resp = chain.StoreCodeFile("../external-wasms/cw721_metadata_onchain_v0.19.0.wasm")
 	require.Equal(t, uint64(2), resp.CodeID)
 
 	resp = chain.StoreCodeFile("../artifacts/ics721_base_tester.wasm")
@@ -45,7 +45,7 @@ func StoreCodes(t *testing.T, chain *wasmibctesting.TestChain, bridge *sdk.AccAd
 func InstantiateBridge(t *testing.T, chain *wasmibctesting.TestChain) sdk.AccAddress {
 	// Store the contracts.
 	bridgeresp := chain.StoreCodeFile("../artifacts/ics721_base.wasm")
-	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+	cw721resp := chain.StoreCodeFile("../external-wasms/cw721_metadata_onchain_v0.19.0.wasm")
 
 	// Instantiate the ICS721 contract.
 	instantiateICS721 := InstantiateICS721Bridge{

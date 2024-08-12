@@ -75,7 +75,7 @@ npm run full-test
 **NOTE** If you modify your contract, you will need to recompile the
 contracts again, you can use `full-test` for that. ics721.spec.test
 uses a cw721-base binary build, stored at
-`tests/internal/cw721_base_v0.18.0.wasm` ([cw-nfs](https://github.com/CosmWasm/cw-nfts/releases/tag/v0.18.0)).
+`tests/internal/cw721_metadata_onchain_v0.19.0.wasm` ([cw-nfs](https://github.com/CosmWasm/cw-nfts/releases/tag/v0.18.0)).
 
 ### Run tests
 
