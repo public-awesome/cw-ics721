@@ -1,5 +1,5 @@
 use anyhow::Result;
-use bech32::{decode, encode, FromBase32, ToBase32, Variant};
+use bech32::{decode, encode, Hrp};
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     from_json, instantiate2_address, to_json_binary, Addr, Api, Binary, CanonicalAddr, Decimal,
@@ -160,12 +160,14 @@ impl MockAddressGenerator {
     }
 }
 pub struct MockApiBech32 {
-    prefix: &'static str,
+    prefix: Hrp,
 }
 
 impl MockApiBech32 {
     pub fn new(prefix: &'static str) -> Self {
-        Self { prefix }
+        Self {
+            prefix: Hrp::parse(prefix).unwrap(),
+        }
     }
 }
 
@@ -183,22 +185,18 @@ impl Api for MockApiBech32 {
     }
 
     fn addr_canonicalize(&self, input: &str) -> StdResult<CanonicalAddr> {
-        if let Ok((prefix, decoded, Variant::Bech32)) = decode(input) {
+        if let Ok((prefix, decoded)) = decode(input) {
             if prefix == self.prefix {
-                if let Ok(bytes) = Vec::<u8>::from_base32(&decoded) {
-                    return Ok(bytes.into());
-                }
+                return Ok(decoded.into());
             }
         }
         Err(StdError::generic_err(format!("Invalid input: {input}")))
     }
 
     fn addr_humanize(&self, canonical: &CanonicalAddr) -> StdResult<Addr> {
-        if let Ok(encoded) = encode(
-            self.prefix,
-            canonical.as_slice().to_base32(),
-            Variant::Bech32,
-        ) {
+        let hrp = self.prefix;
+        let data = canonical.as_slice();
+        if let Ok(encoded) = encode::<bech32::Bech32>(hrp, data) {
             Ok(Addr::unchecked(encoded))
         } else {
             Err(StdError::generic_err("Invalid canonical address"))
@@ -249,7 +247,7 @@ impl Api for MockApiBech32 {
 impl MockApiBech32 {
     pub fn addr_make(&self, input: &str) -> Addr {
         let digest = Sha256::digest(input).to_vec();
-        match encode(self.prefix, digest.to_base32(), Variant::Bech32) {
+        match encode::<bech32::Bech32>(self.prefix, &digest) {
             Ok(address) => Addr::unchecked(address),
             Err(reason) => panic!("Generating address failed with reason: {reason}"),
         }
@@ -643,7 +641,9 @@ fn test_do_instantiate_and_mint_weird_data() {
                                 extension: Some(CollectionExtension {
                                     description: "description".to_string(),
                                     explicit_content: Some(false),
-                                    external_link: Some("https://interchain.arkprotocol.io".to_string()),
+                                    external_link: Some(
+                                        "https://interchain.arkprotocol.io".to_string(),
+                                    ),
                                     image: "https://ark.pass/image.png".to_string(),
                                     royalty_info: Some(RoyaltyInfo {
                                         payment_address: Addr::unchecked(
@@ -874,7 +874,9 @@ fn test_do_instantiate_and_mint() {
                                     extension: Some(CollectionExtension {
                                         description: "description".to_string(),
                                         explicit_content: Some(false),
-                                        external_link: Some("https://interchain.arkprotocol.io".to_string()),
+                                        external_link: Some(
+                                            "https://interchain.arkprotocol.io".to_string(),
+                                        ),
                                         image: "https://ark.pass/image.png".to_string(),
                                         royalty_info: Some(RoyaltyInfo {
                                             payment_address: Addr::unchecked(
@@ -1915,7 +1917,9 @@ fn test_do_instantiate_and_mint_no_instantiate() {
                                 extension: Some(CollectionExtension {
                                     description: "description".to_string(),
                                     explicit_content: Some(false),
-                                    external_link: Some("https://interchain.arkprotocol.io".to_string()),
+                                    external_link: Some(
+                                        "https://interchain.arkprotocol.io".to_string(),
+                                    ),
                                     image: "https://ark.pass/image.png".to_string(),
                                     royalty_info: Some(RoyaltyInfo {
                                         payment_address: Addr::unchecked(
@@ -2057,7 +2061,9 @@ fn test_do_instantiate_and_mint_permissions() {
                                 extension: Some(CollectionExtension {
                                     description: "description".to_string(),
                                     explicit_content: Some(false),
-                                    external_link: Some("https://interchain.arkprotocol.io".to_string()),
+                                    external_link: Some(
+                                        "https://interchain.arkprotocol.io".to_string(),
+                                    ),
                                     image: "https://ark.pass/image.png".to_string(),
                                     royalty_info: Some(RoyaltyInfo {
                                         payment_address: Addr::unchecked(
