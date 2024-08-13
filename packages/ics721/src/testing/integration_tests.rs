@@ -38,7 +38,7 @@ use ics721_types::{
     token_types::{Class, ClassId, Token, TokenId},
 };
 
-use super::contract::Ics721Contract;
+use super::unit_tests::Ics721Contract;
 
 const ICS721_CREATOR: &str = "ics721-creator";
 const ICS721_ADMIN: &str = "ics721-admin";

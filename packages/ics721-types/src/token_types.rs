@@ -17,7 +17,7 @@ pub struct Token {
     pub id: TokenId,
     /// Optional URI pointing to off-chain metadata about the token.
     pub uri: Option<String>,
-    /// Optional base64 encoded metadata about the token.
+    /// Optional base64 encoded onchain metadata about the token.
     pub data: Option<Binary>,
 }
 

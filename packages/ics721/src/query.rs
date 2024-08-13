@@ -6,9 +6,10 @@ use crate::{
     helpers::get_instantiate2_address,
     msg::QueryMsg,
     state::{
-        UniversalAllNftInfoResponse, CW721_ADMIN, CLASS_ID_AND_NFT_CONTRACT_INFO,
-        CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL,
-        INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO, TOKEN_METADATA,
+        UniversalAllNftInfoResponse, CLASS_ID_AND_NFT_CONTRACT_INFO, CLASS_ID_TO_CLASS,
+        CONTRACT_ADDR_LENGTH, CW721_ADMIN, CW721_CODE_ID, IBC_RECEIVE_TOKEN_METADATA,
+        INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+        OUTGOING_PROXY, PO,
     },
     ContractError,
 };
@@ -46,9 +47,7 @@ pub trait Ics721Query {
             QueryMsg::OutgoingProxy {} => Ok(to_json_binary(&OUTGOING_PROXY.load(deps.storage)?)?),
             QueryMsg::IncomingProxy {} => Ok(to_json_binary(&INCOMING_PROXY.load(deps.storage)?)?),
             QueryMsg::Cw721CodeId {} => Ok(to_json_binary(&query_cw721_code_id(deps)?)?),
-            QueryMsg::Cw721Admin {} => {
-                Ok(to_json_binary(&CW721_ADMIN.load(deps.storage)?)?)
-            }
+            QueryMsg::Cw721Admin {} => Ok(to_json_binary(&CW721_ADMIN.load(deps.storage)?)?),
             QueryMsg::ContractAddrLength {} => Ok(to_json_binary(
                 &CONTRACT_ADDR_LENGTH.may_load(deps.storage)?,
             )?),
@@ -138,7 +137,7 @@ pub fn query_token_metadata(
     let class_id = ClassId::new(class_id);
 
     let Some(token_metadata) =
-        TOKEN_METADATA.may_load(deps.storage, (class_id.clone(), token_id.clone()))?
+        IBC_RECEIVE_TOKEN_METADATA.may_load(deps.storage, (class_id.clone(), token_id.clone()))?
     else {
         // Token metadata is set unconditionaly on mint. If we have no
         // metadata entry, we have no entry for this token at all.

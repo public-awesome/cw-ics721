@@ -16,6 +16,7 @@ use cw721_metadata_onchain::msg::QueryMsg;
 use cw_cii::ContractInstantiateInfo;
 use cw_ownable::Ownership;
 use cw_storage_plus::Map;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     execute::Ics721Execute,
@@ -27,7 +28,8 @@ use crate::{
     },
     state::{
         CollectionData, CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_ADMIN, CW721_CODE_ID,
-        INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
+        IBC_RECEIVE_TOKEN_METADATA, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
+        OUTGOING_PROXY, PO,
     },
     utils::get_collection_data,
 };
@@ -117,6 +119,9 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
                     info: NftInfoResponse {
                         token_uri: Some("https://moonphase.is/image.svg".to_string()),
                         extension: Some(NftExtension {
+                            image: Some("https://ark.pass/image.png".to_string()),
+                            external_url: Some("https://interchain.arkprotocol.io".to_string()),
+                            description: Some("description".to_string()),
                             ..Default::default()
                         }),
                     },
@@ -326,7 +331,132 @@ fn test_receive_nft() {
                         class_uri: None,
                         class_data: Some(to_json_binary(&expected_class_data).unwrap()),
                         token_ids: vec![TokenId::new(token_id)],
-                        token_data: None,
+                        token_data: Some(
+                            [to_json_binary(&NftExtension {
+                                image: Some("https://ark.pass/image.png".to_string()),
+                                external_url: Some("https://interchain.arkprotocol.io".to_string()),
+                                description: Some("description".to_string()),
+                                ..Default::default()
+                            })
+                            .unwrap()]
+                            .to_vec()
+                        ),
+                        token_uris: Some(vec!["https://moonphase.is/image.svg".to_string()]),
+                        sender,
+                        receiver: "callum".to_string(),
+                        memo: None,
+                    }
+                );
+            }
+            _ => panic!("unexpected message type"),
+        }
+
+        // check outgoing classID and tokenID
+        let keys = OUTGOING_CLASS_TOKEN_TO_CHANNEL
+            .keys(deps.as_mut().storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<(String, String)>>>()
+            .unwrap();
+        assert_eq!(keys, [(NFT_CONTRACT_1.to_string(), token_id.to_string())]);
+
+        // check channel
+        let key = (
+            ClassId::new(keys[0].clone().0),
+            TokenId::new(keys[0].clone().1),
+        );
+        assert_eq!(
+            OUTGOING_CLASS_TOKEN_TO_CHANNEL
+                .load(deps.as_mut().storage, key)
+                .unwrap(),
+            channel_id
+        )
+    }
+    // test case: receive nft with metadata from IBC_RECEIVE_TOKEN_METADATA storage
+    {
+        let mut querier = MockQuerier::default();
+        querier.update_wasm(mock_querier);
+
+        let mut deps = mock_dependencies();
+        #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+        struct UnknownMetadata {
+            pub unknown: String,
+        }
+        let token_id = "1";
+        IBC_RECEIVE_TOKEN_METADATA
+            .save(
+                deps.as_mut().storage,
+                (ClassId::new(NFT_CONTRACT_1), TokenId::new(token_id)),
+                &Some(to_json_binary(&UnknownMetadata {
+                    unknown: "unknown".to_string(),
+                }))
+                .transpose()
+                .unwrap(),
+            )
+            .unwrap();
+        deps.querier = querier;
+        let env = mock_env();
+
+        let info = mock_info(NFT_CONTRACT_1, &[]);
+        let sender = "ekez".to_string();
+        let msg = to_json_binary(&IbcOutgoingMsg {
+            receiver: "callum".to_string(),
+            channel_id: "channel-1".to_string(),
+            timeout: IbcTimeout::with_timestamp(Timestamp::from_seconds(42)),
+            memo: None,
+        })
+        .unwrap();
+
+        let res: cosmwasm_std::Response<_> = Ics721Contract::default()
+            .receive_nft(
+                deps.as_mut(),
+                env,
+                &info.sender,
+                TokenId::new(token_id),
+                sender.clone(),
+                msg,
+            )
+            .unwrap();
+        assert_eq!(res.messages.len(), 1);
+
+        let channel_id = "channel-1".to_string();
+        let sub_msg = res.messages[0].clone();
+        match sub_msg.msg {
+            CosmosMsg::Ibc(IbcMsg::SendPacket { data, .. }) => {
+                let packet_data: NonFungibleTokenPacketData = from_json(data).unwrap();
+                let class_data: CollectionData =
+                    from_json(packet_data.class_data.clone().unwrap()).unwrap();
+                let expected_class_data = CollectionData {
+                    owner: Some(OWNER_ADDR.to_string()),
+                    contract_info: Some(expected_contract_info.clone()),
+                    name: "name".to_string(),
+                    symbol: "symbol".to_string(),
+                    extension: Some(CollectionExtension {
+                        description: "description".to_string(),
+                        explicit_content: Some(false),
+                        external_link: Some("https://interchain.arkprotocol.io".to_string()),
+                        image: "https://ark.pass/image.png".to_string(),
+                        royalty_info: Some(RoyaltyInfo {
+                            payment_address: Addr::unchecked("payment_address".to_string()),
+                            share: Decimal::one(),
+                        }),
+                        start_trading_time: Some(Timestamp::from_seconds(42)),
+                    }),
+                    num_tokens: Some(1),
+                };
+                assert_eq!(class_data, expected_class_data);
+                assert_eq!(
+                    packet_data,
+                    NonFungibleTokenPacketData {
+                        class_id: ClassId::new(NFT_CONTRACT_1),
+                        class_uri: None,
+                        class_data: Some(to_json_binary(&expected_class_data).unwrap()),
+                        token_ids: vec![TokenId::new(token_id)],
+                        token_data: Some(
+                            [to_json_binary(&UnknownMetadata {
+                                unknown: "unknown".to_string(),
+                            })
+                            .unwrap()]
+                            .to_vec()
+                        ),
                         token_uris: Some(vec!["https://moonphase.is/image.svg".to_string()]),
                         sender,
                         receiver: "callum".to_string(),

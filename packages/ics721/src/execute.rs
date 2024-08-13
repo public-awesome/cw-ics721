@@ -27,8 +27,8 @@ use crate::{
     state::{
         ClassIdInfo, CollectionData, UniversalAllNftInfoResponse, CLASS_ID_AND_NFT_CONTRACT_INFO,
         CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_ADMIN, CW721_CODE_ID,
-        INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
-        OUTGOING_PROXY, PO, TOKEN_METADATA,
+        IBC_RECEIVE_TOKEN_METADATA, INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY,
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
     },
     token_types::{VoucherCreation, VoucherRedemption},
     ContractError,
@@ -179,7 +179,7 @@ where
         // remove incoming channel entry and metadata
         INCOMING_CLASS_TOKEN_TO_CHANNEL
             .remove(deps.storage, (child_class_id.clone(), token_id.clone()));
-        TOKEN_METADATA.remove(deps.storage, (child_class_id.clone(), token_id.clone()));
+        IBC_RECEIVE_TOKEN_METADATA.remove(deps.storage, (child_class_id.clone(), token_id.clone()));
 
         // check NFT on child collection owned by recipient
         let maybe_nft_info: Option<UniversalAllNftInfoResponse> = deps
@@ -411,12 +411,17 @@ where
             return Err(ContractError::NotEscrowedByIcs721(access.owner));
         }
 
-        // cw721 doesn't support on-chain metadata yet
-        // here NFT is transferred to another chain, NFT itself may have been transferred to his chain before
+        // here NFT was transferred before, in this case it is stored in the storage, otherwise this is the home chain,
+        // and the NFT is transferred for the first time and onchain data comes from the cw721 contract
         // in this case ICS721 may have metadata stored
-        let token_metadata = TOKEN_METADATA
+        let token_metadata = match IBC_RECEIVE_TOKEN_METADATA
             .may_load(deps.storage, (class.id.clone(), token_id.clone()))?
-            .flatten();
+            .flatten()
+        {
+            Some(metadata) => Some(metadata),
+            // incase there is none in the storage, we use the one from the cw721 contract
+            None => info.extension.map(|ext| to_json_binary(&ext)).transpose()?,
+        };
 
         let ibc_message = NonFungibleTokenPacketData {
             class_id: class.id.clone(),
@@ -713,7 +718,11 @@ where
                 // Note, once cw721 doesn't support on-chain metadata yet - but this is where we will set
                 // that value on the debt-voucher token once it is supported.
                 // Also note that this is set for every token, regardless of if data is None.
-                TOKEN_METADATA.save(deps.storage, (class_id.clone(), id.clone()), &data)?;
+                IBC_RECEIVE_TOKEN_METADATA.save(
+                    deps.storage,
+                    (class_id.clone(), id.clone()),
+                    &data,
+                )?;
 
                 let msg = cw721_metadata_onchain::msg::ExecuteMsg::Mint {
                     token_id: id.into(),

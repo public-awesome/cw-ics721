@@ -40,12 +40,15 @@ pub const OUTGOING_CLASS_TOKEN_TO_CHANNEL: Map<(ClassId, TokenId), String> = Map
 /// Same as above, but for NFTs arriving at this contract.
 pub const INCOMING_CLASS_TOKEN_TO_CHANNEL: Map<(ClassId, TokenId), String> = Map::new("i");
 
+/// IMPORTANT: collections can either come from (a) smart contracts or (b) nft module.
+/// This map is the truth of source. Only for smart contracts and in case of `receive_nft`
+/// onchain data is retrieved directly from cw721 contract and stored in this map during ibc receive.
 /// Maps (class ID, token ID) -> token metadata. Used to store
 /// on-chain metadata for tokens that have arrived from other
 /// chains. When a token arrives, it's metadata (regardless of if it
 /// is `None`) is stored in this map. When the token is returned to
 /// it's source chain, the metadata is removed from the map.
-pub const TOKEN_METADATA: Map<(ClassId, TokenId), Option<Binary>> = Map::new("j");
+pub const IBC_RECEIVE_TOKEN_METADATA: Map<(ClassId, TokenId), Option<Binary>> = Map::new("j");
 
 /// The admin address for instantiating new cw721 contracts. In case of None, contract is immutable.
 pub const CW721_ADMIN: Item<Option<Addr>> = Item::new("l");
