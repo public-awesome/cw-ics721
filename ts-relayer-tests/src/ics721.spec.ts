@@ -4,7 +4,16 @@ import anyTest, { ExecutionContext, TestFn } from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
 import { instantiateContract } from "./controller";
-import { allTokens, approve, mint, ownerOf, sendNft } from "./cw721-utils";
+import {
+  allTokens,
+  approve,
+  getCollectionInfoAndExtension,
+  getCreatorOwnership,
+  getMinterOwnership,
+  mint,
+  ownerOf,
+  sendNft,
+} from "./cw721-utils";
 import {
   adminCleanAndBurnNft,
   adminCleanAndUnescrowNft,
@@ -169,7 +178,10 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
   const { contractAddress: wasmIcs721 } = await instantiateContract(
     wasmClient,
     wasmIcs721Id,
-    { cw721_base_code_id: wasmCw721Id },
+    {
+      cw721_base_code_id: wasmCw721Id,
+      cw721_admin: wasmClient.senderAddress, // set cw721 admin, this will be also used as creator and payment address for escrowed cw721 by ics721
+    },
     "label ics721"
   );
   t.log(`- wasm ICS721 contract address: ${wasmIcs721}`);
@@ -179,7 +191,10 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
   const { contractAddress: osmoIcs721 } = await instantiateContract(
     osmoClient,
     osmoIcs721Id,
-    { cw721_base_code_id: osmoCw721Id },
+    {
+      cw721_base_code_id: osmoCw721Id,
+      cw721_admin: osmoClient.senderAddress, // set cw721 admin, this will be also used as creator and payment address for escrowed cw721 by ics721
+    },
     "label ics721"
   );
   t.log(`- osmo ICS721 contract address: ${osmoIcs721}`);
@@ -401,6 +416,32 @@ test.serial("transfer NFT: wasmd -> osmo", async (t) => {
   // assert NFT on chain B is owned by osmoAddr
   tokenOwner = await ownerOf(osmoClient, osmoCw721, tokenId);
   t.is(osmoAddr, tokenOwner.owner);
+  // assert escrowed collection data on chain B is properly set
+  const wasmCollectionData = await getCollectionInfoAndExtension(
+    wasmClient,
+    wasmCw721
+  );
+  const osmoCollectionData = await getCollectionInfoAndExtension(
+    osmoClient,
+    osmoCw721
+  );
+  osmoCollectionData.updated_at = wasmCollectionData.updated_at; // ignore updated_at
+  if (wasmCollectionData.extension?.royalty_info?.payment_address) {
+    wasmCollectionData.extension.royalty_info.payment_address = osmoAddr; // osmo cw721 admin address is used as payment address
+  }
+  t.deepEqual(
+    wasmCollectionData,
+    osmoCollectionData,
+    `collection data must match: ${JSON.stringify(
+      wasmCollectionData
+    )} vs ${JSON.stringify(osmoCollectionData)}`
+  );
+  // assert creator is set to osmoAddr
+  const creatorOwnerShip = await getCreatorOwnership(osmoClient, osmoCw721);
+  t.is(osmoAddr, creatorOwnerShip.owner);
+  // assert minter is set to ics721
+  const minterOwnerShip = await getMinterOwnership(osmoClient, osmoCw721);
+  t.is(osmoIcs721, minterOwnerShip.owner);
 
   // test back transfer NFT to wasm chain
   t.log(`transfering back to wasm chain via ${channel.channel.dest.channelId}`);

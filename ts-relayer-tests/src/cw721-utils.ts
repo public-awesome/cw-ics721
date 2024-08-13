@@ -128,6 +128,59 @@ export function ownerOf(
   return client.sign.queryContractSmart(cw721Contract, msg);
 }
 
+export function getCollectionInfoAndExtension(
+  client: CosmWasmSigner,
+  cw721Contract: string
+): Promise<{
+  name: string;
+  symbol: string;
+  extension: {
+    description: string;
+    image: string;
+    external_link: string | null;
+    explicit_content: string | null;
+    start_trading_time: string | null;
+    royalty_info: {
+      payment_address: string;
+      share: string;
+    } | null;
+  } | null;
+  updated_at: "1723541397075433676";
+}> {
+  const msg = {
+    get_collection_info_and_extension: {},
+  };
+  return client.sign.queryContractSmart(cw721Contract, msg);
+}
+
+export function getMinterOwnership(
+  client: CosmWasmSigner,
+  cw721Contract: string
+): Promise<{
+  owner: string;
+  pending_owner: string | null;
+  pending_expiry: string | null;
+}> {
+  const msg = {
+    get_minter_ownership: {},
+  };
+  return client.sign.queryContractSmart(cw721Contract, msg);
+}
+
+export function getCreatorOwnership(
+  client: CosmWasmSigner,
+  cw721Contract: string
+): Promise<{
+  owner: string;
+  pending_owner: string | null;
+  pending_expiry: string | null;
+}> {
+  const msg = {
+    get_creator_ownership: {},
+  };
+  return client.sign.queryContractSmart(cw721Contract, msg);
+}
+
 export function numTokens(
   client: CosmWasmSigner,
   cw721Contract: string
