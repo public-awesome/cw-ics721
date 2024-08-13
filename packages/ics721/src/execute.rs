@@ -4,7 +4,10 @@ use cosmwasm_std::{
     from_json, to_json_binary, Addr, Binary, ContractInfoResponse, Deps, DepsMut, Empty, Env,
     Event, IbcMsg, MessageInfo, Order, Response, StdResult, SubMsg, WasmMsg,
 };
-use cw721::msg::RoyaltyInfoResponse;
+use cw721::{
+    msg::{NftExtensionMsg, RoyaltyInfoResponse},
+    NftExtension,
+};
 use cw_storage_plus::Map;
 use ics721_types::{
     ibc_types::{IbcOutgoingMsg, IbcOutgoingProxyMsg, NonFungibleTokenPacketData},
@@ -419,7 +422,7 @@ where
             .flatten()
         {
             Some(metadata) => Some(metadata),
-            // incase there is none in the storage, we use the one from the cw721 contract
+            // incase there is none in the storage, this is the 'home' chain, so metadata is retrieved from the cw721 contract
             None => info.extension.map(|ext| to_json_binary(&ext)).transpose()?,
         };
 
@@ -724,11 +727,29 @@ where
                     &data,
                 )?;
 
+                // parse token data and check whether it is of type NftExtension
+                let extension: Option<NftExtensionMsg> = match data {
+                    Some(data) => from_json::<NftExtension>(data)
+                        .ok()
+                        .map(|ext| NftExtensionMsg {
+                            animation_url: ext.animation_url,
+                            attributes: ext.attributes,
+                            background_color: ext.background_color,
+                            description: ext.description,
+                            external_url: ext.external_url,
+                            image: ext.image,
+                            image_data: ext.image_data,
+                            youtube_url: ext.youtube_url,
+                            name: ext.name,
+                        }),
+                    None => None,
+                };
+
                 let msg = cw721_metadata_onchain::msg::ExecuteMsg::Mint {
                     token_id: id.into(),
                     token_uri: uri,
                     owner: receiver.to_string(),
-                    extension: None, // TODO consider token data in NonFungibleTokenPacketData
+                    extension,
                 };
                 Ok(WasmMsg::Execute {
                     contract_addr: nft_contract.to_string(),

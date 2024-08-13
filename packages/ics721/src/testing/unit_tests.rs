@@ -3,11 +3,12 @@ use cosmwasm_std::{
     from_json,
     testing::{mock_dependencies, mock_env, mock_info, MockQuerier, MOCK_CONTRACT_ADDR},
     to_json_binary, Addr, ContractResult, CosmosMsg, Decimal, DepsMut, Empty, IbcMsg, IbcTimeout,
-    Order, QuerierResult, Response, StdResult, SubMsg, Timestamp, WasmQuery,
+    Order, QuerierResult, Response, StdResult, SubMsg, Timestamp, WasmMsg, WasmQuery,
 };
 use cw721::{
     msg::{
-        AllNftInfoResponse, CollectionInfoAndExtensionResponse, NftInfoResponse, NumTokensResponse,
+        AllNftInfoResponse, CollectionInfoAndExtensionResponse, NftExtensionMsg, NftInfoResponse,
+        NumTokensResponse,
     },
     CollectionExtension, DefaultOptionalCollectionExtension, DefaultOptionalNftExtension,
     NftExtension, RoyaltyInfo,
@@ -27,15 +28,15 @@ use crate::{
         Ics721Query,
     },
     state::{
-        CollectionData, CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_ADMIN, CW721_CODE_ID,
-        IBC_RECEIVE_TOKEN_METADATA, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
-        OUTGOING_PROXY, PO,
+        ClassIdInfo, CollectionData, CLASS_ID_AND_NFT_CONTRACT_INFO, CLASS_ID_TO_CLASS,
+        CONTRACT_ADDR_LENGTH, CW721_ADMIN, CW721_CODE_ID, IBC_RECEIVE_TOKEN_METADATA,
+        INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
     },
     utils::get_collection_data,
 };
 use ics721_types::{
     ibc_types::{IbcOutgoingMsg, NonFungibleTokenPacketData},
-    token_types::{ClassId, TokenId},
+    token_types::{ClassId, Token, TokenId},
 };
 
 const NFT_CONTRACT_1: &str = "nft1";
@@ -45,6 +46,11 @@ const CLASS_ID_2: &str = "some/class/id2";
 const OWNER_ADDR: &str = "owner";
 const ADMIN_ADDR: &str = "admin";
 const PAUSER_ADDR: &str = "pauser";
+
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
+pub struct UnknownMetadata {
+    pub unknown: String,
+}
 
 #[derive(Default)]
 pub struct Ics721Contract {}
@@ -376,10 +382,6 @@ fn test_receive_nft() {
         querier.update_wasm(mock_querier);
 
         let mut deps = mock_dependencies();
-        #[derive(Deserialize, Serialize, Clone, Debug, PartialEq)]
-        struct UnknownMetadata {
-            pub unknown: String,
-        }
         let token_id = "1";
         IBC_RECEIVE_TOKEN_METADATA
             .save(
@@ -642,6 +644,149 @@ fn test_receive_nft() {
                 .unwrap(),
             channel_id
         )
+    }
+}
+
+#[test]
+fn test_callback_mint() {
+    // test case: token data is NftExtension
+    {
+        let mut querier = MockQuerier::default();
+        querier.update_wasm(mock_querier);
+
+        let mut deps = mock_dependencies();
+        deps.querier = querier;
+        let class_id_info = ClassIdInfo {
+            class_id: ClassId::new(NFT_CONTRACT_1),
+            address: Addr::unchecked(NFT_CONTRACT_1),
+        };
+        CLASS_ID_AND_NFT_CONTRACT_INFO
+            .save(
+                deps.as_mut().storage,
+                &ClassId::new(NFT_CONTRACT_1),
+                &class_id_info,
+            )
+            .unwrap();
+
+        let token_id = "1";
+        let token = Token {
+            id: TokenId::new(token_id),
+            uri: None,
+            data: Some(to_json_binary(&NftExtension {
+                image: Some("https://ark.pass/image.png".to_string()),
+                external_url: Some("https://interchain.arkprotocol.io".to_string()),
+                description: Some("description".to_string()),
+                ..Default::default()
+            }))
+            .transpose()
+            .unwrap(),
+        };
+        let res: cosmwasm_std::Response<_> = Ics721Contract::default()
+            .callback_mint(
+                deps.as_mut(),
+                ClassId::new(NFT_CONTRACT_1),
+                vec![token],
+                "receiver".to_string(),
+            )
+            .unwrap();
+        assert_eq!(res.messages.len(), 1);
+        // get mint message
+        let sub_msg = res.messages[0].clone();
+        match sub_msg.msg {
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr, msg, ..
+            }) => {
+                assert_eq!(contract_addr, NFT_CONTRACT_1);
+                let msg: cw721_metadata_onchain::msg::ExecuteMsg = from_json(msg).unwrap();
+                match msg {
+                    cw721_metadata_onchain::msg::ExecuteMsg::Mint {
+                        token_id,
+                        token_uri,
+                        owner,
+                        extension,
+                    } => {
+                        assert_eq!(token_id, "1");
+                        assert_eq!(token_uri, None);
+                        assert_eq!(owner, "receiver");
+                        assert_eq!(
+                            extension,
+                            Some(NftExtensionMsg {
+                                image: Some("https://ark.pass/image.png".to_string()),
+                                external_url: Some("https://interchain.arkprotocol.io".to_string()),
+                                description: Some("description".to_string()),
+                                ..Default::default()
+                            })
+                        );
+                    }
+                    _ => panic!("unexpected message type"),
+                }
+            }
+            _ => panic!("unexpected message type"),
+        }
+    }
+    // test case: token data is unknown
+    {
+        let mut querier = MockQuerier::default();
+        querier.update_wasm(mock_querier);
+
+        let mut deps = mock_dependencies();
+        deps.querier = querier;
+        let class_id_info = ClassIdInfo {
+            class_id: ClassId::new(NFT_CONTRACT_1),
+            address: Addr::unchecked(NFT_CONTRACT_1),
+        };
+        CLASS_ID_AND_NFT_CONTRACT_INFO
+            .save(
+                deps.as_mut().storage,
+                &ClassId::new(NFT_CONTRACT_1),
+                &class_id_info,
+            )
+            .unwrap();
+
+        let token_id = "1";
+        let token = Token {
+            id: TokenId::new(token_id),
+            uri: None,
+            data: Some(to_json_binary(&UnknownMetadata {
+                unknown: "unknown".to_string(),
+            }))
+            .transpose()
+            .unwrap(),
+        };
+        let res: cosmwasm_std::Response<_> = Ics721Contract::default()
+            .callback_mint(
+                deps.as_mut(),
+                ClassId::new(NFT_CONTRACT_1),
+                vec![token],
+                "receiver".to_string(),
+            )
+            .unwrap();
+        assert_eq!(res.messages.len(), 1);
+        // get mint message
+        let sub_msg = res.messages[0].clone();
+        match sub_msg.msg {
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr, msg, ..
+            }) => {
+                assert_eq!(contract_addr, NFT_CONTRACT_1);
+                let msg: cw721_metadata_onchain::msg::ExecuteMsg = from_json(msg).unwrap();
+                match msg {
+                    cw721_metadata_onchain::msg::ExecuteMsg::Mint {
+                        token_id,
+                        token_uri,
+                        owner,
+                        extension,
+                    } => {
+                        assert_eq!(token_id, "1");
+                        assert_eq!(token_uri, None);
+                        assert_eq!(owner, "receiver");
+                        assert_eq!(extension, None);
+                    }
+                    _ => panic!("unexpected message type"),
+                }
+            }
+            _ => panic!("unexpected message type"),
+        }
     }
 }
 
