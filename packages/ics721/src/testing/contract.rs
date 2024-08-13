@@ -26,8 +26,8 @@ use crate::{
         Ics721Query,
     },
     state::{
-        CollectionData, ADMIN_USED_FOR_CW721, CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH,
-        CW721_CODE_ID, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
+        CollectionData, CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_ADMIN, CW721_CODE_ID,
+        INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
     },
     utils::get_collection_data,
 };
@@ -651,7 +651,7 @@ fn test_instantiate() {
     );
     assert!(!PO.paused.load(&deps.storage).unwrap());
     assert_eq!(
-        ADMIN_USED_FOR_CW721.load(&deps.storage).unwrap(),
+        CW721_ADMIN.load(&deps.storage).unwrap(),
         Some(Addr::unchecked(ADMIN_ADDR.to_string()))
     );
     assert_eq!(CONTRACT_ADDR_LENGTH.load(&deps.storage).unwrap(), 20);
@@ -726,7 +726,7 @@ fn test_migrate() {
     );
     assert_eq!(CW721_CODE_ID.load(&deps.storage).unwrap(), 1);
     assert_eq!(
-        ADMIN_USED_FOR_CW721.load(&deps.storage).unwrap(),
+        CW721_ADMIN.load(&deps.storage).unwrap(),
         Some(Addr::unchecked("some_other_admin"))
     );
     assert_eq!(CONTRACT_ADDR_LENGTH.load(&deps.storage).unwrap(), 20);

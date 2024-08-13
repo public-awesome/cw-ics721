@@ -25,8 +25,8 @@ use crate::{
         query_nft_contract_for_class_id, query_nft_contracts,
     },
     state::{
-        ClassIdInfo, CollectionData, UniversalAllNftInfoResponse, ADMIN_USED_FOR_CW721,
-        CLASS_ID_AND_NFT_CONTRACT_INFO, CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_CODE_ID,
+        ClassIdInfo, CollectionData, UniversalAllNftInfoResponse, CLASS_ID_AND_NFT_CONTRACT_INFO,
+        CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_ADMIN, CW721_CODE_ID,
         INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
         OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
@@ -69,7 +69,7 @@ where
             ));
         }
 
-        ADMIN_USED_FOR_CW721.save(
+        CW721_ADMIN.save(
             deps.storage,
             &msg.cw721_admin
                 .as_ref()
@@ -580,9 +580,7 @@ where
             };
             CLASS_ID_AND_NFT_CONTRACT_INFO.save(deps.storage, &class.id, &class_id_info)?;
 
-            let cw721_admin = ADMIN_USED_FOR_CW721
-                .load(deps.storage)?
-                .map(|a| a.to_string());
+            let cw721_admin = CW721_ADMIN.load(deps.storage)?.map(|a| a.to_string());
             let message = SubMsg::<T>::reply_on_success(
                 WasmMsg::Instantiate2 {
                     admin: cw721_admin.clone(),
@@ -795,9 +793,9 @@ where
                 }
                 if let Some(cw721_admin) = cw721_admin.clone() {
                     if cw721_admin.is_empty() {
-                        ADMIN_USED_FOR_CW721.save(deps.storage, &None)?;
+                        CW721_ADMIN.save(deps.storage, &None)?;
                     } else {
-                        ADMIN_USED_FOR_CW721
+                        CW721_ADMIN
                             .save(deps.storage, &Some(deps.api.addr_validate(&cw721_admin)?))?;
                     }
                 }

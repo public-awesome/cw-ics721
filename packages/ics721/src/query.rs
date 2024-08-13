@@ -6,7 +6,7 @@ use crate::{
     helpers::get_instantiate2_address,
     msg::QueryMsg,
     state::{
-        UniversalAllNftInfoResponse, ADMIN_USED_FOR_CW721, CLASS_ID_AND_NFT_CONTRACT_INFO,
+        UniversalAllNftInfoResponse, CW721_ADMIN, CLASS_ID_AND_NFT_CONTRACT_INFO,
         CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_CODE_ID, INCOMING_CLASS_TOKEN_TO_CHANNEL,
         INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO, TOKEN_METADATA,
     },
@@ -47,7 +47,7 @@ pub trait Ics721Query {
             QueryMsg::IncomingProxy {} => Ok(to_json_binary(&INCOMING_PROXY.load(deps.storage)?)?),
             QueryMsg::Cw721CodeId {} => Ok(to_json_binary(&query_cw721_code_id(deps)?)?),
             QueryMsg::Cw721Admin {} => {
-                Ok(to_json_binary(&ADMIN_USED_FOR_CW721.load(deps.storage)?)?)
+                Ok(to_json_binary(&CW721_ADMIN.load(deps.storage)?)?)
             }
             QueryMsg::ContractAddrLength {} => Ok(to_json_binary(
                 &CONTRACT_ADDR_LENGTH.may_load(deps.storage)?,
