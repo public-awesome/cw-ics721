@@ -12,8 +12,8 @@ use cw721::{
 use cw721_metadata_onchain::Cw721MetadataContract;
 use cw_storage_plus::Item;
 
-pub type ExecuteMsg = cw721_metadata_onchain::ExecuteMsg;
-pub type QueryMsg = cw721_metadata_onchain::QueryMsg;
+pub type ExecuteMsg = cw721_metadata_onchain::msg::ExecuteMsg;
+pub type QueryMsg = cw721_metadata_onchain::msg::QueryMsg;
 
 #[cw_serde]
 pub struct InstantiateMsg {

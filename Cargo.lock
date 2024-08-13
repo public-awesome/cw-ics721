@@ -593,7 +593,7 @@ dependencies = [
 [[package]]
 name = "cw721"
 version = "0.19.0"
-source = "git+https://github.com/public-awesome/cw-nfts?branch=migrate_msgs#16997350c36bf6aa03c9428ce300fa48f17a0e65"
+source = "git+https://github.com/public-awesome/cw-nfts?branch=minor_changes#40c9b9e8037d94a3042e6f6a89ef5b5aa23c7267"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -666,25 +666,25 @@ dependencies = [
 [[package]]
 name = "cw721-base"
 version = "0.19.0"
-source = "git+https://github.com/public-awesome/cw-nfts?branch=migrate_msgs#16997350c36bf6aa03c9428ce300fa48f17a0e65"
+source = "git+https://github.com/public-awesome/cw-nfts?branch=minor_changes#40c9b9e8037d94a3042e6f6a89ef5b5aa23c7267"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-ownable 0.6.0",
  "cw2 1.1.2",
- "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=migrate_msgs)",
+ "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=minor_changes)",
  "serde",
 ]
 
 [[package]]
 name = "cw721-metadata-onchain"
 version = "0.19.0"
-source = "git+https://github.com/public-awesome/cw-nfts?branch=migrate_msgs#16997350c36bf6aa03c9428ce300fa48f17a0e65"
+source = "git+https://github.com/public-awesome/cw-nfts?branch=minor_changes#40c9b9e8037d94a3042e6f6a89ef5b5aa23c7267"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw2 1.1.2",
- "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=migrate_msgs)",
+ "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=minor_changes)",
  "schemars",
  "serde",
 ]
@@ -697,7 +697,7 @@ dependencies = [
  "cosmwasm-std",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=migrate_msgs)",
+ "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=minor_changes)",
  "cw721-metadata-onchain",
  "thiserror",
 ]
@@ -905,7 +905,7 @@ dependencies = [
  "cw-utils 1.0.3",
  "cw2 1.1.2",
  "cw721 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=migrate_msgs)",
+ "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=minor_changes)",
  "cw721-base 0.16.0",
  "cw721-base 0.19.0",
  "cw721-metadata-onchain",
@@ -934,7 +934,7 @@ dependencies = [
  "cosmwasm-storage",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=migrate_msgs)",
+ "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=minor_changes)",
  "ics721",
  "ics721-types 0.1.0",
  "thiserror",
@@ -947,7 +947,7 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus 1.2.0",
- "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=migrate_msgs)",
+ "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=minor_changes)",
  "serde",
  "thiserror",
 ]
@@ -1228,7 +1228,7 @@ dependencies = [
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
  "cw721 0.18.0 (git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.1)",
- "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=migrate_msgs)",
+ "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=minor_changes)",
  "cw721-base 0.18.0 (git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.1)",
  "ics721",
  "ics721-types 0.1.0",

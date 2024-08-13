@@ -13,7 +13,9 @@ use cw721::{
     CollectionExtension, DefaultOptionalCollectionExtension, DefaultOptionalNftExtension,
     RoyaltyInfo,
 };
-use cw721_metadata_onchain::{InstantiateMsg as Cw721InstantiateMsg, QueryMsg as Cw721QueryMsg};
+use cw721_metadata_onchain::msg::{
+    InstantiateMsg as Cw721InstantiateMsg, QueryMsg as Cw721QueryMsg,
+};
 use cw_cii::{Admin, ContractInstantiateInfo};
 use cw_multi_test::{
     AddressGenerator, App, AppBuilder, BankKeeper, Contract, ContractWrapper, DistributionKeeper,
@@ -541,7 +543,7 @@ impl Test {
             .wrap()
             .query_wasm_smart(
                 self.source_cw721.clone(),
-                &cw721_metadata_onchain::QueryMsg::AllNftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::AllNftInfo {
                     token_id,
                     include_expired: None,
                 },
@@ -556,7 +558,7 @@ impl Test {
             .execute_contract(
                 self.source_cw721_owner.clone(),
                 self.source_cw721.clone(),
-                &cw721_metadata_onchain::ExecuteMsg::Mint {
+                &cw721_metadata_onchain::msg::ExecuteMsg::Mint {
                     token_id: self.nfts_minted.to_string(),
                     owner: owner.to_string(),
                     token_uri: None,
@@ -786,7 +788,7 @@ fn test_do_instantiate_and_mint() {
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721_metadata_onchain::QueryMsg::NftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
@@ -800,7 +802,7 @@ fn test_do_instantiate_and_mint() {
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721_metadata_onchain::QueryMsg::NftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
@@ -812,7 +814,7 @@ fn test_do_instantiate_and_mint() {
             .execute_contract(
                 test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN),
                 nft_contract.clone(),
-                &cw721_metadata_onchain::ExecuteMsg::TransferNft {
+                &cw721_metadata_onchain::msg::ExecuteMsg::TransferNft {
                     recipient: nft_contract.to_string(),
                     token_id: "1".to_string(),
                 },
@@ -840,7 +842,7 @@ fn test_do_instantiate_and_mint() {
             .wrap()
             .query_wasm_smart(
                 nft_contract,
-                &cw721_metadata_onchain::QueryMsg::OwnerOf {
+                &cw721_metadata_onchain::msg::QueryMsg::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,
                 },
@@ -959,7 +961,7 @@ fn test_do_instantiate_and_mint() {
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721_metadata_onchain::QueryMsg::NftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
@@ -973,7 +975,7 @@ fn test_do_instantiate_and_mint() {
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721_metadata_onchain::QueryMsg::NftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
@@ -985,7 +987,7 @@ fn test_do_instantiate_and_mint() {
             .execute_contract(
                 test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN),
                 nft_contract.clone(), // new recipient
-                &cw721_metadata_onchain::ExecuteMsg::TransferNft {
+                &cw721_metadata_onchain::msg::ExecuteMsg::TransferNft {
                     recipient: nft_contract.to_string(),
                     token_id: "1".to_string(),
                 },
@@ -1013,7 +1015,7 @@ fn test_do_instantiate_and_mint() {
             .wrap()
             .query_wasm_smart(
                 nft_contract,
-                &cw721_metadata_onchain::QueryMsg::OwnerOf {
+                &cw721_metadata_onchain::msg::QueryMsg::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,
                 },
@@ -1114,7 +1116,7 @@ fn test_do_instantiate_and_mint() {
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721_metadata_onchain::QueryMsg::NftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
@@ -1128,7 +1130,7 @@ fn test_do_instantiate_and_mint() {
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721_metadata_onchain::QueryMsg::NftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
@@ -1140,7 +1142,7 @@ fn test_do_instantiate_and_mint() {
             .execute_contract(
                 test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN),
                 nft_contract.clone(),
-                &cw721_metadata_onchain::ExecuteMsg::TransferNft {
+                &cw721_metadata_onchain::msg::ExecuteMsg::TransferNft {
                     recipient: nft_contract.to_string(), // new owner
                     token_id: "1".to_string(),
                 },
@@ -1169,7 +1171,7 @@ fn test_do_instantiate_and_mint() {
             .wrap()
             .query_wasm_smart(
                 nft_contract,
-                &cw721_metadata_onchain::QueryMsg::OwnerOf {
+                &cw721_metadata_onchain::msg::QueryMsg::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,
                 },
@@ -1273,7 +1275,7 @@ fn test_do_instantiate_and_mint() {
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721_metadata_onchain::QueryMsg::NftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
@@ -1287,7 +1289,7 @@ fn test_do_instantiate_and_mint() {
             .wrap()
             .query_wasm_smart(
                 nft_contract.clone(),
-                &cw721_metadata_onchain::QueryMsg::NftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
@@ -1299,7 +1301,7 @@ fn test_do_instantiate_and_mint() {
             .execute_contract(
                 test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN),
                 nft_contract.clone(),
-                &cw721_metadata_onchain::ExecuteMsg::TransferNft {
+                &cw721_metadata_onchain::msg::ExecuteMsg::TransferNft {
                     recipient: nft_contract.to_string(), // new owner
                     token_id: "1".to_string(),
                 },
@@ -1328,7 +1330,7 @@ fn test_do_instantiate_and_mint() {
             .wrap()
             .query_wasm_smart(
                 nft_contract,
-                &cw721_metadata_onchain::QueryMsg::OwnerOf {
+                &cw721_metadata_onchain::msg::QueryMsg::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,
                 },
@@ -1488,7 +1490,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
             .wrap()
             .query_wasm_smart(
                 nft_contract_1.clone(),
-                &cw721_metadata_onchain::QueryMsg::NftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
@@ -1498,7 +1500,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
             .wrap()
             .query_wasm_smart(
                 nft_contract_2.clone(),
-                &cw721_metadata_onchain::QueryMsg::NftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::NftInfo {
                     token_id: "1".to_string(),
                 },
             )
@@ -1513,7 +1515,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
             .wrap()
             .query_wasm_smart(
                 nft_contract_1.clone(),
-                &cw721_metadata_onchain::QueryMsg::NftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
@@ -1523,7 +1525,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
             .wrap()
             .query_wasm_smart(
                 nft_contract_2.clone(),
-                &cw721_metadata_onchain::QueryMsg::NftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::NftInfo {
                     token_id: "2".to_string(),
                 },
             )
@@ -1542,7 +1544,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
             .execute_contract(
                 test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN),
                 nft_contract_1.clone(),
-                &cw721_metadata_onchain::ExecuteMsg::TransferNft {
+                &cw721_metadata_onchain::msg::ExecuteMsg::TransferNft {
                     recipient: nft_contract_1.to_string(),
                     token_id: "1".to_string(),
                 },
@@ -1553,7 +1555,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
             .execute_contract(
                 test.app.api().addr_make(NFT_OWNER_TARGET_CHAIN),
                 nft_contract_2.clone(),
-                &cw721_metadata_onchain::ExecuteMsg::TransferNft {
+                &cw721_metadata_onchain::msg::ExecuteMsg::TransferNft {
                     recipient: nft_contract_2.to_string(),
                     token_id: "1".to_string(),
                 },
@@ -1593,7 +1595,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
             .wrap()
             .query_wasm_smart(
                 nft_contract_1,
-                &cw721_metadata_onchain::QueryMsg::OwnerOf {
+                &cw721_metadata_onchain::msg::QueryMsg::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,
                 },
@@ -1604,7 +1606,7 @@ fn test_do_instantiate_and_mint_2_different_collections() {
             .wrap()
             .query_wasm_smart(
                 nft_contract_2,
-                &cw721_metadata_onchain::QueryMsg::OwnerOf {
+                &cw721_metadata_onchain::msg::QueryMsg::OwnerOf {
                     token_id: "1".to_string(),
                     include_expired: None,
                 },
@@ -1725,7 +1727,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         .wrap()
         .query_wasm_smart(
             nft_contract,
-            &cw721_metadata_onchain::QueryMsg::AllTokens {
+            &cw721_metadata_onchain::msg::QueryMsg::AllTokens {
                 start_after: None,
                 limit: None,
             },
@@ -1893,7 +1895,7 @@ fn test_proxy_authorized() {
         .instantiate_contract(
             source_cw721_id,
             test.app.api().addr_make("ekez"),
-            &cw721_metadata_onchain::InstantiateMsg {
+            &cw721_metadata_onchain::msg::InstantiateMsg {
                 name: "token".to_string(),
                 symbol: "nonfungible".to_string(),
                 collection_info_extension: None,
@@ -1917,7 +1919,7 @@ fn test_proxy_authorized() {
         .execute_contract(
             test.app.api().addr_make(COLLECTION_OWNER_SOURCE_CHAIN),
             source_cw721.clone(),
-            &cw721_metadata_onchain::ExecuteMsg::Mint {
+            &cw721_metadata_onchain::msg::ExecuteMsg::Mint {
                 token_id: "1".to_string(),
                 owner: test.ics721.to_string(),
                 token_uri: None,

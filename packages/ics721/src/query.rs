@@ -150,7 +150,7 @@ pub fn query_token_metadata(
     };
     let UniversalAllNftInfoResponse { info, .. } = deps.querier.query_wasm_smart(
         nft_contract,
-        &cw721_metadata_onchain::QueryMsg::AllNftInfo {
+        &cw721_metadata_onchain::msg::QueryMsg::AllNftInfo {
             token_id: token_id.clone().into(),
             include_expired: None,
         },
@@ -170,7 +170,7 @@ pub fn query_owner(
     let nft_contract = load_nft_contract_for_class_id(deps.storage, class_id)?;
     let resp: cw721::msg::OwnerOfResponse = deps.querier.query_wasm_smart(
         nft_contract,
-        &cw721_metadata_onchain::QueryMsg::OwnerOf {
+        &cw721_metadata_onchain::msg::QueryMsg::OwnerOf {
             token_id,
             include_expired: None,
         },

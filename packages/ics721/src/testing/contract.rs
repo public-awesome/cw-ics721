@@ -12,7 +12,7 @@ use cw721::{
     CollectionExtension, DefaultOptionalCollectionExtension, DefaultOptionalNftExtension,
     NftExtension, RoyaltyInfo,
 };
-use cw721_metadata_onchain::QueryMsg;
+use cw721_metadata_onchain::msg::QueryMsg;
 use cw_cii::ContractInstantiateInfo;
 use cw_ownable::Ownership;
 use cw_storage_plus::Map;
@@ -91,7 +91,7 @@ fn mock_querier(query: &WasmQuery) -> QuerierResult {
         cosmwasm_std::WasmQuery::Smart {
             contract_addr: _,
             msg,
-        } => match from_json::<cw721_metadata_onchain::QueryMsg>(&msg).unwrap() {
+        } => match from_json::<cw721_metadata_onchain::msg::QueryMsg>(&msg).unwrap() {
             QueryMsg::GetMinterOwnership {} => QuerierResult::Ok(ContractResult::Ok(
                 to_json_binary(&Ownership::<Addr> {
                     owner: Some(Addr::unchecked(OWNER_ADDR)),

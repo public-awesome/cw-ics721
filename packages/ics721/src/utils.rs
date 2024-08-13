@@ -8,7 +8,7 @@ pub fn get_collection_data(deps: &DepsMut, collection: &Addr) -> StdResult<Colle
     // cw721 v0.19 and higher holds creator ownership in the contract
     let ownership_result: StdResult<Ownership<Addr>> = deps.querier.query_wasm_smart(
         collection,
-        &cw721_metadata_onchain::QueryMsg::GetCreatorOwnership {},
+        &cw721_metadata_onchain::msg::QueryMsg::GetCreatorOwnership {},
     );
     let owner = match ownership_result {
         Ok(ownership) => ownership.owner.map(|a| a.to_string()),
@@ -16,7 +16,7 @@ pub fn get_collection_data(deps: &DepsMut, collection: &Addr) -> StdResult<Colle
             // cw721 v0.17 and v0.18 holds minter ownership in the contract
             let ownership: StdResult<Ownership<Addr>> = deps.querier.query_wasm_smart(
                 collection,
-                &cw721_metadata_onchain::QueryMsg::GetMinterOwnership {},
+                &cw721_metadata_onchain::msg::QueryMsg::GetMinterOwnership {},
             );
             match ownership {
                 Ok(ownership) => ownership.owner.map(|a| a.to_string()),
@@ -43,11 +43,12 @@ pub fn get_collection_data(deps: &DepsMut, collection: &Addr) -> StdResult<Colle
         collection,
         #[allow(deprecated)]
         // For now we use `ContractInfo` which is known across all version, whilst `GetCollectionInfoAndExtension` is only available in v0.19 and higher
-        &cw721_metadata_onchain::QueryMsg::ContractInfo {},
+        &cw721_metadata_onchain::msg::QueryMsg::ContractInfo {},
     )?;
-    let NumTokensResponse { count } = deps
-        .querier
-        .query_wasm_smart(collection, &cw721_metadata_onchain::QueryMsg::NumTokens {})?;
+    let NumTokensResponse { count } = deps.querier.query_wasm_smart(
+        collection,
+        &cw721_metadata_onchain::msg::QueryMsg::NumTokens {},
+    )?;
 
     Ok(CollectionData {
         owner,
