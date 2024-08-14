@@ -128,7 +128,7 @@ export function ownerOf(
   return client.sign.queryContractSmart(cw721Contract, msg);
 }
 
-export function getCollectionInfoAndExtension(
+export function getCw721CollectionInfoAndExtension(
   client: CosmWasmSigner,
   cw721Contract: string
 ): Promise<{
@@ -153,7 +153,20 @@ export function getCollectionInfoAndExtension(
   return client.sign.queryContractSmart(cw721Contract, msg);
 }
 
-export function getMinterOwnership(
+export function getCw721ContractInfo_v16(
+  client: CosmWasmSigner,
+  cw721Contract: string
+): Promise<{
+  name: string;
+  symbol: string;
+}> {
+  const msg = {
+    contract_info: {},
+  };
+  return client.sign.queryContractSmart(cw721Contract, msg);
+}
+
+export function getCw721MinterOwnership(
   client: CosmWasmSigner,
   cw721Contract: string
 ): Promise<{
@@ -167,7 +180,19 @@ export function getMinterOwnership(
   return client.sign.queryContractSmart(cw721Contract, msg);
 }
 
-export function getCreatorOwnership(
+export function getCw721Minter_v16(
+  client: CosmWasmSigner,
+  cw721Contract: string
+): Promise<{
+  minter: string;
+}> {
+  const msg = {
+    minter: {},
+  };
+  return client.sign.queryContractSmart(cw721Contract, msg);
+}
+
+export function getCw721CreatorOwnership(
   client: CosmWasmSigner,
   cw721Contract: string
 ): Promise<{
