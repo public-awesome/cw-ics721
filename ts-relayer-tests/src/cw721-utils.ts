@@ -10,7 +10,15 @@ export function mint(
   token_uri: string | undefined
 ) {
   const msg = {
-    mint: { token_id, owner, token_uri },
+    mint: {
+      token_id,
+      owner,
+      token_uri,
+      extension: {
+        description: "This is a test NFT",
+        image: "https://ark.pass/image.png",
+      },
+    },
   };
   return client.sign.execute(
     client.senderAddress,
@@ -82,11 +90,29 @@ export function allTokens(
   return client.sign.queryContractSmart(cw721Contract, msg);
 }
 
+/// valid for v16 - v19
 export function nftInfo(
   client: CosmWasmSigner,
   cw721Contract: string,
   token_id: string
-) {
+): Promise<{
+  token_uri: string | null;
+  extension: {
+    image: string | null;
+    image_data: string | null;
+    external_url: string | null;
+    description: string | null;
+    name: string | null;
+    attributes: null | Array<{
+      trait_type: string;
+      value: string;
+      display_type: string | null;
+    }>;
+    background_color: string | null;
+    animation_url: string | null;
+    youtube_url: string | null;
+  };
+}> {
   const msg = {
     nft_info: {
       token_id,

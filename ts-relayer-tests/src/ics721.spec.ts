@@ -13,6 +13,7 @@ import {
   getCw721Minter_v16,
   getCw721MinterOwnership,
   mint,
+  nftInfo,
   ownerOf,
   sendNft,
 } from "./cw721-utils";
@@ -67,7 +68,7 @@ interface TestContext {
 const test = anyTest as TestFn<TestContext>;
 
 const WASM_FILE_CW721 = "./internal/cw721_metadata_onchain_v0.19.0.wasm";
-const WASM_FILE_CW721_v16 = "./internal/cw721_base_v0.16.0.wasm";
+const WASM_FILE_CW721_v16 = "./internal/cw721_metadata_onchain_v0.16.0.wasm";
 const WASM_FILE_CW721_INCOMING_PROXY = "./internal/cw721_incoming_proxy.wasm";
 const WASM_FILE_CW721_OUTGOING_PROXY =
   "./internal/cw721_outgoing_proxy_rate_limit.wasm";
@@ -375,7 +376,7 @@ const standardSetup = async (t: ExecutionContext<TestContext>) => {
   t.pass();
 };
 
-test.skip("transfer NFT: wasmd -> osmo", async (t) => {
+test.serial("transfer NFT: wasmd -> osmo", async (t) => {
   await standardSetup(t);
 
   const {
@@ -469,6 +470,14 @@ test.skip("transfer NFT: wasmd -> osmo", async (t) => {
   // assert minter is set to ics721
   const minterOwnerShip = await getCw721MinterOwnership(osmoClient, osmoCw721);
   t.is(osmoIcs721, minterOwnerShip.owner);
+
+  const wasmNftInfo = await nftInfo(wasmClient, wasmCw721, tokenId);
+  // assert extension is not null
+  t.truthy(wasmNftInfo.extension);
+  const osmoNftInfo = await nftInfo(osmoClient, osmoCw721, tokenId);
+  t.truthy(osmoNftInfo.extension);
+  // assert nft with extension is same
+  t.deepEqual(wasmNftInfo, osmoNftInfo);
 
   // test back transfer NFT to wasm chain
   t.log(`transfering back to wasm chain via ${channel.channel.dest.channelId}`);
@@ -925,8 +934,15 @@ test.serial("transfer NFT v16: wasm -> osmo", async (t) => {
   );
   // assert minter is set to ics721
   const minterOwnerShip = await getCw721Minter_v16(osmoClient, osmoCw721);
-  console.log(">>>>>", minterOwnerShip);
   t.is(osmoIcs721, minterOwnerShip.minter);
+
+  const wasmNftInfo = await nftInfo(wasmClient, wasmCw721_v16, tokenId);
+  // assert extension is not null
+  t.truthy(wasmNftInfo.extension);
+  const osmoNftInfo = await nftInfo(osmoClient, osmoCw721, tokenId);
+  t.truthy(osmoNftInfo.extension);
+  // assert nft with extension is same
+  t.deepEqual(wasmNftInfo, osmoNftInfo);
 
   // test back transfer NFT to wasm chain
   t.log(`transfering back to wasm chain via ${channel.channel.dest.channelId}`);
@@ -1296,7 +1312,7 @@ test.serial("transfer NFT v16: wasm -> osmo", async (t) => {
   t.is(wasmAddr, tokenOwner.owner);
 });
 
-test.skip("admin unescrow and burn NFT: wasmd -> osmo", async (t) => {
+test.serial("admin unescrow and burn NFT: wasmd -> osmo", async (t) => {
   await standardSetup(t);
 
   const {
@@ -1481,7 +1497,7 @@ test.skip("admin unescrow and burn NFT: wasmd -> osmo", async (t) => {
   );
 });
 
-test.skip("malicious NFT", async (t) => {
+test.serial("malicious NFT", async (t) => {
   await standardSetup(t);
   const {
     wasmClient,
