@@ -5,7 +5,7 @@ use cw_ownable::Ownership;
 use crate::state::{CollectionData, UniversalCollectionInfoResponse};
 
 pub fn get_collection_data(deps: &DepsMut, collection: &Addr) -> StdResult<CollectionData> {
-    // cw721 v0.19 and higher holds creator ownership in the contract
+    // cw721 v0.19 and higher holds creator ownership (cw-ownable storage) in the contract
     let ownership_result: StdResult<Ownership<Addr>> = deps.querier.query_wasm_smart(
         collection,
         &cw721_metadata_onchain::msg::QueryMsg::GetCreatorOwnership {},
@@ -13,15 +13,15 @@ pub fn get_collection_data(deps: &DepsMut, collection: &Addr) -> StdResult<Colle
     let owner = match ownership_result {
         Ok(ownership) => ownership.owner.map(|a| a.to_string()),
         Err(_) => {
-            // cw721 v0.17 and v0.18 holds minter ownership in the contract
+            // cw721 v0.17 and v0.18 holds minter ownership (cw-ownable storage) in the contract
             let ownership: StdResult<Ownership<Addr>> = deps.querier.query_wasm_smart(
                 collection,
-                &cw721_metadata_onchain::msg::QueryMsg::GetMinterOwnership {},
+                &cw721_base_018::msg::QueryMsg::Ownership::<Addr> {}, // nb: could also use `GetMinterOwnership`, but some custom contracts may only know about `Ownership`
             );
             match ownership {
                 Ok(ownership) => ownership.owner.map(|a| a.to_string()),
                 Err(_) => {
-                    // cw721 v0.16 and lower holds minter
+                    // cw721 v0.16 and lower holds minter (simple string storage)
                     let minter_response: cw721_base_016::msg::MinterResponse =
                         deps.querier.query_wasm_smart(
                             collection,

@@ -548,6 +548,18 @@ dependencies = [
 
 [[package]]
 name = "cw721"
+version = "0.17.0"
+source = "git+https://github.com/public-awesome/cw-nfts?branch=release/v0.17.0#c1ece555dded6cbcebba1d417ed2a18d47ca3c8a"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-utils 1.0.3",
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "cw721"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3c4d286625ccadc957fe480dd3bdc54ada19e0e6b5b9325379db3130569e914"
@@ -562,7 +574,7 @@ dependencies = [
 [[package]]
 name = "cw721"
 version = "0.18.0"
-source = "git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.1#e63a7bbb620e6ea39224bb5580967477066cb7ae"
+source = "git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.0#177a993dfb5a1a3164be1baf274f43b1ca53da53"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -628,6 +640,24 @@ dependencies = [
 
 [[package]]
 name = "cw721-base"
+version = "0.17.0"
+source = "git+https://github.com/public-awesome/cw-nfts?branch=release/v0.17.0#c1ece555dded6cbcebba1d417ed2a18d47ca3c8a"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable 0.5.1",
+ "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "cw721 0.17.0",
+ "cw721-base 0.16.0",
+ "schemars",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "cw721-base"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da518d9f68bfda7d972cbaca2e8fcf04651d0edc3de72b04ae2bcd9289c81614"
@@ -648,7 +678,7 @@ dependencies = [
 [[package]]
 name = "cw721-base"
 version = "0.18.0"
-source = "git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.1#e63a7bbb620e6ea39224bb5580967477066cb7ae"
+source = "git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.0#177a993dfb5a1a3164be1baf274f43b1ca53da53"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -656,7 +686,7 @@ dependencies = [
  "cw-storage-plus 1.2.0",
  "cw-utils 1.0.3",
  "cw2 1.1.2",
- "cw721 0.18.0 (git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.1)",
+ "cw721 0.18.0 (git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.0)",
  "cw721-base 0.16.0",
  "schemars",
  "serde",
@@ -905,8 +935,12 @@ dependencies = [
  "cw-utils 1.0.3",
  "cw2 1.1.2",
  "cw721 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cw721 0.17.0",
+ "cw721 0.18.0 (git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.0)",
  "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=minor_changes)",
  "cw721-base 0.16.0",
+ "cw721-base 0.17.0",
+ "cw721-base 0.18.0 (git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.0)",
  "cw721-base 0.19.0",
  "cw721-metadata-onchain",
  "ics721-types 0.1.0",
@@ -1227,9 +1261,9 @@ dependencies = [
  "cw-pause-once",
  "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
- "cw721 0.18.0 (git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.1)",
+ "cw721 0.18.0 (git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.0)",
  "cw721 0.19.0 (git+https://github.com/public-awesome/cw-nfts?branch=minor_changes)",
- "cw721-base 0.18.0 (git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.1)",
+ "cw721-base 0.18.0 (git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.0)",
  "ics721",
  "ics721-types 0.1.0",
  "sg-std",
