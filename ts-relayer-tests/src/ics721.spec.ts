@@ -450,7 +450,7 @@ test.serial("transfer NFT: wasmd -> osmo", async (t) => {
     osmoClient,
     osmoCw721
   );
-  // osmoCollectionData.updated_at = wasmCollectionData.updated_at; // ignore updated_at
+  osmoCollectionData.updated_at = wasmCollectionData.updated_at; // ignore updated_at
   if (wasmCollectionData.extension?.royalty_info?.payment_address) {
     wasmCollectionData.extension.royalty_info.payment_address = osmoAddr; // osmo cw721 admin address is used as payment address
   }
