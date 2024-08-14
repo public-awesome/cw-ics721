@@ -93,7 +93,6 @@ impl Ics721Execute for SgIcs721Contract {
         if let Some(collection_data) = collection_data {
             instantiate_msg.name = collection_data.name;
             instantiate_msg.symbol = collection_data.symbol;
-            let admin_or_creator = admin.unwrap_or(creator.clone());
             if let Some(collection_info_extension_msg) =
                 collection_data.extension.map(|ext| sg721::CollectionInfo {
                     creator: cw721_admin_or_ics721_admin_or_ics721_creator.clone(),
@@ -103,7 +102,7 @@ impl Ics721Execute for SgIcs721Contract {
                     explicit_content: ext.explicit_content,
                     start_trading_time: ext.start_trading_time,
                     royalty_info: ext.royalty_info.map(|r| RoyaltyInfoResponse {
-                        payment_address: admin_or_creator, // r.payment_address cant be used, since it is from another chain
+                        payment_address: cw721_admin_or_ics721_admin_or_ics721_creator, // r.payment_address cant be used, since it is from another chain
                         share: r.share,
                     }),
                 })
