@@ -1,10 +1,11 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Binary, Deps, DepsMut, Env, IbcMsg, IbcTimeout, MessageInfo, Response,
+    to_json_binary, Binary, Deps, DepsMut, Empty, Env, IbcMsg, IbcTimeout, MessageInfo, Response,
     StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
+use cw721::{DefaultOptionalCollectionExtensionMsg, DefaultOptionalNftExtensionMsg};
 use ics721_types::ibc_types::{IbcOutgoingMsg, NonFungibleTokenPacketData};
 
 use crate::{
@@ -63,7 +64,8 @@ pub fn execute(
 }
 
 mod receive_callbacks {
-    use cosmwasm_std::{ensure_eq, from_json, DepsMut, MessageInfo, Response};
+    use cosmwasm_std::{ensure_eq, from_json, DepsMut, Empty, MessageInfo, Response};
+    use cw721::{DefaultOptionalCollectionExtension, DefaultOptionalNftExtension};
     use ics721_types::{
         ibc_types::NonFungibleTokenPacketData,
         types::{Ics721AckCallbackMsg, Ics721ReceiveCallbackMsg, Ics721Status},
@@ -77,7 +79,7 @@ mod receive_callbacks {
 
     pub(crate) fn handle_receive_cw_callback(
         deps: DepsMut,
-        _msg: cw721::Cw721ReceiveMsg,
+        _msg: cw721::receiver::Cw721ReceiveMsg,
     ) -> Result<Response, ContractError> {
         // We got the callback, so its working
         CW721_RECEIVE.save(deps.storage, &"success".to_string())?;
@@ -128,11 +130,15 @@ mod receive_callbacks {
 
         NFT_CONTRACT.save(deps.storage, &deps.api.addr_validate(&nft_contract)?)?;
 
-        let owner: Option<cw721::OwnerOfResponse> = deps
+        let owner: Option<cw721::msg::OwnerOfResponse> = deps
             .querier
-            .query_wasm_smart::<cw721::OwnerOfResponse>(
+            .query_wasm_smart::<cw721::msg::OwnerOfResponse>(
                 nft_contract,
-                &cw721::Cw721QueryMsg::OwnerOf {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::OwnerOf {
                     token_id: packet.token_ids[0].clone().into(),
                     include_expired: None,
                 },
@@ -173,9 +179,13 @@ mod receive_callbacks {
 
         let owner = deps
             .querier
-            .query_wasm_smart::<cw721::OwnerOfResponse>(
+            .query_wasm_smart::<cw721::msg::OwnerOfResponse>(
                 nft_contract,
-                &cw721::Cw721QueryMsg::OwnerOf {
+                &cw721::msg::Cw721QueryMsg::<
+                    DefaultOptionalNftExtension,
+                    DefaultOptionalCollectionExtension,
+                    Empty,
+                >::OwnerOf {
                     token_id: packet.token_ids[0].clone().into(),
                     include_expired: None,
                 },
@@ -217,7 +227,11 @@ fn execute_send_nft(
     // Send send msg to cw721, send it to ics721 with the correct msg.
     let msg = WasmMsg::Execute {
         contract_addr: cw721,
-        msg: to_json_binary(&cw721::Cw721ExecuteMsg::SendNft {
+        msg: to_json_binary(&cw721::msg::Cw721ExecuteMsg::<
+            DefaultOptionalNftExtensionMsg,
+            DefaultOptionalCollectionExtensionMsg,
+            Empty,
+        >::SendNft {
             contract: ics721,
             token_id,
             msg: to_json_binary(&IbcOutgoingMsg {

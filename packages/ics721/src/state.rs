@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, schemars::JsonSchema};
-use cosmwasm_std::{Addr, Binary, ContractInfoResponse, Empty};
+use cosmwasm_std::{Addr, Binary, ContractInfoResponse, Empty, Timestamp};
+use cw721::{DefaultOptionalCollectionExtension, DefaultOptionalNftExtension};
 use cw_pause_once::PauseOrchestrator;
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
 use serde::{Deserialize, Serialize};
@@ -39,41 +40,46 @@ pub const OUTGOING_CLASS_TOKEN_TO_CHANNEL: Map<(ClassId, TokenId), String> = Map
 /// Same as above, but for NFTs arriving at this contract.
 pub const INCOMING_CLASS_TOKEN_TO_CHANNEL: Map<(ClassId, TokenId), String> = Map::new("i");
 
+/// IMPORTANT: collections can either come from (a) smart contracts or (b) nft module.
+/// This map is the truth of source. Only for smart contracts and in case of `receive_nft`
+/// onchain data is retrieved directly from cw721 contract and stored in this map during ibc receive.
 /// Maps (class ID, token ID) -> token metadata. Used to store
 /// on-chain metadata for tokens that have arrived from other
 /// chains. When a token arrives, it's metadata (regardless of if it
 /// is `None`) is stored in this map. When the token is returned to
 /// it's source chain, the metadata is removed from the map.
-pub const TOKEN_METADATA: Map<(ClassId, TokenId), Option<Binary>> = Map::new("j");
+pub const IBC_RECEIVE_TOKEN_METADATA: Map<(ClassId, TokenId), Option<Binary>> = Map::new("j");
 
 /// The admin address for instantiating new cw721 contracts. In case of None, contract is immutable.
-pub const ADMIN_USED_FOR_CW721: Item<Option<Addr>> = Item::new("l");
+pub const CW721_ADMIN: Item<Option<Addr>> = Item::new("l");
 
 /// The optional contract address length being used for instantiate2. In case of None, default length is 32 (standard in cosmwasm).
 /// So length must be shorter than 32. For example, Injective has 20 length address.
 /// Bug: https://github.com/CosmWasm/cosmwasm/issues/2155
 pub const CONTRACT_ADDR_LENGTH: Item<u32> = Item::new("n");
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct UniversalAllNftInfoResponse {
     pub access: UniversalOwnerOfResponse,
     pub info: UniversalNftInfoResponse,
 }
 
 /// Based on `cw721::ContractInfoResponse v0.18`
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct UniversalCollectionInfoResponse {
     pub name: String,
     pub symbol: String,
+    // new props from cw721 v19
+    pub extension: DefaultOptionalCollectionExtension,
+    /// In original response `updated_at`` is a timestamp, here we make it optional, since older versions don't have it.
+    pub updated_at: Option<Timestamp>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct UniversalNftInfoResponse {
     pub token_uri: Option<String>,
 
-    #[serde(skip_deserializing)]
-    #[allow(dead_code)]
-    extension: Empty,
+    pub extension: DefaultOptionalNftExtension,
 }
 
 /// Collection data send by ICS721 on source chain. It is an optional class data for interchain transfer to target chain.
@@ -88,12 +94,13 @@ pub struct UniversalNftInfoResponse {
 pub struct CollectionData {
     pub owner: Option<String>,
     pub contract_info: Option<ContractInfoResponse>,
+    pub num_tokens: Option<u64>,
     pub name: String,
     pub symbol: String,
-    pub num_tokens: Option<u64>,
+    pub extension: DefaultOptionalCollectionExtension,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct UniversalOwnerOfResponse {
     pub owner: String,
 
@@ -125,20 +132,23 @@ impl<'a> IndexList<ClassIdInfo> for ClassIdInfoIndexes<'a> {
 
 #[cfg(test)]
 mod tests {
-    use cosmwasm_std::{from_json, to_json_binary, Coin, Empty};
+    use cosmwasm_std::{from_json, to_json_binary};
+    use cw721::{DefaultOptionalNftExtension, NftExtension};
 
     use super::UniversalAllNftInfoResponse;
 
     #[test]
     fn test_universal_deserialize() {
-        let start = cw721::AllNftInfoResponse::<Coin> {
-            access: cw721::OwnerOfResponse {
+        let start = cw721::msg::AllNftInfoResponse::<DefaultOptionalNftExtension> {
+            access: cw721::msg::OwnerOfResponse {
                 owner: "foo".to_string(),
                 approvals: vec![],
             },
-            info: cw721::NftInfoResponse {
+            info: cw721::msg::NftInfoResponse {
                 token_uri: None,
-                extension: Coin::new(100, "ujuno"),
+                extension: Some(NftExtension {
+                    ..Default::default()
+                }),
             },
         };
         let start = to_json_binary(&start).unwrap();
@@ -146,6 +156,11 @@ mod tests {
         assert_eq!(end.access.owner, "foo".to_string());
         assert_eq!(end.access.approvals, vec![]);
         assert_eq!(end.info.token_uri, None);
-        assert_eq!(end.info.extension, Empty::default())
+        assert_eq!(
+            end.info.extension,
+            Some(NftExtension {
+                ..Default::default()
+            })
+        )
     }
 }

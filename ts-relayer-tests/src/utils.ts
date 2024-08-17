@@ -91,7 +91,7 @@ export async function uploadAndInstantiate(
   for (const name in contracts) {
     const contractMsg = contracts[name];
     console.debug(`storing ${name} contract from ${contractMsg.path}`);
-    const wasm = await readFileSync(contractMsg.path);
+    const wasm = readFileSync(contractMsg.path);
     const receipt = await client.sign.upload(
       client.senderAddress,
       wasm,

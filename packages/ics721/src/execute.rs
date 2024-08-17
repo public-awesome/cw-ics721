@@ -4,6 +4,10 @@ use cosmwasm_std::{
     from_json, to_json_binary, Addr, Binary, ContractInfoResponse, Deps, DepsMut, Empty, Env,
     Event, IbcMsg, MessageInfo, Order, Response, StdResult, SubMsg, WasmMsg,
 };
+use cw721::{
+    msg::{NftExtensionMsg, RoyaltyInfoResponse},
+    NftExtension,
+};
 use cw_storage_plus::Map;
 use ics721_types::{
     ibc_types::{IbcOutgoingMsg, IbcOutgoingProxyMsg, NonFungibleTokenPacketData},
@@ -24,10 +28,10 @@ use crate::{
         query_nft_contract_for_class_id, query_nft_contracts,
     },
     state::{
-        ClassIdInfo, CollectionData, UniversalAllNftInfoResponse, ADMIN_USED_FOR_CW721,
-        CLASS_ID_AND_NFT_CONTRACT_INFO, CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_CODE_ID,
-        INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
-        OUTGOING_PROXY, PO, TOKEN_METADATA,
+        ClassIdInfo, CollectionData, UniversalAllNftInfoResponse, CLASS_ID_AND_NFT_CONTRACT_INFO,
+        CLASS_ID_TO_CLASS, CONTRACT_ADDR_LENGTH, CW721_ADMIN, CW721_CODE_ID,
+        IBC_RECEIVE_TOKEN_METADATA, INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY,
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY, PO,
     },
     token_types::{VoucherCreation, VoucherRedemption},
     ContractError,
@@ -68,7 +72,7 @@ where
             ));
         }
 
-        ADMIN_USED_FOR_CW721.save(
+        CW721_ADMIN.save(
             deps.storage,
             &msg.cw721_admin
                 .as_ref()
@@ -107,7 +111,7 @@ where
     ) -> Result<Response<T>, ContractError> {
         PO.error_if_paused(deps.storage)?;
         match msg {
-            ExecuteMsg::ReceiveNft(cw721::Cw721ReceiveMsg {
+            ExecuteMsg::ReceiveNft(cw721::receiver::Cw721ReceiveMsg {
                 sender,
                 token_id,
                 msg,
@@ -178,14 +182,14 @@ where
         // remove incoming channel entry and metadata
         INCOMING_CLASS_TOKEN_TO_CHANNEL
             .remove(deps.storage, (child_class_id.clone(), token_id.clone()));
-        TOKEN_METADATA.remove(deps.storage, (child_class_id.clone(), token_id.clone()));
+        IBC_RECEIVE_TOKEN_METADATA.remove(deps.storage, (child_class_id.clone(), token_id.clone()));
 
         // check NFT on child collection owned by recipient
         let maybe_nft_info: Option<UniversalAllNftInfoResponse> = deps
             .querier
             .query_wasm_smart(
                 child_collection.clone(),
-                &cw721::Cw721QueryMsg::AllNftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::AllNftInfo {
                     token_id: token_id.clone().into(),
                     include_expired: None,
                 },
@@ -206,7 +210,7 @@ where
             // note: this requires approval from recipient, or recipient burns it himself
             let burn_msg = WasmMsg::Execute {
                 contract_addr: child_collection.to_string(),
-                msg: to_json_binary(&cw721::Cw721ExecuteMsg::Burn {
+                msg: to_json_binary(&cw721_metadata_onchain::msg::ExecuteMsg::Burn {
                     token_id: token_id.clone().into(),
                 })?,
                 funds: vec![],
@@ -268,7 +272,7 @@ where
             .querier
             .query_wasm_smart(
                 home_collection.clone(),
-                &cw721::Cw721QueryMsg::AllNftInfo {
+                &cw721_metadata_onchain::msg::QueryMsg::AllNftInfo {
                     token_id: token_id.clone().into(),
                     include_expired: None,
                 },
@@ -284,7 +288,7 @@ where
             // transfer NFT
             let transfer_msg = WasmMsg::Execute {
                 contract_addr: home_collection.to_string(),
-                msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                msg: to_json_binary(&cw721_metadata_onchain::msg::ExecuteMsg::TransferNft {
                     recipient: recipient.to_string(),
                     token_id: token_id.clone().into(),
                 })?,
@@ -401,7 +405,7 @@ where
         // make sure NFT is escrowed by ics721
         let UniversalAllNftInfoResponse { access, info } = deps.querier.query_wasm_smart(
             nft_contract,
-            &cw721::Cw721QueryMsg::AllNftInfo {
+            &cw721_metadata_onchain::msg::QueryMsg::AllNftInfo {
                 token_id: token_id.clone().into(),
                 include_expired: None,
             },
@@ -410,12 +414,17 @@ where
             return Err(ContractError::NotEscrowedByIcs721(access.owner));
         }
 
-        // cw721 doesn't support on-chain metadata yet
-        // here NFT is transferred to another chain, NFT itself may have been transferred to his chain before
+        // here NFT was transferred before, in this case it is stored in the storage, otherwise this is the home chain,
+        // and the NFT is transferred for the first time and onchain data comes from the cw721 contract
         // in this case ICS721 may have metadata stored
-        let token_metadata = TOKEN_METADATA
+        let token_metadata = match IBC_RECEIVE_TOKEN_METADATA
             .may_load(deps.storage, (class.id.clone(), token_id.clone()))?
-            .flatten();
+            .flatten()
+        {
+            Some(metadata) => Some(metadata),
+            // incase there is none in the storage, this is the 'home' chain, so metadata is retrieved from the cw721 contract
+            None => info.extension.map(|ext| to_json_binary(&ext)).transpose()?,
+        };
 
         let ibc_message = NonFungibleTokenPacketData {
             class_id: class.id.clone(),
@@ -579,14 +588,12 @@ where
             };
             CLASS_ID_AND_NFT_CONTRACT_INFO.save(deps.storage, &class.id, &class_id_info)?;
 
-            let admin = ADMIN_USED_FOR_CW721
-                .load(deps.storage)?
-                .map(|a| a.to_string());
+            let cw721_admin = CW721_ADMIN.load(deps.storage)?.map(|a| a.to_string());
             let message = SubMsg::<T>::reply_on_success(
                 WasmMsg::Instantiate2 {
-                    admin,
+                    admin: cw721_admin.clone(),
                     code_id: cw721_code_id,
-                    msg: self.init_msg(deps.as_ref(), env, &class)?,
+                    msg: self.init_msg(deps.as_ref(), env, &class, cw721_admin)?,
                     funds: vec![],
                     // Attempting to fit the class ID in the label field
                     // can make this field too long which causes data
@@ -601,18 +608,31 @@ where
     }
 
     /// Default implementation using `cw721_base::msg::InstantiateMsg`
-    fn init_msg(&self, deps: Deps, env: &Env, class: &Class) -> StdResult<Binary> {
+    fn init_msg(
+        &self,
+        deps: Deps,
+        env: &Env,
+        class: &Class,
+        cw721_admin: Option<String>,
+    ) -> StdResult<Binary> {
         // use ics721 creator for withdraw address
-        let ContractInfoResponse { creator, .. } = deps
+        let ContractInfoResponse { creator, admin, .. } = deps
             .querier
             .query_wasm_contract_info(env.contract.address.to_string())?;
 
         // use by default ClassId, in case there's no class data with name and symbol
-        let mut instantiate_msg = cw721_base::msg::InstantiateMsg {
+        let cw721_admin_or_ics721_admin_or_ics721_creator = cw721_admin
+            .clone()
+            .or_else(|| admin.clone())
+            .or_else(|| Some(creator.clone()))
+            .unwrap();
+        let mut instantiate_msg = cw721_metadata_onchain::msg::InstantiateMsg {
             name: class.id.clone().into(),
             symbol: class.id.clone().into(),
+            collection_info_extension: None, // extension is set below, in case there's collection data
+            creator: Some(cw721_admin_or_ics721_admin_or_ics721_creator.clone()), // TODO maybe better using cw721 admin?
             minter: Some(env.contract.address.to_string()),
-            withdraw_address: Some(creator),
+            withdraw_address: Some(creator.clone()),
         };
 
         // use collection data for setting name and symbol
@@ -623,6 +643,21 @@ where
         if let Some(collection_data) = collection_data {
             instantiate_msg.name = collection_data.name;
             instantiate_msg.symbol = collection_data.symbol;
+            let collection_info_extension_msg =
+                collection_data
+                    .extension
+                    .map(|ext| cw721::msg::CollectionExtensionMsg {
+                        description: Some(ext.description),
+                        image: Some(ext.image),
+                        external_link: ext.external_link,
+                        explicit_content: ext.explicit_content,
+                        start_trading_time: ext.start_trading_time,
+                        royalty_info: ext.royalty_info.map(|r| RoyaltyInfoResponse {
+                            payment_address: cw721_admin_or_ics721_admin_or_ics721_creator, // r.payment_address cant be used, since it is from another chain
+                            share: r.share,
+                        }),
+                    });
+            instantiate_msg.collection_info_extension = collection_info_extension_msg;
         }
 
         to_json_binary(&instantiate_msg)
@@ -655,10 +690,12 @@ where
                     .map(|token_id| {
                         Ok(WasmMsg::Execute {
                             contract_addr: nft_contract.to_string(),
-                            msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
-                                recipient: receiver.to_string(),
-                                token_id: token_id.into(),
-                            })?,
+                            msg: to_json_binary(
+                                &cw721_metadata_onchain::msg::ExecuteMsg::TransferNft {
+                                    recipient: receiver.to_string(),
+                                    token_id: token_id.into(),
+                                },
+                            )?,
                             funds: vec![],
                         })
                     })
@@ -684,13 +721,35 @@ where
                 // Note, once cw721 doesn't support on-chain metadata yet - but this is where we will set
                 // that value on the debt-voucher token once it is supported.
                 // Also note that this is set for every token, regardless of if data is None.
-                TOKEN_METADATA.save(deps.storage, (class_id.clone(), id.clone()), &data)?;
+                IBC_RECEIVE_TOKEN_METADATA.save(
+                    deps.storage,
+                    (class_id.clone(), id.clone()),
+                    &data,
+                )?;
 
-                let msg = cw721_base::msg::ExecuteMsg::<Empty, Empty>::Mint {
+                // parse token data and check whether it is of type NftExtension
+                let extension: Option<NftExtensionMsg> = match data {
+                    Some(data) => from_json::<NftExtension>(data)
+                        .ok()
+                        .map(|ext| NftExtensionMsg {
+                            animation_url: ext.animation_url,
+                            attributes: ext.attributes,
+                            background_color: ext.background_color,
+                            description: ext.description,
+                            external_url: ext.external_url,
+                            image: ext.image,
+                            image_data: ext.image_data,
+                            youtube_url: ext.youtube_url,
+                            name: ext.name,
+                        }),
+                    None => None,
+                };
+
+                let msg = cw721_metadata_onchain::msg::ExecuteMsg::Mint {
                     token_id: id.into(),
                     token_uri: uri,
                     owner: receiver.to_string(),
-                    extension: Empty::default(),
+                    extension,
                 };
                 Ok(WasmMsg::Execute {
                     contract_addr: nft_contract.to_string(),
@@ -764,9 +823,9 @@ where
                 }
                 if let Some(cw721_admin) = cw721_admin.clone() {
                     if cw721_admin.is_empty() {
-                        ADMIN_USED_FOR_CW721.save(deps.storage, &None)?;
+                        CW721_ADMIN.save(deps.storage, &None)?;
                     } else {
-                        ADMIN_USED_FOR_CW721
+                        CW721_ADMIN
                             .save(deps.storage, &Some(deps.api.addr_validate(&cw721_admin)?))?;
                     }
                 }

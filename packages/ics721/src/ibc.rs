@@ -14,8 +14,8 @@ use crate::{
     ibc_packet_receive::receive_ibc_packet,
     query::{load_class_id_for_nft_contract, load_nft_contract_for_class_id},
     state::{
-        INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY, OUTGOING_CLASS_TOKEN_TO_CHANNEL,
-        OUTGOING_PROXY, TOKEN_METADATA,
+        IBC_RECEIVE_TOKEN_METADATA, INCOMING_CLASS_TOKEN_TO_CHANNEL, INCOMING_PROXY,
+        OUTGOING_CLASS_TOKEN_TO_CHANNEL, OUTGOING_PROXY,
     },
     ContractError,
 };
@@ -138,11 +138,12 @@ where
                     if returning_to_source {
                         // This token's journey is complete, for now.
                         INCOMING_CLASS_TOKEN_TO_CHANNEL.remove(deps.storage, key);
-                        TOKEN_METADATA.remove(deps.storage, (msg.class_id.clone(), token.clone()));
+                        IBC_RECEIVE_TOKEN_METADATA
+                            .remove(deps.storage, (msg.class_id.clone(), token.clone()));
 
                         messages.push(WasmMsg::Execute {
                             contract_addr: nft_contract.to_string(),
-                            msg: to_json_binary(&cw721::Cw721ExecuteMsg::Burn {
+                            msg: to_json_binary(&cw721_metadata_onchain::msg::ExecuteMsg::Burn {
                                 token_id: token.into(),
                             })?,
                             funds: vec![],
@@ -212,7 +213,7 @@ where
                     .remove(deps.storage, (message.class_id.clone(), token_id.clone()));
                 Ok(WasmMsg::Execute {
                     contract_addr: nft_contract.to_string(),
-                    msg: to_json_binary(&cw721::Cw721ExecuteMsg::TransferNft {
+                    msg: to_json_binary(&cw721_metadata_onchain::msg::ExecuteMsg::TransferNft {
                         recipient: sender.to_string(),
                         token_id: token_id.into(),
                     })?,

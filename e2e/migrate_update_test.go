@@ -3,8 +3,9 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/public-awesome/ics721/e2e/test_suite"
 	"testing"
+
+	"github.com/public-awesome/ics721/e2e/test_suite"
 
 	wasmibctesting "github.com/CosmWasm/wasmd/x/wasm/ibctesting"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
@@ -50,7 +51,7 @@ func (suite *MigrateUpdateTestSuite) SetupTest() {
 		resp := chain.StoreCodeFile("../artifacts/ics721_base.wasm")
 		require.Equal(suite.T(), uint64(1), resp.CodeID)
 
-		resp = chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+		resp = chain.StoreCodeFile("../external-wasms/cw721_metadata_onchain_v0.19.0.wasm")
 		require.Equal(suite.T(), uint64(2), resp.CodeID)
 
 		resp = chain.StoreCodeFile("../artifacts/ics721_base_tester.wasm")

@@ -58,7 +58,7 @@ func (suite *CallbackTestSuite) SetupTest() {
 		resp := chain.StoreCodeFile("../artifacts/ics721_base.wasm")
 		require.Equal(suite.T(), uint64(1), resp.CodeID)
 
-		resp = chain.StoreCodeFile("../external-wasms/cw721_base_v0.18.0.wasm")
+		resp = chain.StoreCodeFile("../external-wasms/cw721_metadata_onchain_v0.19.0.wasm")
 		require.Equal(suite.T(), uint64(2), resp.CodeID)
 
 		resp = chain.StoreCodeFile("../artifacts/ics721_base_tester.wasm")
