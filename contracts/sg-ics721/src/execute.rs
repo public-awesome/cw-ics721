@@ -1,12 +1,14 @@
 use cosmwasm_std::{
     from_json, to_json_binary, Addr, Binary, ContractInfoResponse, Deps, DepsMut, Env, StdResult,
 };
-use cw721::{CollectionExtension, RoyaltyInfo};
+use cw721::{CollectionExtension, NftExtension, RoyaltyInfo};
 use ics721::{execute::Ics721Execute, state::CollectionData, utils::get_collection_data};
 use ics721_types::token_types::Class;
 
 use sg721::RoyaltyInfoResponse;
-use sg721_base::msg::{CollectionInfoResponse, QueryMsg};
+use sg721_base::msg::CollectionInfoResponse;
+use sg721_metadata_onchain::QueryMsg;
+use sg_metadata::{Metadata, Trait};
 
 use crate::state::{SgIcs721Contract, STARGAZE_ICON_PLACEHOLDER};
 
@@ -112,5 +114,71 @@ impl Ics721Execute for SgIcs721Contract {
         }
 
         to_json_binary(&instantiate_msg)
+    }
+
+    fn mint_msg(
+        &self,
+        token_id: String,
+        token_uri: Option<String>,
+        owner: String,
+        data: Option<Binary>,
+    ) -> StdResult<Binary> {
+        // parse token data and check whether it is of type NftExtension
+        let extension: Metadata = match data {
+            Some(data) => {
+                match from_json::<NftExtension>(data).ok().map(|ext| Metadata {
+                    animation_url: ext.animation_url,
+                    attributes: ext.attributes.map(|traits| {
+                        traits
+                            .into_iter()
+                            .map(|t| Trait {
+                                trait_type: t.trait_type,
+                                value: t.value,
+                                display_type: t.display_type,
+                            })
+                            .collect()
+                    }),
+                    background_color: ext.background_color,
+                    description: ext.description,
+                    external_url: ext.external_url,
+                    image: ext.image,
+                    image_data: ext.image_data,
+                    youtube_url: ext.youtube_url,
+                    name: ext.name,
+                }) {
+                    Some(extension) => extension,
+                    None => Metadata {
+                        animation_url: None,
+                        attributes: None,
+                        background_color: None,
+                        description: None,
+                        external_url: None,
+                        image: None,
+                        image_data: None,
+                        youtube_url: None,
+                        name: None,
+                    },
+                }
+            }
+            None => Metadata {
+                animation_url: None,
+                attributes: None,
+                background_color: None,
+                description: None,
+                external_url: None,
+                image: None,
+                image_data: None,
+                youtube_url: None,
+                name: None,
+            },
+        };
+
+        let msg = sg721_metadata_onchain::ExecuteMsg::Mint {
+            token_id,
+            token_uri,
+            owner,
+            extension,
+        };
+        to_json_binary(&msg)
     }
 }

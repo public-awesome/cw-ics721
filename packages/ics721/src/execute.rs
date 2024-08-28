@@ -727,33 +727,9 @@ where
                     &data,
                 )?;
 
-                // parse token data and check whether it is of type NftExtension
-                let extension: Option<NftExtensionMsg> = match data {
-                    Some(data) => from_json::<NftExtension>(data)
-                        .ok()
-                        .map(|ext| NftExtensionMsg {
-                            animation_url: ext.animation_url,
-                            attributes: ext.attributes,
-                            background_color: ext.background_color,
-                            description: ext.description,
-                            external_url: ext.external_url,
-                            image: ext.image,
-                            image_data: ext.image_data,
-                            youtube_url: ext.youtube_url,
-                            name: ext.name,
-                        }),
-                    None => None,
-                };
-
-                let msg = cw721_metadata_onchain::msg::ExecuteMsg::Mint {
-                    token_id: id.into(),
-                    token_uri: uri,
-                    owner: receiver.to_string(),
-                    extension,
-                };
                 Ok(WasmMsg::Execute {
                     contract_addr: nft_contract.to_string(),
-                    msg: to_json_binary(&msg)?,
+                    msg: self.mint_msg(id.into(), uri, receiver.to_string(), data)?,
                     funds: vec![],
                 })
             })
@@ -762,6 +738,40 @@ where
         Ok(Response::default()
             .add_attribute("method", "callback_mint")
             .add_messages(mint))
+    }
+
+    fn mint_msg(
+        &self,
+        token_id: String,
+        token_uri: Option<String>,
+        owner: String,
+        data: Option<Binary>,
+    ) -> StdResult<Binary> {
+        // parse token data and check whether it is of type NftExtension
+        let extension: Option<NftExtensionMsg> = match data {
+            Some(data) => from_json::<NftExtension>(data)
+                .ok()
+                .map(|ext| NftExtensionMsg {
+                    animation_url: ext.animation_url,
+                    attributes: ext.attributes,
+                    background_color: ext.background_color,
+                    description: ext.description,
+                    external_url: ext.external_url,
+                    image: ext.image,
+                    image_data: ext.image_data,
+                    youtube_url: ext.youtube_url,
+                    name: ext.name,
+                }),
+            None => None,
+        };
+
+        let msg = cw721_metadata_onchain::msg::ExecuteMsg::Mint {
+            token_id,
+            token_uri,
+            owner,
+            extension,
+        };
+        to_json_binary(&msg)
     }
 
     fn callback_redeem_outgoing_channel_entries(

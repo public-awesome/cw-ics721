@@ -11,7 +11,7 @@ use cw2::set_contract_version;
 use cw721::{
     msg::{CollectionExtensionMsg, CollectionInfoAndExtensionResponse, RoyaltyInfoResponse},
     CollectionExtension, DefaultOptionalCollectionExtension, DefaultOptionalNftExtension,
-    RoyaltyInfo,
+    NftExtension, RoyaltyInfo,
 };
 use cw721_metadata_onchain::msg::{
     InstantiateMsg as Cw721InstantiateMsg, QueryMsg as Cw721QueryMsg,
@@ -734,7 +734,16 @@ fn test_do_instantiate_and_mint() {
                             Token {
                                 id: TokenId::new("1"),
                                 uri: Some("https://moonphase.is/image.svg".to_string()),
-                                data: None,
+                                data: Some(to_json_binary(&NftExtension {
+                                    image: Some("https://ark.pass/image.png".to_string()),
+                                    external_url: Some(
+                                        "https://interchain.arkprotocol.io".to_string(),
+                                    ),
+                                    description: Some("description".to_string()),
+                                    ..Default::default()
+                                }))
+                                .transpose()
+                                .unwrap(),
                             },
                             Token {
                                 id: TokenId::new("2"),
@@ -782,7 +791,7 @@ fn test_do_instantiate_and_mint() {
             }
         );
 
-        // Check that token_uri was set properly.
+        // Check that token_uri and extension was set properly.
         let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
@@ -797,6 +806,15 @@ fn test_do_instantiate_and_mint() {
             token_info.token_uri,
             Some("https://moonphase.is/image.svg".to_string())
         );
+        assert_eq!(
+            token_info.extension,
+            Some(NftExtension {
+                image: Some("https://ark.pass/image.png".to_string()),
+                external_url: Some("https://interchain.arkprotocol.io".to_string()),
+                description: Some("description".to_string()),
+                ..Default::default()
+            })
+        );
         let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
@@ -808,6 +826,7 @@ fn test_do_instantiate_and_mint() {
             )
             .unwrap();
         assert_eq!(token_info.token_uri, Some("https://foo.bar".to_string()));
+        assert_eq!(token_info.extension, None);
 
         // After transfer to target, test owner can do any action, like transfer, on collection
         test.app

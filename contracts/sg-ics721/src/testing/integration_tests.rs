@@ -8,7 +8,7 @@ use cosmwasm_std::{
     VerificationError, WasmMsg,
 };
 use cw2::set_contract_version;
-use cw721::{CollectionExtension, RoyaltyInfo};
+use cw721::{CollectionExtension, DefaultOptionalNftExtension, NftExtension, RoyaltyInfo};
 use cw721_base_018::msg::QueryMsg as Cw721QueryMsg;
 use cw_cii::{Admin, ContractInstantiateInfo};
 use cw_multi_test::{
@@ -29,7 +29,8 @@ use ics721_types::{
     token_types::{Class, ClassId, Token, TokenId},
 };
 use sg721::{InstantiateMsg as Sg721InstantiateMsg, RoyaltyInfoResponse};
-use sg721_base::msg::{CollectionInfoResponse, QueryMsg as Sg721QueryMsg};
+use sg721_base::msg::CollectionInfoResponse;
+use sg721_metadata_onchain::QueryMsg as Sg721QueryMsg;
 use sha2::{digest::Update, Digest, Sha256};
 
 use crate::{state::STARGAZE_ICON_PLACEHOLDER, ContractError, SgIcs721Contract};
@@ -361,7 +362,7 @@ impl Test {
             )
             .unwrap();
 
-        // minter of sg721-base must be a contract!
+        // minter of sg721-metadata-onchain must be a contract!
         let source_cw721_owner = ics721.clone();
         let source_cw721 = app
             .instantiate_contract(
@@ -533,27 +534,34 @@ impl Test {
     }
 }
 
-fn sg721_base_contract() -> Box<dyn Contract<Empty>> {
-    // sg721_base's execute and instantiate function deals Response<StargazeMsgWrapper>
+fn sg721_metadata_onchain_contract() -> Box<dyn Contract<Empty>> {
+    // sg721_metadata_onchain's execute and instantiate function deals Response<StargazeMsgWrapper>
     // but App multi test deals Response<Empty>
-    // so we need to wrap sg721_base's execute and instantiate function
+    // so we need to wrap sg721_metadata_onchain's execute and instantiate function
     fn exececute_fn(
         deps: DepsMut,
         env: Env,
         info: MessageInfo,
-        msg: sg721::ExecuteMsg<Option<Empty>, Empty>,
-    ) -> Result<Response, sg721_base::ContractError> {
-        sg721_base::entry::execute(deps, env, info, msg).map(|_| Response::default())
+        msg: sg721_metadata_onchain::ExecuteMsg,
+    ) -> Result<Response, sg721_metadata_onchain::ContractError> {
+        sg721_metadata_onchain::Sg721MetadataContract::default()
+            .execute(deps, env, info, msg)
+            .map(|_| Response::default())
     }
     fn instantiate_fn(
         deps: DepsMut,
         env: Env,
         info: MessageInfo,
         msg: sg721::InstantiateMsg,
-    ) -> Result<Response, sg721_base::ContractError> {
-        sg721_base::entry::instantiate(deps, env, info, msg).map(|_| Response::default())
+    ) -> Result<Response, sg721_metadata_onchain::ContractError> {
+        sg721_metadata_onchain::Sg721MetadataContract::default()
+            .instantiate(deps, env, info, msg)
+            .map(|_| Response::default())
     }
-    let contract = ContractWrapper::new(exececute_fn, instantiate_fn, sg721_base::entry::query);
+    fn query_fn(deps: Deps, env: Env, msg: sg721_metadata_onchain::QueryMsg) -> StdResult<Binary> {
+        sg721_metadata_onchain::Sg721MetadataContract::default().query(deps, env, msg)
+    }
+    let contract = ContractWrapper::new(exececute_fn, instantiate_fn, query_fn);
     Box::new(contract)
 }
 
@@ -589,7 +597,7 @@ fn outgoing_proxy_contract() -> Box<dyn Contract<Empty>> {
 
 #[test]
 fn test_instantiate() {
-    let mut test = Test::new(true, true, None, None, sg721_base_contract());
+    let mut test = Test::new(true, true, None, None, sg721_metadata_onchain_contract());
 
     // check stores are properly initialized
     let cw721_id = test.query_cw721_id();
@@ -608,7 +616,7 @@ fn test_instantiate() {
 
 #[test]
 fn test_do_instantiate_and_mint_weird_data() {
-    let mut test = Test::new(false, false, None, None, sg721_base_contract());
+    let mut test = Test::new(false, false, None, None, sg721_metadata_onchain_contract());
     let collection_contract_source_chain =
         ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
     let class_id = format!(
@@ -675,7 +683,7 @@ fn test_do_instantiate_and_mint_weird_data() {
 fn test_do_instantiate_and_mint() {
     // test case: instantiate cw721 with no ClassData (without owner, name, and symbol)
     {
-        let mut test = Test::new(false, false, None, None, sg721_base_contract());
+        let mut test = Test::new(false, false, None, None, sg721_metadata_onchain_contract());
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id = format!(
@@ -698,7 +706,16 @@ fn test_do_instantiate_and_mint() {
                             Token {
                                 id: TokenId::new("1"),
                                 uri: Some("https://moonphase.is/image.svg".to_string()),
-                                data: None,
+                                data: Some(to_json_binary(&NftExtension {
+                                    image: Some("https://ark.pass/image.png".to_string()),
+                                    external_url: Some(
+                                        "https://interchain.arkprotocol.io".to_string(),
+                                    ),
+                                    description: Some("description".to_string()),
+                                    ..Default::default()
+                                }))
+                                .transpose()
+                                .unwrap(),
                             },
                             Token {
                                 id: TokenId::new("2"),
@@ -765,8 +782,8 @@ fn test_do_instantiate_and_mint() {
             }
         );
 
-        // Check that token_uri was set properly.
-        let token_info: cw721_018::NftInfoResponse<Option<Empty>> = test
+        // Check that token_uri and extension was set properly.
+        let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
             .query_wasm_smart(
@@ -780,7 +797,16 @@ fn test_do_instantiate_and_mint() {
             token_info.token_uri,
             Some("https://moonphase.is/image.svg".to_string())
         );
-        let token_info: cw721_018::NftInfoResponse<Option<Empty>> = test
+        assert_eq!(
+            token_info.extension,
+            Some(NftExtension {
+                image: Some("https://ark.pass/image.png".to_string()),
+                external_url: Some("https://interchain.arkprotocol.io".to_string()),
+                description: Some("description".to_string()),
+                ..Default::default()
+            })
+        );
+        let token_info: cw721::msg::NftInfoResponse<DefaultOptionalNftExtension> = test
             .app
             .wrap()
             .query_wasm_smart(
@@ -791,6 +817,12 @@ fn test_do_instantiate_and_mint() {
             )
             .unwrap();
         assert_eq!(token_info.token_uri, Some("https://foo.bar".to_string()));
+        assert_eq!(
+            token_info.extension,
+            Some(NftExtension {
+                ..Default::default()
+            })
+        );
 
         // After transfer to target, test owner can do any action, like transfer, on collection
         test.app
@@ -840,7 +872,7 @@ fn test_do_instantiate_and_mint() {
             false,
             None,
             Some(COLLECTION_OWNER_SOURCE_CHAIN.to_string()), // admin is used for royalty payment address!
-            sg721_base_contract(),
+            sg721_metadata_onchain_contract(),
         );
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
@@ -1035,7 +1067,7 @@ fn test_do_instantiate_and_mint() {
     // test case: instantiate cw721 with CustomClassData (includes name, but without owner and symbol)
     // results in nft contract using class id for name and symbol
     {
-        let mut test = Test::new(false, false, None, None, sg721_base_contract());
+        let mut test = Test::new(false, false, None, None, sg721_metadata_onchain_contract());
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id = format!(
@@ -1210,7 +1242,7 @@ fn test_do_instantiate_and_mint() {
     // test case: instantiate cw721 with PartialCustomCollectionData (includes name and symbol)
     // results in nft contract using name and symbol
     {
-        let mut test = Test::new(false, false, None, None, sg721_base_contract());
+        let mut test = Test::new(false, false, None, None, sg721_metadata_onchain_contract());
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id = format!(
@@ -1388,7 +1420,7 @@ fn test_do_instantiate_and_mint() {
     // test case: instantiate cw721 with PartialCustomCollectionData (includes name and symbol)
     // results in nft contract using name and symbol
     {
-        let mut test = Test::new(false, false, None, None, sg721_base_contract());
+        let mut test = Test::new(false, false, None, None, sg721_metadata_onchain_contract());
         let collection_contract_source_chain =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id = format!(
@@ -1569,7 +1601,7 @@ fn test_do_instantiate_and_mint() {
 fn test_do_instantiate_and_mint_2_different_collections() {
     // test case: instantiate two cw721 contracts with different class id and make sure instantiate2 creates 2 different, predictable contracts
     {
-        let mut test = Test::new(false, false, None, None, sg721_base_contract());
+        let mut test = Test::new(false, false, None, None, sg721_metadata_onchain_contract());
         let collection_contract_source_chain_1 =
             ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
         let class_id_1 = format!(
@@ -1879,7 +1911,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
         false,
         None,
         Some(COLLECTION_OWNER_SOURCE_CHAIN.to_string()), // admin is used for royalty payment address!
-        sg721_base_contract(),
+        sg721_metadata_onchain_contract(),
     );
     let collection_contract_source_chain =
         ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
@@ -2027,7 +2059,7 @@ fn test_do_instantiate_and_mint_no_instantiate() {
 
 #[test]
 fn test_do_instantiate_and_mint_permissions() {
-    let mut test = Test::new(false, false, None, None, sg721_base_contract());
+    let mut test = Test::new(false, false, None, None, sg721_metadata_onchain_contract());
     let collection_contract_source_chain =
         ClassId::new(test.app.api().addr_make(COLLECTION_CONTRACT_SOURCE_CHAIN));
     let class_id = format!(
@@ -2096,7 +2128,7 @@ fn test_do_instantiate_and_mint_permissions() {
 /// Tests that we can not send IbcOutgoingProxyMsg if no proxy is configured.
 #[test]
 fn test_no_proxy_unknown_msg() {
-    let mut test = Test::new(false, false, None, None, sg721_base_contract());
+    let mut test = Test::new(false, false, None, None, sg721_metadata_onchain_contract());
     let msg = IbcOutgoingProxyMsg {
         collection: "foo".to_string(),
         msg: to_json_binary(&IbcOutgoingMsg {
@@ -2134,7 +2166,7 @@ fn test_no_proxy_unknown_msg() {
 /// Tests that we can non-proxy addresses can send if proxy is configured.
 #[test]
 fn test_no_proxy_unauthorized() {
-    let mut test = Test::new(true, false, None, None, sg721_base_contract());
+    let mut test = Test::new(true, false, None, None, sg721_metadata_onchain_contract());
     let msg = IbcOutgoingProxyMsg {
         collection: "foo".to_string(),
         msg: to_json_binary(&IbcOutgoingMsg {
@@ -2168,7 +2200,7 @@ fn test_no_proxy_unauthorized() {
 
 #[test]
 fn test_proxy_authorized() {
-    let mut test = Test::new(true, false, None, None, sg721_base_contract());
+    let mut test = Test::new(true, false, None, None, sg721_metadata_onchain_contract());
     let proxy_address: Option<Addr> = test
         .app
         .wrap()
@@ -2178,7 +2210,7 @@ fn test_proxy_authorized() {
     let proxy_address = proxy_address.expect("expected a proxy");
 
     // create collection and mint NFT for sending to proxy
-    let source_cw721_id = test.app.store_code(sg721_base_contract());
+    let source_cw721_id = test.app.store_code(sg721_metadata_onchain_contract());
     let source_cw721 = test
         .app
         .instantiate_contract(
@@ -2263,7 +2295,7 @@ fn test_proxy_authorized() {
 
 #[test]
 fn test_receive_nft() {
-    let mut test = Test::new(false, false, None, None, sg721_base_contract());
+    let mut test = Test::new(false, false, None, None, sg721_metadata_onchain_contract());
     // simplify: mint and escrowed/owned by ics721, as a precondition for receive nft
     let token_id = test.execute_cw721_mint(test.ics721.clone()).unwrap();
     // ics721 receives NFT from sender/collection contract,
@@ -2344,7 +2376,7 @@ fn test_receive_nft() {
 /// In case proxy for ICS721 is defined, ICS721 only accepts receival from proxy - not from nft contract!
 #[test]
 fn test_no_receive_with_proxy() {
-    let mut test = Test::new(true, false, None, None, sg721_base_contract());
+    let mut test = Test::new(true, false, None, None, sg721_metadata_onchain_contract());
     // unauthorized to receive nft from nft contract
     let err: ContractError = test
         .app
@@ -2381,7 +2413,7 @@ fn test_pause() {
         false,
         None,
         Some(ICS721_ADMIN_AND_PAUSER.to_string()),
-        sg721_base_contract(),
+        sg721_metadata_onchain_contract(),
     );
     // Should start unpaused.
     let (paused, pauser) = test.query_pause_info();
@@ -2468,7 +2500,7 @@ fn test_migration() {
         false,
         None,
         Some(ICS721_ADMIN_AND_PAUSER.to_string()),
-        sg721_base_contract(),
+        sg721_metadata_onchain_contract(),
     );
     // assert instantiation worked
     let (_, pauser) = test.query_pause_info();

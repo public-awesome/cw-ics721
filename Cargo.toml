@@ -34,10 +34,12 @@ sha2 = "^0.10"
 serde = "^1.0"
 thiserror = "^1.0"
 # Stargaze libs
+sg-metadata = "^3.14"
 sg-std = "^3.2"
 sg-multi-test = "^3.1"
 sg721 = "^3.3"
-sg721-base = "^3.3"
+sg721-base = "^3.14"
+sg721-metadata-onchain = "^3.14"
 # packages and contracts
 cw-cii = { path = "./packages/cw-cii" }
 cw-pause-once = { path = "./packages/cw-pause-once" }
