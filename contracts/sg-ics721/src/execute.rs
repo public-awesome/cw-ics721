@@ -154,9 +154,9 @@ impl Ics721Execute for SgIcs721Contract {
 
         let msg = sg721_metadata_onchain::ExecuteMsg::Mint {
             token_id,
-            token_uri,
+            token_uri, // holds off-chain metadata
             owner,
-            extension,
+            extension, // holds on-chain metadata
         };
         to_json_binary(&msg)
     }

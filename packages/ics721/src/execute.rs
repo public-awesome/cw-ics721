@@ -766,9 +766,9 @@ where
 
         let msg = cw721_metadata_onchain::msg::ExecuteMsg::Mint {
             token_id,
-            token_uri,
+            token_uri, // holds off-chain metadata
             owner,
-            extension,
+            extension, // holds on-chain metadata
         };
         to_json_binary(&msg)
     }
