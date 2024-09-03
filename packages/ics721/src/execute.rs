@@ -748,8 +748,8 @@ where
         data: Option<Binary>,
     ) -> StdResult<Binary> {
         // parse token data and check whether it is of type NftExtension
-        let extension: Option<NftExtensionMsg> = match data {
-            Some(data) => from_json::<NftExtension>(data)
+        let extension = data.and_then(|binary| {
+            from_json::<NftExtension>(binary)
                 .ok()
                 .map(|ext| NftExtensionMsg {
                     animation_url: ext.animation_url,
@@ -761,9 +761,8 @@ where
                     image_data: ext.image_data,
                     youtube_url: ext.youtube_url,
                     name: ext.name,
-                }),
-            None => None,
-        };
+                })
+        });
 
         let msg = cw721_metadata_onchain::msg::ExecuteMsg::Mint {
             token_id,

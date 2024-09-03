@@ -124,9 +124,9 @@ impl Ics721Execute for SgIcs721Contract {
         data: Option<Binary>,
     ) -> StdResult<Binary> {
         // parse token data and check whether it is of type NftExtension
-        let extension: Metadata = match data {
-            Some(data) => {
-                match from_json::<NftExtension>(data).ok().map(|ext| Metadata {
+        let extension = data
+            .and_then(|binary| {
+                from_json::<NftExtension>(binary).ok().map(|ext| Metadata {
                     animation_url: ext.animation_url,
                     attributes: ext.attributes.map(|traits| {
                         traits
@@ -145,33 +145,12 @@ impl Ics721Execute for SgIcs721Contract {
                     image_data: ext.image_data,
                     youtube_url: ext.youtube_url,
                     name: ext.name,
-                }) {
-                    Some(extension) => extension,
-                    None => Metadata {
-                        animation_url: None,
-                        attributes: None,
-                        background_color: None,
-                        description: None,
-                        external_url: None,
-                        image: None,
-                        image_data: None,
-                        youtube_url: None,
-                        name: None,
-                    },
-                }
-            }
-            None => Metadata {
-                animation_url: None,
-                attributes: None,
-                background_color: None,
-                description: None,
-                external_url: None,
-                image: None,
-                image_data: None,
-                youtube_url: None,
-                name: None,
-            },
-        };
+                })
+            })
+            .unwrap_or(Metadata {
+                // no onchain metadata (only offchain), in this case empty metadata is created
+                ..Default::default()
+            });
 
         let msg = sg721_metadata_onchain::ExecuteMsg::Mint {
             token_id,
