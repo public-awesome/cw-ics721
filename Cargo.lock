@@ -1266,10 +1266,23 @@ dependencies = [
  "cw721-base 0.18.0 (git+https://github.com/public-awesome/cw-nfts?branch=release/v0.18.0)",
  "ics721",
  "ics721-types 0.1.0",
+ "sg-metadata",
  "sg-std",
  "sg721",
  "sg721-base",
+ "sg721-metadata-onchain",
  "sha2 0.10.8",
+]
+
+[[package]]
+name = "sg-metadata"
+version = "3.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b79c457d59b63bc9bf33c08eab50dd857af54d89e2f7098ea2a7eef6cd082e95"
+dependencies = [
+ "cosmwasm-schema",
+ "schemars",
+ "serde",
 ]
 
 [[package]]
@@ -1321,6 +1334,25 @@ dependencies = [
  "sg721",
  "thiserror",
  "url",
+]
+
+[[package]]
+name = "sg721-metadata-onchain"
+version = "3.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b5bb48d339e3d75cec1ad4dcd2e80ecd2175b349aafb63974517d383162d686"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-ownable 0.5.1",
+ "cw2 1.1.2",
+ "cw721-base 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "schemars",
+ "serde",
+ "sg-metadata",
+ "sg-std",
+ "sg721",
+ "sg721-base",
 ]
 
 [[package]]
