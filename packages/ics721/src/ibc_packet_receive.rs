@@ -62,11 +62,8 @@ pub(crate) fn receive_ibc_packet(
         load_nft_contract_for_class_id(deps.storage, local_class_id.to_string())
             .map_err(|_| ContractError::NoNftContractForClassId(local_class_id.to_string()))
     } else {
-        let nft_contract =
-            match query_nft_contract_for_class_id(deps.storage, local_class_id.clone()) {
-                Ok(nft_contract) => nft_contract,
-                Err(_) => None, // not found, occurs on initial transfer when we don't have the contract address
-            };
+        let nft_contract = query_nft_contract_for_class_id(deps.storage, local_class_id.clone())
+            .unwrap_or_default();
         match nft_contract {
             Some(nft_contract) => Ok(nft_contract),
             None => {
