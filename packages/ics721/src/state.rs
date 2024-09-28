@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, schemars::JsonSchema};
 use cosmwasm_std::{Addr, Binary, ContractInfoResponse, Empty, Timestamp};
-use cw721::{DefaultOptionalCollectionExtension, DefaultOptionalNftExtension};
+use cw721::{state::Trait, DefaultOptionalCollectionExtension};
 use cw_pause_once::PauseOrchestrator;
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, UniqueIndex};
 use serde::{Deserialize, Serialize};
@@ -79,7 +79,22 @@ pub struct UniversalCollectionInfoResponse {
 pub struct UniversalNftInfoResponse {
     pub token_uri: Option<String>,
 
-    pub extension: DefaultOptionalNftExtension,
+    pub extension: UniversalDefaultOptionalNftExtension,
+}
+
+pub type UniversalDefaultOptionalNftExtension = Option<UniversalNftExtension>;
+
+#[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq)]
+pub struct UniversalNftExtension {
+    pub image: Option<String>,
+    pub image_data: Option<String>,
+    pub external_url: Option<String>,
+    pub description: Option<String>,
+    pub name: Option<String>,
+    pub attributes: Option<Vec<Trait>>,
+    pub background_color: Option<String>,
+    pub animation_url: Option<String>,
+    pub youtube_url: Option<String>,
 }
 
 /// Collection data send by ICS721 on source chain. It is an optional class data for interchain transfer to target chain.
@@ -133,20 +148,21 @@ impl<'a> IndexList<ClassIdInfo> for ClassIdInfoIndexes<'a> {
 #[cfg(test)]
 mod tests {
     use cosmwasm_std::{from_json, to_json_binary};
-    use cw721::{DefaultOptionalNftExtension, NftExtension};
+
+    use crate::state::{UniversalDefaultOptionalNftExtension, UniversalNftExtension};
 
     use super::UniversalAllNftInfoResponse;
 
     #[test]
     fn test_universal_deserialize() {
-        let start = cw721::msg::AllNftInfoResponse::<DefaultOptionalNftExtension> {
+        let start = cw721::msg::AllNftInfoResponse::<UniversalDefaultOptionalNftExtension> {
             access: cw721::msg::OwnerOfResponse {
                 owner: "foo".to_string(),
                 approvals: vec![],
             },
             info: cw721::msg::NftInfoResponse {
                 token_uri: None,
-                extension: Some(NftExtension {
+                extension: Some(UniversalNftExtension {
                     ..Default::default()
                 }),
             },
@@ -158,7 +174,7 @@ mod tests {
         assert_eq!(end.info.token_uri, None);
         assert_eq!(
             end.info.extension,
-            Some(NftExtension {
+            Some(UniversalNftExtension {
                 ..Default::default()
             })
         )

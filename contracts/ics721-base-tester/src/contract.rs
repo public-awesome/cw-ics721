@@ -65,7 +65,8 @@ pub fn execute(
 
 mod receive_callbacks {
     use cosmwasm_std::{ensure_eq, from_json, DepsMut, Empty, MessageInfo, Response};
-    use cw721::{DefaultOptionalCollectionExtension, DefaultOptionalNftExtension};
+    use cw721::DefaultOptionalCollectionExtension;
+    use ics721::state::UniversalDefaultOptionalNftExtension;
     use ics721_types::{
         ibc_types::NonFungibleTokenPacketData,
         types::{Ics721AckCallbackMsg, Ics721ReceiveCallbackMsg, Ics721Status},
@@ -135,7 +136,7 @@ mod receive_callbacks {
             .query_wasm_smart::<cw721::msg::OwnerOfResponse>(
                 nft_contract,
                 &cw721::msg::Cw721QueryMsg::<
-                    DefaultOptionalNftExtension,
+                    UniversalDefaultOptionalNftExtension,
                     DefaultOptionalCollectionExtension,
                     Empty,
                 >::OwnerOf {
@@ -182,7 +183,7 @@ mod receive_callbacks {
             .query_wasm_smart::<cw721::msg::OwnerOfResponse>(
                 nft_contract,
                 &cw721::msg::Cw721QueryMsg::<
-                    DefaultOptionalNftExtension,
+                    UniversalDefaultOptionalNftExtension,
                     DefaultOptionalCollectionExtension,
                     Empty,
                 >::OwnerOf {
