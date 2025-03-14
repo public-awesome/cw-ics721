@@ -1,4 +1,4 @@
-This contract is intented to a counterpart to the `ics721-base`
+This contract is intended to a counterpart to the `ics721-base`
 contract that ought to have been distributed along with this source
 code. It is intended to be used to answer the following questions:
 

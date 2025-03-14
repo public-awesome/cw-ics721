@@ -8,7 +8,7 @@ Configuration is in the `env` file, that is the most likely place you want to ad
 scripts/wasmd/generate_template.sh
 ```
 
-Note that the addresses receiving tokens in genesis are set here, you can customize by editting this file
+Note that the addresses receiving tokens in genesis are set here, you can customize by editing this file
 
 ## Starting the blockchain
 

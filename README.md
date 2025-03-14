@@ -37,7 +37,7 @@ This contract deals in debt-vouchers.
 
 ![debt-vouchers](https://user-images.githubusercontent.com/30676292/210026430-ab673969-23b7-4ffd-964c-d22453e5adeb.png)
 
-To send a NFT from chain A to chain B:
+To send an NFT from chain A to chain B:
 
 1. The NFT is locked on chain A.
 2. A message is delivered over IBC to the destination chain describing the NFT that has been locked.
@@ -74,7 +74,7 @@ Filtering is enabled by an optional proxy that the ICS721 contract may be config
 
 This contract will never close an IBC channel between itself and another ICS721 contract or module. If the other side of a channel closes the connection, the ICS721 contract assumes this has happened due to a catastrophic bug in its counterparty or a malicious action. As such, if a channel closes NFTs will not be removable from it until governance intervention sets the policy for what to do.
 
-Depending on what kind of filtering is applied to this contract, permissionless chains where anyone can instantiate a NFT contract may allow the transfer of a buggy cw721 implementation that causes transfers to fail.
+Depending on what kind of filtering is applied to this contract, permissionless chains where anyone can instantiate an NFT contract may allow the transfer of a buggy cw721 implementation that causes transfers to fail.
 
 These sorts of issues can cause trouble with relayer implementations. The inability to collect fees for relaying is a limitation of the IBC protocol and this ICS721 contract can not hope to address that. To this end, it is strongly recommended that users of this ICS721 contract and all other IBC bridges have users [relay their own packets](https://github.com/DA0-DA0/dao-dao-ui/issues/885). We will be working on an implementation of this that other front ends can easily integrate as part of this work.
 
@@ -82,7 +82,7 @@ These sorts of issues can cause trouble with relayer implementations. The inabil
 
 cw-ics721 supports [callbacks](./packages/ics721-types/src/types.rs#L67-L70) for Ics721ReceiveCallback and Ics721AckCallback.
 
-1. Receive callback - Callback that is being called on the receiving chain when the NFT was succesfully transferred.
+1. Receive callback - Callback that is being called on the receiving chain when the NFT was successfully transferred.
 2. Ack callback - Callback that is being called on the sending chain notifying about the status of the transfer.
 
 Workflow:
