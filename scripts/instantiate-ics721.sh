@@ -14,7 +14,7 @@ fi
 echo "reading $SCRIPT_DIR/$CHAIN.env"
 source "$SCRIPT_DIR"/"$CHAIN".env
 
-printf -v MSG '{"cw721_base_code_id": %s, "pauser": "%s"}' $CODE_ID_CW721 $WALLET_OWNER
+printf -v MSG '{"cw721_base_code_id": "%s", "pauser": "%s"}' "$CODE_ID_CW721" "$WALLET_OWNER"
 CMD="$CLI tx wasm instantiate $CODE_ID_ICS721 '$MSG' --label 'ICS721 with rate limiter outgoing proxy'"
 CMD+=" --from $WALLET --admin $WALLET_ADMIN"
 CMD+=" --gas $CLI_GAS --gas-prices $CLI_GAS_PRICES --gas-adjustment $CLI_GAS_ADJUSTMENT"
